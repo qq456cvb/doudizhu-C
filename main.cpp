@@ -93,6 +93,7 @@ public:
         state += toOneHot(arrHandCardData[1-indexID].color_nHandCardList);
         state += toOneHot(clsGameSituation->color_aUnitOutCardList[0]);
         state += toOneHot(clsGameSituation->color_aUnitOutCardList[1]);
+        state += vector<int>(54*2, 0);
 
         auto result = py::array_t<int>(state.size());
         auto buf = result.request();

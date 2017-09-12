@@ -166,7 +166,7 @@ class CardAgent:
         self.name = name
         self.episodes = tf.Variable(0, dtype=tf.int32, name='episodes_' + name, trainable=False)
         self.increment = self.episodes.assign_add(1)
-        self.network = CardNetwork(54 * 4, trainer, self.name, 8310)
+        self.network = CardNetwork(54 * 6, trainer, self.name, 8310)
 
     def train_batch_packed(self, buffer, masks, sess, gamma, val_last):
         states = buffer[:, 0]
