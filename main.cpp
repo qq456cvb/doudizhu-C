@@ -37,6 +37,7 @@ std::vector<T> operator-(const std::vector<T>& a, const std::vector<T>& b)
 }
 
 auto vector2numpy(const vector<int>& v) {
+    if (v.size() == 0) return py::array_t<int>();
     auto result = py::array_t<int>(v.size());
     auto buf = result.request();
     int *ptr = (int*)buf.ptr;
@@ -167,6 +168,7 @@ public:
         arrHandCardData[indexID].PutCards();
         auto put_list = arrHandCardData[indexID].value_nPutCardList;
         std::sort(put_list.begin(), put_list.end());
+        // printf("type: %d\n", (int)arrHandCardData[indexID].uctPutCardType.cgType);
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
 
         if (arrHandCardData[indexID].nHandCardCount == 0)

@@ -170,6 +170,7 @@ class Env:
 # number of cards, [[cards as char], [action index]]
 def write_seq(epochs, filename):
     f = open(filename, 'wb+')
+    e = env.Env()
     # origin_cards = ['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5',
     #     '6', '6', '6', '6', '7', '7', '7', '7', '8', '8', '8', '8',
     #     '9', '9', '9', '9', '10', '10', '10', '10', 'J', 'J', 'J', 'J',
@@ -195,8 +196,12 @@ def write_seq(epochs, filename):
         while not end:
             intention, end = e.step2_auto()
             put_list = Card.to_cards_from_3_17(intention)
-            # print(put_list)
-            a = next(i for i, v in enumerate(action_space) if v == put_list)
+            
+            try:
+                a = next(i for i, v in enumerate(action_space) if v == put_list)
+            except StopIteration as e:
+                print(put_list)
+            
             
             f.write(a.to_bytes(2, byteorder='little', signed=False))
             # assert(action_space[a] == put_list)
@@ -257,7 +262,7 @@ if __name__ == "__main__":
     # print(e.agent_cards)
     # print(e.oppo_cards)
     # print(naive_agent.respond(env))
-    write_seq(5, 'seq')
+    write_seq(10000, 'seq')
     read_seq('seq')
 
     # print(get_benchmark(['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5',

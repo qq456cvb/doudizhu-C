@@ -479,12 +479,12 @@ CardGroupData ins_SurCardsType(int arr[])
     if (nCount >= 8)
     {
         //
-        int prov1 = 0;
+        int prov1 = 0, prov2 = 0;
         int SumValue = 0;
-        int i;
+        int i, j;
         for (i = 3; i < 15; i++)
         {
-            if (arr[i] >= 3)
+            if (arr[i] == 3)
             {
                 prov1++;
             }
@@ -497,8 +497,15 @@ CardGroupData ins_SurCardsType(int arr[])
                 
             }
         }
+        for (j = 3; j < 16; j++)
+        {
+            if (arr[j] == 1)
+            {
+                prov2++;
+            }
+        }
         SumValue = (i - 3)/2;
-        if (prov1 * 4 == nCount)
+        if (prov1 == prov2 && prov1 * 4 == nCount)
         {
             retCardGroupData.nMaxCard = i - 1;
             retCardGroupData.cgType = cgTHREE_TAKE_ONE_LINE;
@@ -531,9 +538,9 @@ CardGroupData ins_SurCardsType(int arr[])
         }
         for (j = 3; j < 16; j++)
         {
-            if (arr[j] == 2|| arr[j] == 4)
+            if (arr[j] == 2)
             {
-                prov2+= arr[j]/2;
+                prov2++;
             }
         }
         SumValue = (i - 3) / 2;
@@ -1812,7 +1819,6 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
         
-        
         //7
         BestHandCardValue.NeedRound += 1;
         
@@ -1836,7 +1842,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         //2+1
         for (int i = clsGameSituation.uctNowCardGroup.nMaxCard - length + 2; i < 15; i++)
         {
-            if (clsHandCardData.value_aHandCardList[i] > 2)
+            if (clsHandCardData.value_aHandCardList[i] == 3)
             {
                 prov++;
             }
@@ -1860,6 +1866,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 //
                 if (length == 2)
                 {
+                    // printf("start_i: %d, end_i: %d\n", start_i, end_i);
                     for (int j = 3; j < 18; j++)
                     {
                         if (j >= start_i && j <= end_i)
@@ -1877,6 +1884,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                                 }
                                 if (clsHandCardData.value_aHandCardList[k] > 0 && k != j)
                                 {
+                                    // printf("j, k: %d, %d\n", j, k);
                                     clsHandCardData.value_aHandCardList[k] -= 1;
                                     HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                                     clsHandCardData.value_aHandCardList[k] += 1;
@@ -2027,7 +2035,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         
         if (PutCards)
         {
-            for (int j = start_i; j <= end_i; j++)
+            for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
             {
                 clsHandCardData.value_nPutCardList.push_back(j);
                 clsHandCardData.value_nPutCardList.push_back(j);
@@ -2262,7 +2270,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         
         if (PutCards)
         {
-            for (int j = start_i; j <= end_i; j++)
+            for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
             {
                 clsHandCardData.value_nPutCardList.push_back(j);
                 clsHandCardData.value_nPutCardList.push_back(j);
@@ -2728,7 +2736,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
     int tmp_2 = 0;
     int tmp_3 = 0;
     int tmp_4 = 0;
-    
+
     //
     for (int i = 3; i < 16; i++)
     {
@@ -2844,7 +2852,6 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                                             BestCardGroup = get_GroupData(cgTHREE_TAKE_ONE_LINE, j, prov * 4);
                                             tmp_1 = tmp1;
                                             tmp_2 = tmp2;
-                                            
                                         }
                                         clsHandCardData.value_aHandCardList[tmp2] += 1;
                                     }
@@ -3624,10 +3631,12 @@ void get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCar
 {
     if (clsGameSituation.nCardDroit == clsHandCardData.nOwnIndex)
     {
+        // printf("unlimit\n");
         get_PutCardList_2_unlimit(clsHandCardData);
     }
     else
     {
+        // printf("limit\n");
         get_PutCardList_2_limit(clsGameSituation, clsHandCardData);
     }
     return;
