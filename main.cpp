@@ -143,7 +143,7 @@ public:
     }
 
     // 指定发牌
-    void prepare2_manual(py::array_t<int> pycards = py::array_t<int>()) {
+    void prepare2_manual(py::array_t<int> pycards) {
         SendCards2_manual(pycards, *clsGameSituation, *uctALLCardsList);
 
         arrHandCardData[0].color_nHandCardList = (*uctALLCardsList).arrCardsList[0];
@@ -323,6 +323,52 @@ public:
         arrHandCardData[2].PrintAll();  
 
         clsGameSituation->nCardDroit = indexID;
+    }
+
+    int prepare_manual(py::array_t<int> pycards) {
+        SendCards_manual(pycards, *clsGameSituation, *uctALLCardsList);
+        
+        arrHandCardData[0].color_nHandCardList = (*uctALLCardsList).arrCardsList[0];
+        arrHandCardData[1].color_nHandCardList = (*uctALLCardsList).arrCardsList[1];
+        arrHandCardData[2].color_nHandCardList = (*uctALLCardsList).arrCardsList[2];
+        
+        for (int i = 0; i < 3; i++)
+        {
+            arrHandCardData[i].Init();
+            arrHandCardData[i].nOwnIndex = i;
+        }
+
+
+        // call for lord
+        for (int i = 0; i < 3; i++)
+        {
+            int  tmpLandScore = LandScore(*clsGameSituation, arrHandCardData[i]);
+            if (tmpLandScore > clsGameSituation->nNowLandScore)
+            {
+                clsGameSituation->nNowLandScore = tmpLandScore;
+                clsGameSituation->nNowDiZhuID = i;
+            }
+        }
+        
+        if (clsGameSituation->nNowDiZhuID == -1)
+        {
+            return -1;
+        }
+        
+        clsGameSituation->nDiZhuID=clsGameSituation->nNowDiZhuID;
+        clsGameSituation->nLandScore =clsGameSituation->nNowLandScore;
+        
+        
+        arrHandCardData[clsGameSituation->nDiZhuID].color_nHandCardList.push_back(clsGameSituation->DiPai[0]);
+        arrHandCardData[clsGameSituation->nDiZhuID].color_nHandCardList.push_back(clsGameSituation->DiPai[1]);
+        arrHandCardData[clsGameSituation->nDiZhuID].color_nHandCardList.push_back(clsGameSituation->DiPai[2]);
+        
+        arrHandCardData[clsGameSituation->nDiZhuID].Init();
+        
+        indexID = clsGameSituation->nDiZhuID;
+
+        clsGameSituation->nCardDroit = indexID;
+        return indexID;
     }
 
     // 转one hot, 输入[0-56 color cards]
@@ -566,6 +612,54 @@ public:
         }
         return std::make_tuple(0, false);
     }
+
+    auto step_auto() {
+        get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
+        arrHandCardData[indexID].PutCards();
+        auto intention = arrHandCardData[indexID].value_nPutCardList;
+        std::sort(intention.begin(), intention.end());
+
+        clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
+        
+        // check for bomb
+        bool bomb = false;
+        if (intention.size() == 4) {
+            if (intention[0] == intention[3]) bomb = true;
+        } else if (intention.size() == 2) {
+            if (intention[0] == 16 && intention[1] == 17) bomb = true;
+        }
+
+        if (bomb)
+        {
+            clsGameSituation->nMultiple *= 2;
+        }
+        
+        
+        
+        if (arrHandCardData[indexID].nHandCardCount == 0)
+        {
+            clsGameSituation->Over = true;
+            
+            if (indexID == clsGameSituation->nDiZhuID)
+            {
+                return std::make_tuple(vector2numpy(intention), -clsGameSituation->nLandScore * clsGameSituation->nMultiple);
+            }
+            else
+            {
+                return std::make_tuple(vector2numpy(intention), clsGameSituation->nLandScore * clsGameSituation->nMultiple);
+            }
+        }
+        
+        if (arrHandCardData[indexID].uctPutCardType.cgType != cgZERO)
+        {
+            clsGameSituation->nCardDroit = indexID;
+            clsGameSituation->uctNowCardGroup = arrHandCardData[indexID].uctPutCardType;
+            value_lastCards = arrHandCardData[indexID].value_nPutCardList;
+        }
+        indexID == 2 ? indexID = 0 : indexID++;
+
+        return std::make_tuple(vector2numpy(intention), 0);
+    }
 };
 
 PYBIND11_MODULE(env, m) {
@@ -573,11 +667,13 @@ PYBIND11_MODULE(env, m) {
         .def(py::init<>())
         .def("reset", &Env::reset)
         .def("prepare", &Env::prepare)
+        .def("prepare_manual", &Env::prepare_manual)
         .def("prepare2", &Env::prepare2)
         .def("prepare2_manual", &Env::prepare2_manual)
         .def("get_state", &Env::getState)
         .def("get_state2", &Env::getState2)
         .def("step", &Env::step, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
+        .def("step_auto", &Env::step_auto)
         .def("step2", &Env::step2, py::arg("cards") = py::array_t<int>())
         .def("step2_auto", &Env::step2_auto)
         .def_static("get_cards_value", &Env::get_cards_value)

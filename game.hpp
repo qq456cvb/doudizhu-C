@@ -72,6 +72,7 @@ void InitCards(vector <int> &Cards);
 void InitCards2(const py::array_t<int>& pycards, vector <int> &Cards);
 void InitCards_Appoint(vector <int> &Cards);
 void SendCards(GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList);
+void SendCards_manual(const py::array_t<int>& pycards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList);
 void SendCards2(const py::array_t<int>& init_cards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList);
 void SendCards2_manual(const py::array_t<int>& pycards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList);
 

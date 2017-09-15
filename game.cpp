@@ -20,9 +20,9 @@ int LandScore(GameSituation &clsGameSituation, HandCardData &clsHandCardData)
     
     SumValue = clsHandCardData.uctHandCardValue.SumValue;
     
-    cout << "SumValue is :" << SumValue << ",";
+    // cout << "SumValue is :" << SumValue << ",";
     
-    cout << "NeedRound is :" << clsHandCardData.uctHandCardValue.NeedRound << endl;
+    // cout << "NeedRound is :" << clsHandCardData.uctHandCardValue.NeedRound << endl;
     
     if (SumValue<10)
     {
@@ -144,6 +144,32 @@ void SendCards(GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList)
     clsGameSituation.DiPai[0] = Cards[j];
     clsGameSituation.DiPai[1] = Cards[j+1];
     clsGameSituation.DiPai[2] = Cards[j+2];
+    
+    return;
+}
+
+void SendCards_manual(const py::array_t<int>& pycards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList)
+{
+    auto init_cards = pycards.unchecked<1>();
+    vector<int> cards;
+    int i;
+    for (int i = 0; i < init_cards.shape(0); ++i) {
+        cards.push_back(init_cards[i]);
+        // std::cout << init_cards[i] << " ";
+    }
+    // std::cout << std::endl;
+
+    int j, k;
+    j = 0;
+    for (i = 0; i < 3; i++) {
+        for (k = 0; k < 17; k++, j++) {
+            uctALLCardsList.arrCardsList[i].push_back(cards[j]);
+        }
+    }
+
+    clsGameSituation.DiPai[0] = cards[j];
+    clsGameSituation.DiPai[1] = cards[j+1];
+    clsGameSituation.DiPai[2] = cards[j+2];
     
     return;
 }

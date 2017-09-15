@@ -168,9 +168,9 @@ class Env:
 
 
 # number of cards, [[cards as char], [action index]]
-def write_seq(epochs, filename):
+def write_seq2(epochs, filename):
     f = open(filename, 'wb+')
-    e = env.Env()
+    
     # origin_cards = ['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5',
     #     '6', '6', '6', '6', '7', '7', '7', '7', '8', '8', '8', '8',
     #     '9', '9', '9', '9', '10', '10', '10', '10', 'J', 'J', 'J', 'J',
@@ -182,6 +182,7 @@ def write_seq(epochs, filename):
     f.write(len(origin_cards).to_bytes(2, byteorder='little', signed=False))
     for i in range(epochs):
         cards = origin_cards.copy()
+        e = env.Env()
         random.shuffle(cards)
         for c in cards:
             if c == '10':
@@ -213,12 +214,11 @@ def write_seq(epochs, filename):
     print("write completed with %d epochs" % epochs)
 
 
-def read_seq(filename):
+def read_seq2(filename):
     episodes = 0
     f = open(filename, 'rb')
     length = struct.unpack('H', f.read(2))[0]
     print(length)
-    e = env.Env()
 
     eof = False
     while True:
@@ -252,18 +252,102 @@ def read_seq(filename):
                 end = True
         episodes += 1
 
+def write_seq3(epochs, filename):
+    f = open(filename, 'wb+')
+    
+    origin_cards = ['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5',
+        '6', '6', '6', '6', '7', '7', '7', '7', '8', '8', '8', '8',
+        '9', '9', '9', '9', '10', '10', '10', '10', 'J', 'J', 'J', 'J',
+        'Q', 'Q', 'Q', 'Q', 'K', 'K', 'K', 'K', 'A', 'A', 'A', 'A',
+        '2', '2', '2', '2', '*', '$']
+    for i in range(epochs):
+        cards = origin_cards.copy()
+        e = env.Env()
+        lord_id = -1
+        while lord_id == -1:
+            random.shuffle(cards)
+            e.reset()
+            lord_id = e.prepare_manual(Card.char2color(cards))
+        for c in cards:
+            if c == '10':
+                c = '1'
+            f.write(ord(c).to_bytes(1, byteorder='little', signed=False))
+        f.write(lord_id.to_bytes(2, byteorder='little', signed=False))
+        handcards = [cards[:17], cards[17:34], cards[34:51]]
+        extra_cards = cards[51:]
+        handcards[lord_id] += extra_cards
+        r = 0
+        ind = lord_id
+        while r == 0:
+            intention, r = e.step_auto()
+            put_list = Card.to_cards_from_3_17(intention)
+            # print(put_list)
+            
+            try:
+                a = next(i for i, v in enumerate(action_space) if v == put_list)
+            except StopIteration as e:
+                print(put_list)
+            
+            f.write(a.to_bytes(2, byteorder='little', signed=False))
+
+            for c in put_list:
+                handcards[ind].remove(c)
+            ind = int(ind + 1) % 3
+        f.write(r.to_bytes(2, byteorder='little', signed=True))
+        
+    f.close()
+    print("write completed with %d epochs" % epochs)
+
+
+def read_seq3(filename):
+    episodes = 0
+    f = open(filename, 'rb')
+
+    eof = False
+    while True:
+        cards = []
+        for i in range(54):
+            b = f.read(1)
+            if not b:
+                eof = True
+                break
+            c = str((struct.unpack('c', b)[0]).decode('ascii'))
+            
+            if c == '1':
+                c = '10'
+            cards.append(c)
+        
+        if eof:
+            break
+        lord_id = struct.unpack('H', f.read(2))[0]
+        # print(cards)
+
+        handcards = [cards[:17], cards[17:34], cards[34:51]]
+        extra_cards = cards[51:]
+        handcards[lord_id] += extra_cards
+        r = 0
+        ind = lord_id
+        while r == 0:
+            a = struct.unpack('H', f.read(2))[0]
+            put_list = action_space[a]
+            # print(put_list)
+            for c in put_list:
+                handcards[ind].remove(c)
+            ind = int(ind + 1) % 3
+            if (not handcards[0]) or (not handcards[1]) or (not handcards[2]):
+                r = struct.unpack('h', f.read(2))[0]
+        episodes += 1
 
 if __name__ == "__main__":
     naive_agent = NaiveAgent()
     random_agent = RandomAgent()
     # RandomAgent: card.Card.cards.copy() + card.Card.cards.copy() + card.Card.cards.copy() -0.6
-    e = env.Env()
     # e.prepare(Card.cards.copy() + Card.cards.copy())
     # print(e.agent_cards)
     # print(e.oppo_cards)
     # print(naive_agent.respond(env))
-    write_seq(10000, 'seq')
-    read_seq('seq')
+    write_seq3(2, 'seq')
+    # read_seq3('seq')
 
     # print(get_benchmark(['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5',
     #     '6', '6', '6', '6', '7', '7', '7', '7', '8', '8', '8', '8',
