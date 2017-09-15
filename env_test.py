@@ -182,7 +182,7 @@ def write_seq2(epochs, filename):
     f.write(len(origin_cards).to_bytes(2, byteorder='little', signed=False))
     for i in range(epochs):
         cards = origin_cards.copy()
-        e = env.Env()
+        global e = env.Env()
         random.shuffle(cards)
         for c in cards:
             if c == '10':
@@ -210,6 +210,9 @@ def write_seq2(epochs, filename):
                 handcards[ind].remove(c)
             ind = 1 - ind
         # assert((not handcards[0]) or (not handcards[1]))
+        if i % 1000 == 0:
+            print("writing %d..." % i)
+            sys.stdout.flush()
     f.close()
     print("write completed with %d epochs" % epochs)
 
@@ -262,7 +265,7 @@ def write_seq3(epochs, filename):
         '2', '2', '2', '2', '*', '$']
     for i in range(epochs):
         cards = origin_cards.copy()
-        e = env.Env()
+        global e = env.Env()
         lord_id = -1
         while lord_id == -1:
             random.shuffle(cards)
@@ -346,7 +349,7 @@ if __name__ == "__main__":
     # print(e.agent_cards)
     # print(e.oppo_cards)
     # print(naive_agent.respond(env))
-    write_seq3(2, 'seq')
+    write_seq3(1000000, 'seq')
     # read_seq3('seq')
 
     # print(get_benchmark(['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5',
