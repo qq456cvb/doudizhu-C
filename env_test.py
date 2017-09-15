@@ -182,7 +182,7 @@ def write_seq2(epochs, filename):
     f.write(len(origin_cards).to_bytes(2, byteorder='little', signed=False))
     for i in range(epochs):
         cards = origin_cards.copy()
-        global e = env.Env()
+        e = env.Env()
         random.shuffle(cards)
         for c in cards:
             if c == '10':
@@ -195,6 +195,7 @@ def write_seq2(epochs, filename):
         end = False
         ind = 0
         while not end:
+            global e
             intention, end = e.step2_auto()
             put_list = Card.to_cards_from_3_17(intention)
             
@@ -265,7 +266,7 @@ def write_seq3(epochs, filename):
         '2', '2', '2', '2', '*', '$']
     for i in range(epochs):
         cards = origin_cards.copy()
-        global e = env.Env()
+        e = env.Env()
         lord_id = -1
         while lord_id == -1:
             random.shuffle(cards)
@@ -282,6 +283,7 @@ def write_seq3(epochs, filename):
         r = 0
         ind = lord_id
         while r == 0:
+            global e
             intention, r = e.step_auto()
             put_list = Card.to_cards_from_3_17(intention)
             # print(put_list)
