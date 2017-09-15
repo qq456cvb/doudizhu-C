@@ -182,7 +182,7 @@ def write_seq2(epochs, filename):
     f.write(len(origin_cards).to_bytes(2, byteorder='little', signed=False))
     for i in range(epochs):
         cards = origin_cards.copy()
-        e = env.Env()
+        enrivon = env.Env()
         random.shuffle(cards)
         for c in cards:
             if c == '10':
@@ -190,13 +190,12 @@ def write_seq2(epochs, filename):
             f.write(ord(c).to_bytes(1, byteorder='little', signed=False))
         # print(cards)
         handcards = [cards[:int(len(cards)/2)], cards[int(len(cards)/2):]]
-        e.reset()
-        e.prepare2_manual(Card.char2color(cards))
+        enrivon.reset()
+        enrivon.prepare2_manual(Card.char2color(cards))
         end = False
         ind = 0
         while not end:
-            global e
-            intention, end = e.step2_auto()
+            intention, end = enrivon.step2_auto()
             put_list = Card.to_cards_from_3_17(intention)
             
             try:
@@ -266,12 +265,12 @@ def write_seq3(epochs, filename):
         '2', '2', '2', '2', '*', '$']
     for i in range(epochs):
         cards = origin_cards.copy()
-        e = env.Env()
+        enrivon = env.Env()
         lord_id = -1
         while lord_id == -1:
             random.shuffle(cards)
-            e.reset()
-            lord_id = e.prepare_manual(Card.char2color(cards))
+            enrivon.reset()
+            lord_id = enrivon.prepare_manual(Card.char2color(cards))
         for c in cards:
             if c == '10':
                 c = '1'
@@ -283,8 +282,7 @@ def write_seq3(epochs, filename):
         r = 0
         ind = lord_id
         while r == 0:
-            global e
-            intention, r = e.step_auto()
+            intention, r = enrivon.step_auto()
             put_list = Card.to_cards_from_3_17(intention)
             # print(put_list)
             
@@ -292,6 +290,7 @@ def write_seq3(epochs, filename):
                 a = next(i for i, v in enumerate(action_space) if v == put_list)
             except StopIteration as e:
                 print(put_list)
+                # raise Exception('cards error')
             
             f.write(a.to_bytes(2, byteorder='little', signed=False))
 
@@ -351,7 +350,7 @@ if __name__ == "__main__":
     # print(e.agent_cards)
     # print(e.oppo_cards)
     # print(naive_agent.respond(env))
-    write_seq3(1000000, 'seq')
+    write_seq3(10, 'seq')
     # read_seq3('seq')
 
     # print(get_benchmark(['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5',
