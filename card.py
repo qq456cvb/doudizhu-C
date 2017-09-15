@@ -32,22 +32,22 @@ def get_action_space():
                     actions.append([main] * 3 + [extra] * 2)
     # single sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 5, Card.to_value('2')):
+        for end_v in range(start_v + 5, Card.to_value('*')):
             seq = range(start_v, end_v)
             actions.append(Card.to_cards(seq))
     # double sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 3, int(min(start_v + 20 / 2, Card.to_value('2')))):
+        for end_v in range(start_v + 3, int(min(start_v + 20 / 2, Card.to_value('*')))):
             seq = range(start_v, end_v)
             actions.append(Card.to_cards(seq) * 2)
     # triple sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 2, int(min(start_v + 20 / 3, Card.to_value('2')))):
+        for end_v in range(start_v + 2, int(min(start_v + 20 / 3, Card.to_value('*')))):
             seq = range(start_v, end_v)
             actions.append(Card.to_cards(seq) * 3)
     # 3 + 1 sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 2, int(min(start_v + 20 / 4, Card.to_value('2')))):
+        for end_v in range(start_v + 2, int(min(start_v + 20 / 4, Card.to_value('*')))):
             seq = range(start_v, end_v)
             main = Card.to_cards(seq)
             remains = [card for card in Card.cards if card not in main]
@@ -56,7 +56,7 @@ def get_action_space():
                     actions.append(main * 3 + list(extra))
     # 3 + 2 sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 2, int(min(start_v + 20 / 5, Card.to_value('2')))):
+        for end_v in range(start_v + 2, int(min(start_v + 20 / 5, Card.to_value('*')))):
             seq = range(start_v, end_v)
             main = Card.to_cards(seq)
             remains = [card for card in Card.cards if card not in main and card not in ['*', '$']]

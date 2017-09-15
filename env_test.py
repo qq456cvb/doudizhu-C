@@ -350,7 +350,7 @@ if __name__ == "__main__":
     # print(e.agent_cards)
     # print(e.oppo_cards)
     # print(naive_agent.respond(env))
-    write_seq3(10, 'seq')
+    write_seq3(100, 'seq')
     # read_seq3('seq')
 
     # print(get_benchmark(['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5',
