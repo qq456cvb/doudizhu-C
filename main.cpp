@@ -53,10 +53,22 @@ auto vector2numpy(const vector<int>& v) {
 class Env
 {
 public:
-  Env() {
-    this->reset();
-  };
-  ~Env() {};
+    Env() {
+        this->reset();
+    };
+    Env::Env(const Env& e) {
+        indexID = e.indexID;
+        clsGameSituation.reset(new GameSituation());
+        *clsGameSituation = *e.clsGameSituation;
+        uctALLCardsList.reset(new ALLCardsList());
+        *uctALLCardsList = *e.uctALLCardsList;
+
+        for(int i = 0; i < 3; i++) {
+            arrHandCardData[i] = e.arrHandCardData[i];
+        }
+        value_lastCards = e.value_lastCards;
+    }
+    ~Env() {};
     
     std::shared_ptr<GameSituation> clsGameSituation;
     std::shared_ptr<ALLCardsList>  uctALLCardsList;
@@ -507,6 +519,20 @@ public:
         return result;
     }
 
+    py::array_t<int> getCurrValueCards() {
+        auto self_cards = arrHandCardData[indexID].color_nHandCardList;
+
+        auto result = py::array_t<int>(self_cards.size());
+        auto buf = result.request();
+        int *ptr = (int*)buf.ptr;
+        
+        for (int i = 0; i < self_cards.size(); ++i)
+        {
+            ptr[i] = self_cards[i];
+        }
+        return result;
+    }
+
     // 获得上家出的牌，如果自己控手，返回空
     py::array_t<int> getLastCards() {
         if (clsGameSituation->nCardDroit == indexID)
@@ -524,7 +550,7 @@ public:
         return result;
     }
 
-    auto step(bool lord = false, py::array_t<int> cards = py::array_t<int>()) {
+     auto step(bool lord = false, py::array_t<int> cards = py::array_t<int>()) {
         if (lord)
         {
             get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
@@ -574,11 +600,11 @@ public:
         {
             clsGameSituation->nMultiple *= 2;
         }
-        py::print(indexID, "号玩家出牌：", "sep"_a="");
-        for (vector<int>::iterator iter = arrHandCardData[indexID].color_nPutCardList.begin();
-                iter != arrHandCardData[indexID].color_nPutCardList.end(); iter++)
-            py::print(get_CardsName(*iter), "end"_a=(iter == arrHandCardData[indexID].color_nPutCardList.end() - 1 ? '\n' : ','));
-        py::print("");
+        // py::print(indexID, "号玩家出牌：", "sep"_a="");
+        // for (vector<int>::iterator iter = arrHandCardData[indexID].color_nPutCardList.begin();
+        //         iter != arrHandCardData[indexID].color_nPutCardList.end(); iter++)
+        //     py::print(get_CardsName(*iter), "end"_a=(iter == arrHandCardData[indexID].color_nPutCardList.end() - 1 ? '\n' : ','));
+        // py::print("");
         
         
         
@@ -588,12 +614,12 @@ public:
             
             if (indexID == clsGameSituation->nDiZhuID)
             {
-                py::print("地主 ", indexID, " wins", "sep"_a="");
+                // py::print("地主 ", indexID, " wins", "sep"_a="");
                 return std::make_tuple(-clsGameSituation->nLandScore * clsGameSituation->nMultiple, true);
             }
             else
             {
-                py::print("农民 ", indexID, " wins", "sep"_a="");
+                // py::print("农民 ", indexID, " wins", "sep"_a="");
                 return std::make_tuple(clsGameSituation->nLandScore * clsGameSituation->nMultiple, true);
             }
         }
@@ -612,6 +638,18 @@ public:
         }
         return std::make_tuple(0, false);
     }
+
+    auto step_trial(bool lord = false, py::array_t<int> cards = py::array_t<int>()) {
+        // printf("current id: %d\n", indexID);
+        Env env(*this);
+        // printf("temp id: %d\n", env.indexID);
+        auto tuple = env.step(lord, cards);
+        // notice we are making some states map only to values but not actions,
+        // e.g. agent1 step-> agent2's state, but agent1 cannot take action when agnet2 is in control.
+        return std::make_tuple(std::get<0>(tuple), std::get<0>(Env::get_cards_value(env.getCurrValueCards())), env.getState());
+    }
+
+   
 
     auto step_auto() {
         get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
@@ -673,6 +711,7 @@ PYBIND11_MODULE(env, m) {
         .def("get_state", &Env::getState)
         .def("get_state2", &Env::getState2)
         .def("step", &Env::step, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
+        .def("step_trial", &Env::step_trial, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
         .def("step_auto", &Env::step_auto)
         .def("step2", &Env::step2, py::arg("cards") = py::array_t<int>())
         .def("step2_auto", &Env::step2_auto)

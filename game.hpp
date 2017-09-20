@@ -36,6 +36,7 @@ public:
         for (int i = 0; i < 3; i++) color_aUnitOutCardList[i].clear();
     }
     
+    
 public:
     //
     int nDiZhuID = -1;

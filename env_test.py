@@ -140,9 +140,9 @@ class Env:
         else:
             cards = self.cards_cache
         self.agent_cards = cards[:int(len(cards) / 2)]
-        val_self, _ = env.Env.get_cards_value(Card.onehot2color(Card.to_onehot(self.agent_cards)))
+        val_self, _ = env.Env.get_cards_value(Card.char2color(self.agent_cards))
         self.oppo_cards = cards[int(len(cards) / 2):]
-        val_oppo, _ = env.Env.get_cards_value(Card.onehot2color(Card.to_onehot(self.oppo_cards)))
+        val_oppo, _ = env.Env.get_cards_value(Card.char2color(self.oppo_cards))
         print(val_self, val_oppo)
         if (val_self < val_oppo + 5):
             self.prepare(cards)

@@ -97,7 +97,7 @@ class Card:
         pass
 
     @staticmethod
-    def to_onehot(cards):
+    def char2onehot(cards):
         counts = Counter(cards)
         onehot = np.zeros(54)
         for x in cards:
@@ -134,6 +134,18 @@ class Card:
             else:
                 result.append(i)
         return np.array(result)
+
+    @staticmethod
+    def onehot2char(cards):
+        result = []
+        for i in range(len(cards)):
+            if cards[i] == 0:
+                continue
+            if i == 53:
+                result.append(Card.cards[14])
+            else:
+                result.append(Card.cards[math.floor(i / 4)])
+        return result
 
     @staticmethod
     def to_value(card):
