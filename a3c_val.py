@@ -195,7 +195,7 @@ class CardMaster:
         self.a_dim = 8310
         self.gamma = 0.99
         self.sess = None
-        self.supervised = True
+        self.supervised = False
 
         self.train_intervals = 30
 
@@ -248,6 +248,7 @@ class CardMaster:
                 episode_reward = [0, 0]
                 episode_steps = [0, 0]
                 need_train = []
+                log_info = [[] for i in range(2)]
 
                 self.env.reset()
                 self.env.prepare()
@@ -286,7 +287,6 @@ class CardMaster:
                     for i in range(len(self.action_space)):
                         if mask[i]:
                             r, v_p, s_p = self.env.step_trial(cards=to_value(self.action_space[i]))
-                            print(r, v_p, s_p.shape)
                             rv = r + self.gamma * (v_p if self.supervised else sess.run([
                                 self.agents[train_id].network.val_pred],
                                 feed_dict={
@@ -298,18 +298,22 @@ class CardMaster:
                     val_target = self.env.get_cards_value(card.Card.char2color(curr_cards))[0] if self.supervised else rv_max
 
                     r, done = self.env.step(cards=to_value(self.action_space[a_max]))
+                    if self.supervised:
+                        r *= 30
                     s_prime = self.env.get_state()
                     s_prime = np.reshape(s_prime, [1, -1])
 
-                    episode_buffer[train_id].append([s, val_target])
+                    episode_buffer[train_id].append([s.reshape([-1]), val_target])
                     episode_values[train_id].append(val_network)
                     episode_reward[train_id] += r
-                    episode_steps[train_id] += 1
+                    episode_steps[train_id] += 1 
 
                     if done:
+                        episode_buffer[train_id].append([s_prime.reshape([-1]), 0])
                         for i in range(2):
                             if len(episode_buffer[i]) != 0:
                                 loss, var_norms, grad_norms = self.train_batch(episode_buffer[i], sess, self.gamma, i)
+                                log_info[i] = [loss, var_norms, grad_norms]
                         break
                         
 
@@ -318,6 +322,7 @@ class CardMaster:
                     if len(episode_buffer[train_id]) == self.train_intervals:
                         # print(val_last[0])
                         loss, var_norms, grad_norms = self.train_batch(episode_buffer[train_id], sess, self.gamma, train_id)
+                        log_info[train_id] = [loss, var_norms, grad_norms]
                         episode_buffer[train_id] = []
                         episode_mask[train_id] = []
 
@@ -339,18 +344,19 @@ class CardMaster:
                         summary.value.add(tag='Performance/rewards', simple_value=float(mean_reward))
                         summary.value.add(tag='Performance/length', simple_value=float(mean_length))
                         summary.value.add(tag='Performance/values', simple_value=float(mean_value))
-                        summary.value.add(tag='Losses/Value Loss', simple_value=float(val_loss))
-                        summary.value.add(tag='Losses/Grad Norm', simple_value=float(grad_norms))
-                        summary.value.add(tag='Losses/Var Norm', simple_value=float(var_norms))
+
+                        summary.value.add(tag='Losses/Value Loss%d' % i, simple_value=float(log_info[i][0]))
+                        summary.value.add(tag='Losses/Grad Norm%d' % i, simple_value=float(log_info[i][2]))
+                        summary.value.add(tag='Losses/Var Norm%d' % i, simple_value=float(log_info[i][1]))
 
                         self.summary_writers[i].add_summary(summary, episodes)
                         self.summary_writers[i].flush()
 
                 global_episodes += 1
                 sess.run(self.increment)
-                # if global_episodes % 50 == 0:
-                #     saver.save(sess, './model' + '/model-' + str(global_episodes) + '.cptk')
-                #     print("Saved Model")
+                if global_episodes % 1000 == 0:
+                    saver.save(sess, './model' + '/model-' + str(global_episodes) + '.cptk')
+                    print("Saved Model")
 
                 # self.env.end()
 
