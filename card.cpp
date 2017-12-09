@@ -1156,6 +1156,9 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         //
         bool PutCards = false;
 
+        // if (length == 5) {
+        //     std::cout << "last nMaxCard " << clsGameSituation.uctNowCardGroup.nMaxCard << std::endl;
+        // }
         for (int i = clsGameSituation.uctNowCardGroup.nMaxCard - length + 2; i < 15; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] > 0)
@@ -1196,10 +1199,16 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         
         if (PutCards)
         {
-            for (int j = start_i; j <= end_i; j++)
+            if (BestMaxCard <= clsGameSituation.uctNowCardGroup.nMaxCard) {
+                printf("WARNING from C++...\n");
+            }
+            for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
             {
+                // std::cout << j << ",";
                 clsHandCardData.value_nPutCardList.push_back(j);
             }
+            // std::cout << std::endl;
+            // std::cout << "Setting nMaxCard " << BestMaxCard << std::endl;
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgSINGLE_LINE, BestMaxCard, clsGameSituation.uctNowCardGroup.nCount);
             return;  
         }
@@ -1338,7 +1347,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         
         if (PutCards)
         {
-            for (int j = start_i; j <= end_i; j++)
+            for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
             {
                 clsHandCardData.value_nPutCardList.push_back(j);
                 clsHandCardData.value_nPutCardList.push_back(j);
@@ -1484,7 +1493,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         
         if (PutCards)
         {
-            for (int j = start_i; j <= end_i; j++)
+            for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
             {
                 clsHandCardData.value_nPutCardList.push_back(j);
                 clsHandCardData.value_nPutCardList.push_back(j);

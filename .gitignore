@@ -1,8 +1,3 @@
 .vscode/
 __pycache__/
-build/*
-!build/Release/
-model/
-train_agent0/
-train_agent1/
-seq
+*/

@@ -56,7 +56,7 @@ public:
     Env() {
         this->reset();
     };
-    Env::Env(const Env& e) {
+    Env(const Env& e) {
         indexID = e.indexID;
         clsGameSituation.reset(new GameSituation());
         *clsGameSituation = *e.clsGameSituation;
@@ -77,6 +77,7 @@ public:
 
     HandCardData arrHandCardData[3];
     std::vector<int> value_lastCards;
+    int last_category_idx = -1;
 
     void reset() {
         clsGameSituation.reset(new GameSituation());
@@ -280,17 +281,17 @@ public:
         }
 
         // 如果无法打印，改成英文或者去掉py::print
-        py::print("0号玩家牌为：");
-        arrHandCardData[0].PrintAll();
-        py::print("1号玩家牌为：");
-        arrHandCardData[1].PrintAll();
-        py::print("2号玩家牌为：");
-        arrHandCardData[2].PrintAll();
+        // py::print("0号玩家牌为：");
+        // arrHandCardData[0].PrintAll();
+        // py::print("1号玩家牌为：");
+        // arrHandCardData[1].PrintAll();
+        // py::print("2号玩家牌为：");
+        // arrHandCardData[2].PrintAll();
         
-        py::print("底牌为：");
-        py::print(get_CardsName((*clsGameSituation).DiPai[0]), 
-            get_CardsName((*clsGameSituation).DiPai[1]),
-            get_CardsName((*clsGameSituation).DiPai[2]), "sep"_a=",");
+        // py::print("底牌为：");
+        // py::print(get_CardsName((*clsGameSituation).DiPai[0]), 
+        //     get_CardsName((*clsGameSituation).DiPai[1]),
+        //     get_CardsName((*clsGameSituation).DiPai[2]), "sep"_a=",");
 
 
         // call for lord
@@ -306,12 +307,12 @@ public:
         
         if (clsGameSituation->nNowDiZhuID == -1)
         {
-            py::print("No one calls for 地主");
+            // py::print("No one calls for 地主");
             reset();
             return prepare();
         }
         
-        py::print(clsGameSituation->nNowDiZhuID, "号是地主，分为：", clsGameSituation->nNowLandScore, "sep"_a="");
+        // py::print(clsGameSituation->nNowDiZhuID, "号是地主，分为：", clsGameSituation->nNowLandScore, "sep"_a="");
         clsGameSituation->nDiZhuID=clsGameSituation->nNowDiZhuID;
         clsGameSituation->nLandScore =clsGameSituation->nNowLandScore;
         
@@ -324,15 +325,15 @@ public:
         
         indexID = clsGameSituation->nDiZhuID;
         
-        py::print();
+        // py::print();
         
         
-        py::print("0号玩家牌为：");
-        arrHandCardData[0].PrintAll();
-        py::print("1号玩家牌为：");
-        arrHandCardData[1].PrintAll();
-        py::print("2号玩家牌为：");
-        arrHandCardData[2].PrintAll();  
+        // py::print("0号玩家牌为：");
+        // arrHandCardData[0].PrintAll();
+        // py::print("1号玩家牌为：");
+        // arrHandCardData[1].PrintAll();
+        // py::print("2号玩家牌为：");
+        // arrHandCardData[2].PrintAll();  
 
         clsGameSituation->nCardDroit = indexID;
     }
@@ -550,6 +551,15 @@ public:
         return result;
     }
 
+    // 获得上家出的牌的类型，如果自己控手，返回-1
+    int getLastCategory() {
+        if (clsGameSituation->nCardDroit == indexID)
+        {
+            return -1;
+        }
+        return last_category_idx;
+    }
+
      auto step(bool lord = false, py::array_t<int> cards = py::array_t<int>()) {
         if (lord)
         {
@@ -573,6 +583,56 @@ public:
         arrHandCardData[indexID].PutCards();
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
 
+        // get group category
+        auto category = arrHandCardData[indexID].uctPutCardType.cgType;
+        int category_idx = 0;
+        switch(category) {
+            case cgZERO:
+                category_idx = 0;
+                break;
+            case cgSINGLE:
+                category_idx = 1;
+                break;
+            case cgDOUBLE:
+                category_idx = 2;
+                break;
+            case cgTHREE:
+                category_idx = 3;
+                break;
+            case cgBOMB_CARD:
+                category_idx = 4;
+                break;
+            case cgTHREE_TAKE_ONE:
+                category_idx = 5;
+                break;
+            case cgTHREE_TAKE_TWO:
+                category_idx = 6;
+                break;
+            case cgSINGLE_LINE:
+                category_idx = 7;
+                break;
+            case cgDOUBLE_LINE:
+                category_idx = 8;
+                break;
+            case cgTHREE_LINE:
+                category_idx = 9;
+                break;
+            case cgTHREE_TAKE_ONE_LINE:
+                category_idx = 10;
+                break;
+            case cgTHREE_TAKE_TWO_LINE:
+                category_idx = 11;
+                break;
+            case cgKING_CARD:
+                category_idx = 12;
+                break;
+            case cgFOUR_TAKE_ONE:
+                category_idx = 13;
+                break;
+            case cgFOUR_TAKE_TWO:
+                category_idx = 14;
+                break;
+        }
 
         const auto &intention = arrHandCardData[indexID].value_nPutCardList;
         // check for bomb
@@ -615,12 +675,147 @@ public:
             if (indexID == clsGameSituation->nDiZhuID)
             {
                 // py::print("地主 ", indexID, " wins", "sep"_a="");
-                return std::make_tuple(-clsGameSituation->nLandScore * clsGameSituation->nMultiple, true);
+                return std::make_tuple(-clsGameSituation->nLandScore * clsGameSituation->nMultiple, true, category_idx);
             }
             else
             {
                 // py::print("农民 ", indexID, " wins", "sep"_a="");
-                return std::make_tuple(clsGameSituation->nLandScore * clsGameSituation->nMultiple, true);
+                return std::make_tuple(clsGameSituation->nLandScore * clsGameSituation->nMultiple, true, category_idx);
+            }
+        }
+        
+        if (arrHandCardData[indexID].uctPutCardType.cgType != cgZERO)
+        {
+            clsGameSituation->nCardDroit = indexID;
+            clsGameSituation->uctNowCardGroup = arrHandCardData[indexID].uctPutCardType;
+            value_lastCards = arrHandCardData[indexID].value_nPutCardList;
+            last_category_idx = category_idx;
+        }
+        indexID == 2 ? indexID = 0 : indexID++;
+
+        if (indexID == clsGameSituation->nDiZhuID)
+        {
+            return step(true);
+        }
+        return std::make_tuple(0, false, category_idx);
+    }
+
+    auto step_manual(py::array_t<int> cards = py::array_t<int>()) {
+        arrHandCardData[indexID].ClearPutCardList();
+        if (cards.size() == 0)
+        {
+            arrHandCardData[indexID].uctPutCardType = get_GroupData(cgZERO, 0, 0);
+        } else {
+            auto arr = cards.unchecked<1>();
+            int cnt[18] = { 0 };
+            for (int i = 0; i < arr.shape(0); ++i)
+            {
+                arrHandCardData[indexID].value_nPutCardList.push_back(arr[i]);
+                cnt[arr[i]]++;
+            }
+            arrHandCardData[indexID].uctPutCardType = ins_SurCardsType(cnt);
+        }
+        arrHandCardData[indexID].PutCards();
+        clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
+
+        // get group category
+        auto category = arrHandCardData[indexID].uctPutCardType.cgType;
+        int category_idx = 0;
+        switch(category) {
+            case cgZERO:
+                category_idx = 0;
+                break;
+            case cgSINGLE:
+                category_idx = 1;
+                break;
+            case cgDOUBLE:
+                category_idx = 2;
+                break;
+            case cgTHREE:
+                category_idx = 3;
+                break;
+            case cgBOMB_CARD:
+                category_idx = 4;
+                break;
+            case cgTHREE_TAKE_ONE:
+                category_idx = 5;
+                break;
+            case cgTHREE_TAKE_TWO:
+                category_idx = 6;
+                break;
+            case cgSINGLE_LINE:
+                category_idx = 7;
+                break;
+            case cgDOUBLE_LINE:
+                category_idx = 8;
+                break;
+            case cgTHREE_LINE:
+                category_idx = 9;
+                break;
+            case cgTHREE_TAKE_ONE_LINE:
+                category_idx = 10;
+                break;
+            case cgTHREE_TAKE_TWO_LINE:
+                category_idx = 11;
+                break;
+            case cgKING_CARD:
+                category_idx = 12;
+                break;
+            case cgFOUR_TAKE_ONE:
+                category_idx = 13;
+                break;
+            case cgFOUR_TAKE_TWO:
+                category_idx = 14;
+                break;
+        }
+
+        const auto &intention = arrHandCardData[indexID].value_nPutCardList;
+        // check for bomb
+        bool bomb = false;
+        if (intention.size() == 4)
+        {
+            bomb = true;
+            for (int i = 1; i < 4; ++i)
+            {
+                if (intention[i] != intention[0])
+                {
+                    bomb = false;
+                    break;
+                }
+            }
+        } else if (intention.size() == 2)
+        {
+            if ((intention[0] == 16 && intention[1] == 17) || (intention[0] == 17 && intention[1] == 16))
+            {
+                bomb = true;
+            }
+        }
+
+        if (bomb)
+        {
+            clsGameSituation->nMultiple *= 2;
+        }
+        // py::print(indexID, "号玩家出牌：", "sep"_a="");
+        // for (vector<int>::iterator iter = arrHandCardData[indexID].color_nPutCardList.begin();
+        //         iter != arrHandCardData[indexID].color_nPutCardList.end(); iter++)
+        //     py::print(get_CardsName(*iter), "end"_a=(iter == arrHandCardData[indexID].color_nPutCardList.end() - 1 ? '\n' : ','));
+        // py::print("");
+        
+        
+        
+        if (arrHandCardData[indexID].nHandCardCount == 0)
+        {
+            clsGameSituation->Over = true;
+            
+            if (indexID == clsGameSituation->nDiZhuID)
+            {
+                // py::print("地主 ", indexID, " wins", "sep"_a="");
+                return std::make_tuple(-clsGameSituation->nLandScore * clsGameSituation->nMultiple, true, category_idx);
+            }
+            else
+            {
+                // py::print("农民 ", indexID, " wins", "sep"_a="");
+                return std::make_tuple(clsGameSituation->nLandScore * clsGameSituation->nMultiple, true, category_idx);
             }
         }
         
@@ -632,12 +827,28 @@ public:
         }
         indexID == 2 ? indexID = 0 : indexID++;
 
-        if (indexID == clsGameSituation->nDiZhuID)
-        {
-            return step(true);
-        }
-        return std::make_tuple(0, false);
+        return std::make_tuple(0, false, category_idx);
     }
+
+    // 3-18 value cards
+    auto will_lose_control(py::array_t<int> cards) {
+        auto bkup = clsGameSituation->uctNowCardGroup;
+        int cnt[18] = { 0 };
+        auto c = cards.unchecked<1>();
+        for (int i = 0; i < c.shape(0); i++) {
+            cnt[c[i]]++;
+        }
+        clsGameSituation->uctNowCardGroup = ins_SurCardsType(cnt);
+        
+        get_PutCardList_2(*clsGameSituation, arrHandCardData[(indexID + 1) % 3]);
+        clsGameSituation->uctNowCardGroup = bkup;
+        if (arrHandCardData[(indexID + 1) % 3].uctPutCardType.cgType != cgZERO) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
 
     auto step_trial(bool lord = false, py::array_t<int> cards = py::array_t<int>()) {
         // printf("current id: %d\n", indexID);
@@ -649,16 +860,71 @@ public:
         return std::make_tuple(std::get<0>(tuple), std::get<0>(Env::get_cards_value(env.getCurrValueCards())), env.getState());
     }
 
-   
+   bool is_bomb(std::vector<int> vals) {
+       if (vals.size() != 4) return false;
+       if (vals[0] != vals[3]) return false;
+       return true;
+   }
 
     auto step_auto() {
         get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         arrHandCardData[indexID].PutCards();
         auto intention = arrHandCardData[indexID].value_nPutCardList;
-        std::sort(intention.begin(), intention.end());
+        
+        //std::sort(intention.begin(), intention.end());
 
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
         
+        // get group category
+        auto category = arrHandCardData[indexID].uctPutCardType.cgType;
+        int category_idx = 0;
+        switch(category) {
+            case cgZERO:
+                category_idx = 0;
+                break;
+            case cgSINGLE:
+                category_idx = 1;
+                break;
+            case cgDOUBLE:
+                category_idx = 2;
+                break;
+            case cgTHREE:
+                category_idx = 3;
+                break;
+            case cgBOMB_CARD:
+                category_idx = 4;
+                break;
+            case cgTHREE_TAKE_ONE:
+                category_idx = 5;
+                break;
+            case cgTHREE_TAKE_TWO:
+                category_idx = 6;
+                break;
+            case cgSINGLE_LINE:
+                category_idx = 7;
+                break;
+            case cgDOUBLE_LINE:
+                category_idx = 8;
+                break;
+            case cgTHREE_LINE:
+                category_idx = 9;
+                break;
+            case cgTHREE_TAKE_ONE_LINE:
+                category_idx = 10;
+                break;
+            case cgTHREE_TAKE_TWO_LINE:
+                category_idx = 11;
+                break;
+            case cgKING_CARD:
+                category_idx = 12;
+                break;
+            case cgFOUR_TAKE_ONE:
+                category_idx = 13;
+                break;
+            case cgFOUR_TAKE_TWO:
+                category_idx = 14;
+                break;
+        }
         // check for bomb
         bool bomb = false;
         if (intention.size() == 4) {
@@ -680,11 +946,11 @@ public:
             
             if (indexID == clsGameSituation->nDiZhuID)
             {
-                return std::make_tuple(vector2numpy(intention), -clsGameSituation->nLandScore * clsGameSituation->nMultiple);
+                return std::make_tuple(vector2numpy(intention), -clsGameSituation->nLandScore * clsGameSituation->nMultiple, category_idx);
             }
             else
             {
-                return std::make_tuple(vector2numpy(intention), clsGameSituation->nLandScore * clsGameSituation->nMultiple);
+                return std::make_tuple(vector2numpy(intention), clsGameSituation->nLandScore * clsGameSituation->nMultiple, category_idx);
             }
         }
         
@@ -696,7 +962,7 @@ public:
         }
         indexID == 2 ? indexID = 0 : indexID++;
 
-        return std::make_tuple(vector2numpy(intention), 0);
+        return std::make_tuple(vector2numpy(intention), 0, category_idx);
     }
 };
 
@@ -711,15 +977,18 @@ PYBIND11_MODULE(env, m) {
         .def("get_state", &Env::getState)
         .def("get_state2", &Env::getState2)
         .def("step", &Env::step, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
+        .def("step_manual", &Env::step_manual, py::arg("cards") = py::array_t<int>())
         .def("step_trial", &Env::step_trial, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
         .def("step_auto", &Env::step_auto)
         .def("step2", &Env::step2, py::arg("cards") = py::array_t<int>())
         .def("step2_auto", &Env::step2_auto)
+        .def("will_lose_control", &Env::will_lose_control)
         .def_static("get_cards_value", &Env::get_cards_value)
         .def("get_curr_ID", &Env::getCurrID)
         .def("get_role_ID", &Env::getRoleID)
-        .def("get_curr_cards", &Env::getCurrCards)
-        .def("get_last_cards", &Env::getLastCards)
+        .def("get_curr_handcards", &Env::getCurrCards)
+        .def("get_last_outcards", &Env::getLastCards)
+        .def("get_last_outcategory_idx", &Env::getLastCategory)
         .def("get_lord_cnt", &Env::getLordCnt);
 }
 
