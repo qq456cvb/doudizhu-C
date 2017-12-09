@@ -1333,6 +1333,14 @@ class CardMaster:
                     print("turn %d" % l)
                     print("training id %d" % train_id)
 
+                    if last_category_idx == 14:
+                        print("ignoring 4 + 2 + 2 which only reside in C++ code, continuing...")
+                        r, done, _ = self.env.step(cards=np.array([]))
+                        s_prime = self.env.get_state()
+                        s_prime = np.reshape(s_prime, [1, -1])
+                        s = s_prime
+                        continue
+
                     # get current hand cards and last opponent's cards if any
                     curr_cards_value = self.env.get_curr_handcards()
                     curr_cards_char = to_char(curr_cards_value)
