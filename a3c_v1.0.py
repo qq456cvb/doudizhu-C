@@ -76,17 +76,33 @@ def get_mask_alter(cards, last_cards, is_bomb, last_cards_category):
     decision_mask = None
     response_mask = None
     bomb_mask = None
+    length_mask = None
     if len(last_cards) == 0:
+        # category, response, length
+        length_mask = np.zeros([13, 15, 12])
+
         decision_mask = np.zeros([13])
         response_mask = np.zeros([13, 15])
         for i in range(13):
             # OFFSET ONE
-            subspace = action_space_category[i + 1]
+            category_idx = i + 1
+            subspace = action_space_category[category_idx]
             for j in range(len(subspace)):
                 if counter_subset(subspace[j], cards):
-                    response_mask[i][card.Card.char2value_3_17(subspace[j][0]) - 3] = 1
+                    response = card.Card.char2value_3_17(subspace[j][0]) - 3
+                    response_mask[i][response] = 1
                     decision_mask[i] = 1
-        return decision_mask, response_mask, bomb_mask
+                    if category_idx == Category.SINGLE_LINE.value:
+                        length_mask[i][response][len(subspace[j]) - 1] = 1
+                    elif category_idx == Category.DOUBLE_LINE.value:
+                        length_mask[i][response][int(len(subspace[j]) / 2) - 1] = 1
+                    elif category_idx == Category.TRIPLE_LINE.value:
+                        length_mask[i][response][int(len(subspace[j]) / 3) - 1] = 1
+                    elif category_idx == Category.THREE_ONE_LINE.value:
+                        length_mask[i][response][int(len(subspace[j]) / 4) - 1] = 1
+                    elif category_idx == Category.THREE_TWO_LINE.value:
+                        length_mask[i][response][int(len(subspace[j]) / 5) - 1] = 1
+        return decision_mask, response_mask, bomb_mask, length_mask
     else:
         decision_mask = np.ones([4])
         decision_mask[3] = 0
@@ -114,7 +130,7 @@ def get_mask_alter(cards, last_cards, is_bomb, last_cards_category):
             # if we got no bomb, we cannot respond with bombs
             if no_bomb:
                 decision_mask[1] = 0
-        return decision_mask, response_mask, bomb_mask
+        return decision_mask, response_mask, bomb_mask, length_mask
 
 
 # return [3-17 value]
@@ -685,8 +701,8 @@ class MinorCardNetwork:
                                                         activation_fn=tf.nn.softmax)
                 # action size: b * t
                 self.action = tf.placeholder(shape=[None], dtype=tf.int32)
-                self.action = tf.reshape(self.action, tf.stack([self.batch_size, -1]))
-                self.action_onehot = tf.one_hot(self.action, 15, dtype=tf.float32)
+                action = tf.reshape(self.action, tf.stack([self.batch_size, -1]))
+                self.action_onehot = tf.one_hot(action, 15, dtype=tf.float32)
 
                 # advantage size: b * 1
                 self.advantages = tf.placeholder(shape=[None, 1], dtype=tf.float32)
@@ -1205,7 +1221,7 @@ class CardAgent:
             batch_size = input_state.shape[0]
             # get (b * t) packed input states
             input_minor_states, input_minor_single, input_minor_pair, input_minor_triple, \
-                input_minor_quadric, actions = [buffer[i] for i in range(21, 26)]
+                input_minor_quadric, actions = [buffer[i] for i in range(21, 27)]
             c_init = np.zeros((1, self.minor_network.lstm.state_size.c), np.float32)
             h_init = np.zeros((1, self.minor_network.lstm.state_size.h), np.float32)
             rnn_state = [c_init, h_init]
@@ -1218,7 +1234,7 @@ class CardAgent:
                 self.minor_network.input_quadric: input_minor_quadric,
                 self.minor_network.lstm_state_input: rnn_state,
                 self.minor_network.action: actions,
-                self.minor_network.advantages: advantages,
+                self.minor_network.advantages: advantages.reshape(-1, 1),  # reshape advantage to support broadcasting
                 self.minor_network.batch_size: batch_size
             })
 
@@ -1377,7 +1393,7 @@ class CardMaster:
                         is_bomb = False
                         if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
                             is_bomb = True
-                        decision_mask, response_mask, bomb_mask = get_mask_alter(curr_cards_char, last_cards_char,
+                        decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, last_cards_char,
                                                                                  is_bomb, last_category_idx)
                         decision_passive_output = decision_passive_output[0] * decision_mask
                         decision_passive = np.random.choice(4, 1, p=decision_passive_output / decision_passive_output.sum())[0]
@@ -1446,11 +1462,11 @@ class CardMaster:
                                 # feed step by step
                                 # TODO: change state step by step
                                 for j in range(minor_cards_cnt):
-                                    input_minors_train[0, j, :] = input_single
-                                    input_minors_train[1, j, :] = input_pair
-                                    input_minors_train[2, j, :] = input_triple
-                                    input_minors_train[3, j, :] = input_quadric
-                                    input_minors_train[4, j, :] = s[0]
+                                    input_minors_train[0][j, :] = input_single
+                                    input_minors_train[1][j, :] = input_pair
+                                    input_minors_train[2][j, :] = input_triple
+                                    input_minors_train[3][j, :] = input_quadric
+                                    input_minors_train[4][j, :] = s[0]
                                     policy_pred, rnn_state = self.sess.run([self.agents[train_id].minor_network.policy_pred,
                                                    self.agents[train_id].minor_network.lstm_state_output],
                                               feed_dict={
@@ -1470,7 +1486,7 @@ class CardMaster:
                             intention = give_cards_with_minor(bigger, action_minors_train, curr_cards_value, last_cards_value, last_category_idx, 0)
                     else:
                         is_active = True
-                        decision_mask, response_mask, _ = get_mask_alter(curr_cards_char, [], False, last_category_idx)
+                        decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], False, last_category_idx)
                         # first the decision with argmax applied
                         decision_active_output = decision_active_output[0] * decision_mask
 
@@ -1488,12 +1504,15 @@ class CardMaster:
                         # save to buffer
                         active_response_input = np.random.choice(15, 1, p=response_active_output / response_active_output.sum())[0]
 
-                        # save to buffer
-                        seq_length_input = np.random.choice(12, 1, p=seq_length_output[0] / seq_length_output[0].sum())[0]
+                        # get length mask
+                        seq_length_output = seq_length_output[0] * length_mask[decision_active][active_response_input]
 
-                        # seq length only has OFFSET 1
-                        seq_length_out = seq_length_input + 1
-                        seq_length_out = int(seq_length_out)
+                        # save to buffer
+                        seq_length_input = np.random.choice(12, 1, p=seq_length_output / seq_length_output.sum())[0]
+
+                        # seq length only has OFFSET 1 from 0-11 to 1-12 ('3' - 'A')
+                        seq_length = seq_length_input + 1
+                        seq_length = int(seq_length)
 
                         if active_category_idx == Category.SINGLE_LINE.value or \
                                         active_category_idx == Category.DOUBLE_LINE.value or \
@@ -1520,9 +1539,9 @@ class CardMaster:
                             if active_category_idx == Category.FOUR_TWO.value:
                                 minor_cards_cnt = 2
                             if active_category_idx == Category.THREE_ONE_LINE.value:
-                                minor_cards_cnt = seq_length_out
+                                minor_cards_cnt = seq_length
                             if active_category_idx == Category.THREE_TWO_LINE.value:
-                                minor_cards_cnt = seq_length_out
+                                minor_cards_cnt = seq_length
 
                             minor_cards_length = minor_cards_cnt - 1
 
@@ -1539,11 +1558,11 @@ class CardMaster:
                             action_minors_train = np.zeros([minor_cards_cnt])
                             # feed step by step
                             for j in range(minor_cards_cnt):
-                                input_minors_train[0, j, :] = input_single
-                                input_minors_train[1, j, :] = input_pair
-                                input_minors_train[2, j, :] = input_triple
-                                input_minors_train[3, j, :] = input_quadric
-                                input_minors_train[4, j, :] = s[0]
+                                input_minors_train[0][j, :] = input_single
+                                input_minors_train[1][j, :] = input_pair
+                                input_minors_train[2][j, :] = input_triple
+                                input_minors_train[3][j, :] = input_quadric
+                                input_minors_train[4][j, :] = s[0]
                                 polict_pred, rnn_state = self.sess.run([self.agents[train_id].minor_network.policy_pred,
                                                                         self.agents[train_id].minor_network.lstm_state_output],
                                                                        feed_dict={
@@ -1563,7 +1582,7 @@ class CardMaster:
                                 p = polict_pred[0][0]
                                 a = np.random.choice(15, 1, p=p)[0]
                                 action_minors_train[j] = a
-                        intention = give_cards_with_minor(active_response_input, action_minors_train, curr_cards_value, last_cards_value, active_category_idx, seq_length_out)
+                        intention = give_cards_with_minor(active_response_input, action_minors_train, curr_cards_value, last_cards_value, active_category_idx, seq_length)
 
                     print(curr_cards_value)
                     print(intention)
@@ -1574,15 +1593,6 @@ class CardMaster:
                     print("end turn")
 
                     # gather buffer
-
-                    # training, input_state, input_single, input_pair, input_triple, \
-                    # input_quadric, is_active, has_seq_length, seq_length_input, \
-                    # is_passive_bomb, is_passive_king, passive_decision_input, \
-                    # passive_response_input, passive_bomb_input, active_decision_input, \
-                    # active_response_input, advantages, val_truth, has_minor_cards = [buffer[i] for i in range(2, 21)]
-
-                    # input_minor_states, input_minor_single, input_minor_pair, input_minor_triple, \
-                    # input_minor_quadric, actions = [buffer[i] for i in range(21, 26)]
                     s_prime = self.env.get_state()
                     s_prime = np.reshape(s_prime, [1, -1])
 
