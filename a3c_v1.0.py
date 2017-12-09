@@ -1241,7 +1241,7 @@ class CardMaster:
         self.gamma = 0.99
         self.sess = None
 
-        self.train_intervals = 1
+        self.train_intervals = 10
 
         self.trainer = tf.train.AdamOptimizer(learning_rate=0.001)
         self.episode_rewards = [[] for i in range(2)]
@@ -1285,7 +1285,7 @@ class CardMaster:
         self.sess = sess
         with sess.as_default():
             global_episodes = sess.run(self.global_episodes)
-            total_episodes = 1
+            total_episodes = 10001
             temp_decay = (self.end_temp - self.start_temp) / total_episodes
             while global_episodes < total_episodes:
                 print("episode %d" % global_episodes)
@@ -1639,10 +1639,10 @@ class CardMaster:
                         mean_length = np.mean(self.episode_length[i][-update_rate:])
                         mean_value = np.mean(self.episode_mean_values[i][-update_rate:])
 
-                        # summary = tf.Summary()
-                        # summary.value.add(tag='Performance/rewards', simple_value=float(mean_reward))
-                        # summary.value.add(tag='Performance/length', simple_value=float(mean_length))
-                        # summary.value.add(tag='Performance/values', simple_value=float(mean_value))
+                        summary = tf.Summary()
+                        summary.value.add(tag='Performance/rewards', simple_value=float(mean_reward))
+                        summary.value.add(tag='Performance/length', simple_value=float(mean_length))
+                        summary.value.add(tag='Performance/values', simple_value=float(mean_value))
                         # summary.value.add(tag='Losses/Value Loss', simple_value=float(val_loss))
                         # summary.value.add(tag='Losses/Prob pred', simple_value=float(pred_prob))
                         # summary.value.add(tag='Losses/Policy Loss', simple_value=float(policy_loss))
@@ -1651,14 +1651,14 @@ class CardMaster:
                         # summary.value.add(tag='Losses/Policy Norm', simple_value=float(p_norm))
                         # summary.value.add(tag='Losses/a0', simple_value=float(a0))
                         #
-                        # self.summary_writers[i].add_summary(summary, episodes)
-                        # self.summary_writers[i].flush()
+                        self.summary_writers[i].add_summary(summary, episodes)
+                        self.summary_writers[i].flush()
 
                 global_episodes += 1
                 sess.run(self.increment)
-                # if global_episodes % 50 == 0:
-                #     saver.save(sess, './model' + '/model-' + str(global_episodes) + '.cptk')
-                #     print("Saved Model")
+                if global_episodes % 1000 == 0:
+                    saver.save(sess, './model' + '/model-' + str(global_episodes) + '.cptk')
+                    print("Saved Model")
 
                 # self.env.end()
 
