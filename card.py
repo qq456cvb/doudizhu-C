@@ -150,6 +150,11 @@ class Card:
                 onehot[Card.cards_to_onehot_idx[x]:Card.cards_to_onehot_idx[x]+4] = subvec
         return onehot
 
+    @staticmethod
+    def val2onehot(cards):
+        chars = [Card.cards[i - 3] for i in cards]
+        return Card.char2onehot(chars)
+
     # convert char to 0-56 color cards
     @staticmethod
     def char2color(cards):
