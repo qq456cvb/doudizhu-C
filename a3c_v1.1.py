@@ -988,6 +988,7 @@ class CardMaster:
                 episode_steps = [0, 0]
                 dump_buffer = []
                 dump_cards = []
+                dump_mask = np.ones([15])
 
                 self.env.reset()
                 self.env.prepare()
@@ -1142,6 +1143,8 @@ class CardMaster:
                                     hd = dump_buffer.pop(0)
                                     assert (hd == "TRIPLE" or hd == "QUADRIC")
                                     dump_cards.append(give_cards_fake(bigger, last_cards_value, hd, False))
+                                    # conver value to 0-based mask
+                                    dump_mask[dump_cards[-1][0] - 3] = 0
                                 else:
                                     intention = give_cards_with_minor(bigger, action_minors_train, curr_cards_value, last_cards_value, last_category_idx, 0)
                     else:
@@ -1159,6 +1162,10 @@ class CardMaster:
 
                         # then the actual response to represent card value
                         response_active_output = response_active_output[0] * response_mask[decision_active]
+
+                        # If we give minor cards, make sure it's not duplicates of former cards
+                        if len(dump_buffer) > 0:
+                            response_active_output = response_active_output * dump_mask
 
                         # save to buffer
                         active_response_input = np.random.choice(15, 1, p=response_active_output / response_active_output.sum())[0]
@@ -1206,6 +1213,7 @@ class CardMaster:
                                 train_decision = False
                                 hd = dump_buffer.pop(0)
                                 dump_cards.append(give_cards_fake(active_response_input, last_cards_value, hd, True))
+                                dump_mask[dump_cards[-1][0] - 3] = 0
                             else:
                                 intention = give_cards_with_minor(active_response_input, action_minors_train, curr_cards_value, last_cards_value, active_category_idx, seq_length)
 
@@ -1221,6 +1229,7 @@ class CardMaster:
                             print(dump_cards)
                             r, done, _ = self.env.step(cards=np.concatenate(dump_cards))
                             dump_cards = []
+                            dump_mask = np.ones([15])
 
                         last_category_idx = self.env.get_last_outcategory_idx()
                         print("end turn")
