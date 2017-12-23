@@ -1080,9 +1080,9 @@ class CardMaster:
                         else:
                             is_active = True
                     if not is_active:
-                        print("passive: last idx %d" % last_category_idx)
-                        print("passive: last cards", end='')
-                        print(last_cards_value)
+                        # print("passive: last idx %d" % last_category_idx)
+                        # print("passive: last cards", end='')
+                        # print(last_cards_value)
                         is_bomb = False
                         if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
                             is_bomb = True
@@ -1226,7 +1226,7 @@ class CardMaster:
                             r, done, _ = self.env.step(cards=intention)
                             print(intention)
                         else:
-                            print(dump_cards)
+                            print(np.concatenate(dump_cards))
                             r, done, _ = self.env.step(cards=np.concatenate(dump_cards))
                             dump_cards = []
                             dump_mask = np.ones([15])
