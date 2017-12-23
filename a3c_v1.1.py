@@ -1223,8 +1223,8 @@ class CardMaster:
                     # we do not process the environment when in fake actions
                     if not dump_buffer:
                         if not dump_cards:
-                            r, done, _ = self.env.step(cards=intention)
                             print(intention)
+                            r, done, _ = self.env.step(cards=intention)
                         else:
                             print(np.concatenate(dump_cards))
                             r, done, _ = self.env.step(cards=np.concatenate(dump_cards))
