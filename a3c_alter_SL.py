@@ -456,7 +456,7 @@ if __name__ == '__main__':
                                     print("something bad happens")
                                     passive_response_input[0] = 0
                 else:
-                    seq_length = get_seq_length(category_idx, curr_cards_value)
+                    seq_length = get_seq_length(category_idx, intention)
                     if seq_length is not None:
                         has_seq_length[0] = True
                         # length offset one

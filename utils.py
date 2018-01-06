@@ -1,5 +1,5 @@
 import card
-from card import action_space, Category, action_space
+from card import action_space, Category, action_space_category
 import numpy as np
 from collections import Counter
 import tensorflow as tf
@@ -18,15 +18,24 @@ def counter_subset(list1, list2):
             return False
     return True
 
+
 # map char cards to 3 - 17
 def to_value(cards):
-    values = [card.Card.cards.index(c)+3 for c in cards]
-    return values
+    if isinstance(cards, list) or isinstance(cards, np.ndarray):
+        values = [card.Card.cards.index(c)+3 for c in cards]
+        return values
+    else:
+        return card.Card.cards.index(cards)+3
+
 
 # map 3 - 17 to char cards
 def to_char(cards):
-    chars = [card.Card.cards[c-3] for c in cards]
-    return chars
+    if isinstance(cards, list) or isinstance(cards, np.ndarray):
+        chars = [card.Card.cards[c-3] for c in cards]
+        return chars
+    else:
+        return card.Card.cards[cards-3]
+
 
 def get_mask(cards, action_space, last_cards):
     # 1 valid; 0 invalid
@@ -215,17 +224,156 @@ def train_fake_action(targets, handcards, s, sess, network):
 
 def pick_minor_targets(category, cards_char):
     if category == Category.THREE_ONE.value:
-        return [cards_char[-1]]
+        return cards_char[-1:]
     if category == Category.THREE_TWO.value:
-        return cards_char[-2:]
+        return cards_char[-1:]
     if category == Category.THREE_ONE_LINE.value:
         length = len(cards_char) // 4
         return cards_char[-length:]
     if category == Category.THREE_TWO_LINE.value:
         length = len(cards_char) // 5
-        return cards_char[-length*2:]
+        return cards_char[-length*2::2]
     if category == Category.FOUR_TWO.value:
         return cards_char[-2:]
     return None
     
+
+def get_mask_alter(cards, last_cards, is_bomb, last_cards_category):
+    decision_mask = None
+    response_mask = None
+    bomb_mask = np.zeros([13])
+    length_mask = np.zeros([13, 15, 12])
+    if len(last_cards) == 0:
+        # category, response, length
+
+        decision_mask = np.zeros([13])
+        response_mask = np.zeros([13, 15])
+        for i in range(13):
+            # OFFSET ONE
+            category_idx = i + 1
+            subspace = action_space_category[category_idx]
+            for j in range(len(subspace)):
+                if counter_subset(subspace[j], cards):
+                    response = card.Card.char2value_3_17(subspace[j][0]) - 3
+                    response_mask[i][response] = 1
+                    decision_mask[i] = 1
+                    if category_idx == Category.SINGLE_LINE.value:
+                        print("single line")
+                        print("%d %d %d" % (i, response, len(subspace[j]) - 1))
+                        length_mask[i][response][len(subspace[j]) - 1] = 1
+                    elif category_idx == Category.DOUBLE_LINE.value:
+                        length_mask[i][response][int(len(subspace[j]) / 2) - 1] = 1
+                    elif category_idx == Category.TRIPLE_LINE.value:
+                        length_mask[i][response][int(len(subspace[j]) / 3) - 1] = 1
+                    elif category_idx == Category.THREE_ONE_LINE.value:
+                        length_mask[i][response][int(len(subspace[j]) / 4) - 1] = 1
+                    elif category_idx == Category.THREE_TWO_LINE.value:
+                        length_mask[i][response][int(len(subspace[j]) / 5) - 1] = 1
+        return decision_mask, response_mask, bomb_mask, length_mask
+    else:
+        decision_mask = np.ones([4])
+        decision_mask[3] = 0
+        if not counter_subset(['*', '$'], cards):
+            decision_mask[2] = 0
+        if is_bomb:
+            decision_mask[1] = 0
+        response_mask = np.zeros([14])
+        subspace = action_space_category[last_cards_category]
+        for j in range(len(subspace)):
+            if counter_subset(subspace[j], cards) and card.CardGroup.to_cardgroup(subspace[j]).\
+                    bigger_than(card.CardGroup.to_cardgroup(last_cards)):
+                diff = card.Card.to_value(subspace[j][0]) - card.Card.to_value(last_cards[0])
+                # assert(diff > 0)
+                response_mask[diff - 1] = 1
+                decision_mask[3] = 1
+        if not is_bomb:
+            subspace = action_space_category[Category.QUADRIC.value]
+            no_bomb = True
+            for j in range(len(subspace)):
+                if counter_subset(subspace[j], cards):
+                    bomb_mask[card.Card.char2value_3_17(subspace[j][0]) - 3] = 1
+                    no_bomb = False
+            # if we got no bomb, we cannot respond with bombs
+            if no_bomb:
+                decision_mask[1] = 0
+        return decision_mask, response_mask, bomb_mask, length_mask
     
+
+# return [3-17 value]
+def give_cards_without_minor(response, last_cards_value, category_idx, length_output):
+    # these mask will be used to tease out invalid card combinations
+    # single_mask = np.zeros([15])
+    # for i in range(3, 18):
+    #     if i in hand_cards_value:
+    #         single_mask[i - 3] = 1
+
+    # double_mask = np.zeros([13])
+    # for i in range(3, 16):
+    #     if counter_subset([i, i], hand_cards_value):
+    #         double_mask[i - 3] = 1
+
+    if last_cards_value.size > 0:
+        if category_idx == Category.SINGLE.value:
+            return np.array([last_cards_value[0] + response])
+        elif category_idx == Category.DOUBLE.value:
+            return np.array([last_cards_value[0] + response] * 2)
+        elif category_idx == Category.TRIPLE.value:
+            return np.array([last_cards_value[0] + response] * 3)
+        elif category_idx == Category.QUADRIC.value:
+            return np.array([last_cards_value[0] + response] * 4)
+        elif category_idx == Category.THREE_ONE.value:
+            return np.array([last_cards_value[0] + response] * 3)
+        elif category_idx == Category.THREE_TWO.value:
+            return np.array([last_cards_value[0] + response] * 3)
+        elif category_idx == Category.SINGLE_LINE.value:
+            return np.arange(last_cards_value[0] + response, last_cards_value[0] + response + len(last_cards_value))
+        elif category_idx == Category.DOUBLE_LINE.value:
+            link = np.arange(last_cards_value[0] + response,
+                             last_cards_value[0] + response + int(len(last_cards_value) / 2))
+            return np.array([link, link]).T.reshape(-1)
+        elif category_idx == Category.TRIPLE_LINE.value:
+            link = np.arange(last_cards_value[0] + response,
+                             last_cards_value[0] + response + int(len(last_cards_value) / 3))
+            return np.array([link, link, link]).T.reshape(-1)
+        elif category_idx == Category.THREE_ONE_LINE.value:
+            cnt = int(len(last_cards_value) / 4)
+            link = np.arange(last_cards_value[0] + response, last_cards_value[0] + response + cnt)
+            return np.array([link, link, link]).T.reshape(-1)
+        elif category_idx == Category.THREE_TWO_LINE.value:
+            cnt = int(len(last_cards_value) / 5)
+            link = np.arange(last_cards_value[0] + response, last_cards_value[0] + response + cnt)
+            return np.array([link, link, link]).T.reshape(-1)
+        elif category_idx == Category.FOUR_TWO.value:
+            return np.array([last_cards_value[0] + response] * 4)
+    else:
+        if category_idx == Category.SINGLE.value:
+            return np.array([response + 3])
+        elif category_idx == Category.DOUBLE.value:
+            return np.array([response + 3] * 2)
+        elif category_idx == Category.TRIPLE.value:
+            return np.array([response + 3] * 3)
+        elif category_idx == Category.QUADRIC.value:
+            return np.array([response + 3] * 4)
+        elif category_idx == Category.THREE_ONE.value:
+            return np.array([response + 3] * 3)
+        elif category_idx == Category.THREE_TWO.value:
+            return np.array([response + 3] * 3)
+        elif category_idx == Category.SINGLE_LINE.value:
+            # length output will be in range 1-12
+            return np.arange(response + 3, response + 3 + length_output)
+        elif category_idx == Category.DOUBLE_LINE.value:
+            link = np.arange(response + 3, response + 3 + length_output)
+            return np.array([link, link]).T.reshape(-1)
+        elif category_idx == Category.TRIPLE_LINE.value:
+            link = np.arange(response + 3, response + 3 + length_output)
+            return np.array([link, link, link]).T.reshape(-1)
+        elif category_idx == Category.THREE_ONE_LINE.value:
+            cnt = length_output
+            link = np.arange(response + 3, response + 3 + cnt)
+            return np.array([link, link, link]).T.reshape(-1)
+        elif category_idx == Category.THREE_TWO_LINE.value:
+            cnt = length_output
+            link = np.arange(response + 3, response + 3 + cnt)
+            return np.array([link, link, link]).T.reshape(-1)
+        elif category_idx == Category.FOUR_TWO.value:
+            return np.array([response + 3] * 4)
