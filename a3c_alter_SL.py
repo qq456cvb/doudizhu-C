@@ -21,6 +21,7 @@ from logger import Logger
 from network_SL import CardNetwork
 from utils import get_mask, get_minor_cards, train_fake_action
 from utils import get_seq_length, pick_minor_targets, to_char, to_value
+import shutil
 
 
 ##################################################### UTILITIES ########################################################
@@ -365,10 +366,7 @@ if __name__ == '__main__':
 
     file_writer = tf.summary.FileWriter('accuracy_fake_minor', sess.graph)
 
-    action_space_single = action_space[1:16]
-    action_space_pair = action_space[16:29]
-    action_space_triple = action_space[29:42]
-    action_space_quadric = action_space[42:55]
+    shutil.rmtree('./accuracy_fake_minor')
 
     logger = Logger()
     # TODO: support batch training
@@ -387,10 +385,7 @@ if __name__ == '__main__':
             # last_cards_char = to_char(last_cards_value)
             # mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
-            input_single = get_mask(curr_cards_char, action_space_single, None)
-            input_pair = get_mask(curr_cards_char, action_space_pair, None)
-            input_triple = get_mask(curr_cards_char, action_space_triple, None)
-            input_quadric = get_mask(curr_cards_char, action_space_quadric, None)
+            input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, None)
 
             s = e.get_state()
             s = np.reshape(s, [1, -1])
@@ -431,10 +426,7 @@ if __name__ == '__main__':
                     # last_cards_char = to_char(last_cards_value)
                     # mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
-                    input_single = get_mask(curr_cards_char, action_space_single, None)
-                    input_pair = get_mask(curr_cards_char, action_space_pair, None)
-                    input_triple = get_mask(curr_cards_char, action_space_triple, None)
-                    input_quadric = get_mask(curr_cards_char, action_space_quadric, None)
+                    input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, None)
                     continue
 
                 # if category_idx == Category.THREE_ONE.value or category_idx == Category.THREE_TWO.value or \
@@ -465,7 +457,8 @@ if __name__ == '__main__':
                     seq_length = get_seq_length(category_idx, curr_cards_value)
                     if seq_length is not None:
                         has_seq_length[0] = True
-                        seq_length_input[0] = seq_length
+                        # length offset one
+                        seq_length_input[0] = seq_length - 1
 
                     # ACTIVE OFFSET ONE!
                     active_decision_input[0] = category_idx - 1
@@ -547,10 +540,7 @@ if __name__ == '__main__':
                     last_cards_char = to_char(last_cards_value)
                 # mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
-                input_single = get_mask(curr_cards_char, action_space_single, last_cards_char if last_cards_value.size > 0 else None)
-                input_pair = get_mask(curr_cards_char, action_space_pair, last_cards_char if last_cards_value.size > 0 else None)
-                input_triple = get_mask(curr_cards_char, action_space_triple, last_cards_char if last_cards_value.size > 0 else None)
-                input_quadric = get_mask(curr_cards_char, action_space_quadric, last_cards_char if last_cards_value.size > 0 else None)
+                input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
 
                 s = e.get_state()
                 s = np.reshape(s, [1, -1])

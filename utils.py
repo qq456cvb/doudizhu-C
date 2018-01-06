@@ -183,11 +183,11 @@ def get_feature_state(env, mask=None):
     return features
 
 
-def get_masks(handcards):
-    input_single = get_mask(handcards, action_space_single, None)
-    input_pair = get_mask(handcards, action_space_pair, None)
-    input_triple = get_mask(handcards, action_space_triple, None)
-    input_quadric = get_mask(handcards, action_space_quadric, None)
+def get_masks(handcards, lastcards):
+    input_single = get_mask(handcards, action_space_single, lastcards)
+    input_pair = get_mask(handcards, action_space_pair, lastcards)
+    input_triple = get_mask(handcards, action_space_triple, lastcards)
+    input_quadric = get_mask(handcards, action_space_quadric, lastcards)
     return input_single, input_pair, input_triple, input_quadric
 
 
@@ -196,7 +196,7 @@ def train_fake_action(targets, handcards, s, sess, network):
     acc = []
     for target in targets:
         target_val = card.Card.char2value_3_17(target) - 3
-        input_single, input_pair, input_triple, input_quadric = get_masks(handcards)
+        input_single, input_pair, input_triple, input_quadric = get_masks(handcards, None)
         _, response_active_output, fake_loss = sess.run([network.optimize_fake, 
             network.fc_response_active_output, 
             network.active_response_loss],
