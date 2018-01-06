@@ -19,7 +19,7 @@ import random
 import argparse
 from logger import Logger
 from network_SL import CardNetwork
-from utils import get_mask, get_minor_cards, train_fake_action
+from utils import get_mask, get_minor_cards, train_fake_action, get_masks
 from utils import get_seq_length, pick_minor_targets, to_char, to_value
 import shutil
 
@@ -366,7 +366,9 @@ if __name__ == '__main__':
 
     file_writer = tf.summary.FileWriter('accuracy_fake_minor', sess.graph)
 
-    shutil.rmtree('./accuracy_fake_minor')
+    filelist = [ f for f in os.listdir('./accuracy_fake_minor') ]
+    for f in filelist:
+        os.remove(os.path.join('./accuracy_fake_minor', f))
 
     logger = Logger()
     # TODO: support batch training
