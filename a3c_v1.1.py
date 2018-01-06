@@ -92,6 +92,8 @@ def get_mask_alter(cards, last_cards, is_bomb, last_cards_category):
                     response_mask[i][response] = 1
                     decision_mask[i] = 1
                     if category_idx == Category.SINGLE_LINE.value:
+                        print("single line")
+                        print("%d %d %d" % (i, response, len(subspace[j]) - 1))
                         length_mask[i][response][len(subspace[j]) - 1] = 1
                     elif category_idx == Category.DOUBLE_LINE.value:
                         length_mask[i][response][int(len(subspace[j]) / 2) - 1] = 1
@@ -704,8 +706,8 @@ class CardNetwork:
                 self.fc_decision_passive = slim.fully_connected(self.fc_decision_passive, 64, activation_fn=tf.nn.relu)
                 self.fc_decision_passive = slim.fully_connected(self.fc_decision_passive, 32, activation_fn=tf.nn.relu)
                 self.fc_decision_passive = slim.fully_connected(self.fc_decision_passive, 4, activation_fn=None)
-                self.fc_decision_passive = tf.boolean_mask(self.fc_decision_passive, self.passive_decision_mask)
-                self.fc_decision_passive_output = tf.nn.softmax(self.fc_decision_passive)
+                self.fc_decision_passive = tf.boolean_mask(self.fc_decision_passive[0], self.passive_decision_mask[0])
+                self.fc_decision_passive_output = tf.nn.softmax(tf.expand_dims(self.fc_decision_passive, 0))
 
             # passive response
             with tf.name_scope("passive_response"):
@@ -714,8 +716,8 @@ class CardNetwork:
                 self.fc_response_passive = slim.fully_connected(self.fc_response_passive, 64, activation_fn=tf.nn.relu)
                 self.fc_response_passive = slim.fully_connected(self.fc_response_passive, 32, activation_fn=tf.nn.relu)
                 self.fc_response_passive = slim.fully_connected(self.fc_response_passive, 14, activation_fn=None)
-                self.fc_response_passive = tf.boolean_mask(self.fc_response_passive, self.passive_response_mask)
-                self.fc_response_passive_output = tf.nn.softmax(self.fc_response_passive)
+                self.fc_response_passive = tf.boolean_mask(self.fc_response_passive[0], self.passive_response_mask[0])
+                self.fc_response_passive_output = tf.nn.softmax(tf.expand_dims(self.fc_response_passive, 0))
 
             # passive bomb response
             with tf.name_scope("passive_bomb_reponse"):
@@ -724,8 +726,8 @@ class CardNetwork:
                 self.fc_bomb_passive = slim.fully_connected(self.fc_bomb_passive, 64, activation_fn=tf.nn.relu)
                 self.fc_bomb_passive = slim.fully_connected(self.fc_bomb_passive, 32, activation_fn=tf.nn.relu)
                 self.fc_bomb_passive = slim.fully_connected(self.fc_bomb_passive, 13, activation_fn=None)
-                self.fc_bomb_passive = tf.boolean_mask(self.fc_bomb_passive, self.passive_bomb_mask)
-                self.fc_bomb_passive_output = tf.nn.softmax(self.fc_bomb_passive)
+                self.fc_bomb_passive = tf.boolean_mask(self.fc_bomb_passive[0], self.passive_bomb_mask[0])
+                self.fc_bomb_passive_output = tf.nn.softmax(tf.expand_dims(self.fc_bomb_passive, 0))
 
             # active decision making  mapped to [action space category - 1]
             with tf.name_scope("active_decision_making"):
@@ -734,8 +736,8 @@ class CardNetwork:
                 self.fc_decision_active = slim.fully_connected(self.fc_decision_active, 64, activation_fn=tf.nn.relu)
                 self.fc_decision_active = slim.fully_connected(self.fc_decision_active, 32, activation_fn=tf.nn.relu)
                 self.fc_decision_active = slim.fully_connected(self.fc_decision_active, 13, activation_fn=None)
-                self.fc_decision_active = tf.boolean_mask(self.fc_decision_active, self.active_decision_mask)
-                self.fc_decision_active_output = tf.nn.softmax(self.fc_decision_active)
+                self.fc_decision_active = tf.boolean_mask(self.fc_decision_active[0], self.active_decision_mask[0])
+                self.fc_decision_active_output = tf.nn.softmax(tf.expand_dims(self.fc_decision_active, 0))
 
             # active response
             with tf.name_scope("active_response"):
@@ -744,8 +746,8 @@ class CardNetwork:
                 self.fc_response_active = slim.fully_connected(self.fc_response_active, 64, activation_fn=tf.nn.relu)
                 self.fc_response_active = slim.fully_connected(self.fc_response_active, 32, activation_fn=tf.nn.relu)
                 self.fc_response_active = slim.fully_connected(self.fc_response_active, 15, activation_fn=None)
-                self.fc_response_active = tf.boolean_mask(self.fc_response_active, self.active_response_mask)
-                self.fc_response_active_output = tf.nn.softmax(self.fc_response_active)
+                self.fc_response_active = tf.boolean_mask(self.fc_response_active[0], self.active_response_mask[0])
+                self.fc_response_active_output = tf.nn.softmax(tf.expand_dims(self.fc_response_active, 0))
 
             # card length output
             with tf.name_scope("fc_sequence_length_output"):
@@ -754,8 +756,8 @@ class CardNetwork:
                 self.fc_seq_length = slim.fully_connected(self.fc_seq_length, 64, activation_fn=tf.nn.relu)
                 self.fc_seq_length = slim.fully_connected(self.fc_seq_length, 32, activation_fn=tf.nn.relu)
                 self.fc_seq_length = slim.fully_connected(self.fc_seq_length, 12, activation_fn=None)
-                self.fc_seq_length = tf.boolean_mask(self.fc_seq_length, self.seq_length_mask)
-                self.fc_seq_length_output = tf.nn.softmax(self.fc_seq_length)
+                self.fc_seq_length = tf.boolean_mask(self.fc_seq_length[0], self.seq_length_mask[0])
+                self.fc_seq_length_output = tf.nn.softmax(tf.expand_dims(self.fc_seq_length, 0))
 
             # value output
             with tf.name_scope("fc_value_output"):
@@ -933,12 +935,12 @@ class CardAgent:
                            self.main_network.active_response_input: np.array([active_response_input]),
                            self.main_network.train_decision: np.array([train_decision]),
                            self.main_network.train_response: np.array([train_response]),
-                           self.main_network.passive_decision_mask: passive_decision_mask_input.reshape(1, -1),
-                           self.main_network.passive_response_mask: passive_response_mask_input.reshape(1, -1),
-                           self.main_network.passive_bomb_mask: passive_bomb_mask_input.reshape(1, -1),
-                           self.main_network.active_decision_mask: active_decision_mask_input.reshape(1, -1),
-                           self.main_network.active_response_mask: active_response_mask_input.reshape(1, -1),
-                           self.main_network.seq_length_mask: active_seq_length_mask_input.reshape(1, -1)
+                           self.main_network.passive_decision_mask: passive_decision_mask_input.reshape(1, -1).astype(bool),
+                           self.main_network.passive_response_mask: passive_response_mask_input.reshape(1, -1).astype(bool),
+                           self.main_network.passive_bomb_mask: passive_bomb_mask_input.reshape(1, -1).astype(bool),
+                           self.main_network.active_decision_mask: active_decision_mask_input.reshape(1, -1).astype(bool),
+                           self.main_network.active_response_mask: active_response_mask_input.reshape(1, -1).astype(bool),
+                           self.main_network.seq_length_mask: active_seq_length_mask_input.reshape(1, -1).astype(bool)
                        })
 
         episode = sess.run(self.episodes)
@@ -1051,6 +1053,8 @@ class CardMaster:
                     # get current hand cards and last opponent's cards if any
                     curr_cards_value = self.env.get_curr_handcards()
                     curr_cards_char = to_char(curr_cards_value)
+                    print("current handcards", end='')
+                    print(curr_cards_char)
                     last_cards_value = self.env.get_last_outcards()
                     last_cards_char = to_char(last_cards_value)
 
@@ -1115,7 +1119,8 @@ class CardMaster:
                             is_bomb = True
                         decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, last_cards_char,
                                                                                  is_bomb, last_category_idx)
-
+                        # print("bomb mask,")
+                        # print(bomb_mask)
                         # passive decision masks do not vary so we can go through once
                         decision_passive_output, response_passive_output, bomb_passive_output \
                             = self.sess.run([self.agents[train_id].main_network.fc_decision_passive_output,
@@ -1132,27 +1137,29 @@ class CardMaster:
                                                 self.agents[train_id].main_network.passive_bomb_mask: np.reshape(bomb_mask, [1, -1])
                                             })
                         
-                        valid_decision_passive = np.take(np.arange(4), decision_mask.nonzero())
+                        valid_decision_passive = np.arange(4)[decision_mask.nonzero()]
                         decision_passive = np.random.choice(valid_decision_passive, 1, p=decision_passive_output[0])[0]
 
                         # save to buffer
-                        passive_decision_input = decision_passive
+                        passive_decision_input = np.where(valid_decision_passive == decision_passive)[0]
                         passive_decision_mask_input = decision_mask
+                        print("passive deicision input", end='')
+                        print(passive_decision_input)
 
                         if decision_passive == 0:
                             intention = np.array([])
                         elif decision_passive == 1:
                             is_passive_bomb = True
 
-                            valid_bomb_passive = np.take(np.arange(13), bomb_mask.nonzero())
-                            bomb_passive_output = np.random.choice(valid_bomb_passive, 1, p=bomb_passive_output[0])[0]
+                            valid_bomb_passive = np.arange(13)[bomb_mask.nonzero()]
+                            bomb_passive = np.random.choice(valid_bomb_passive, 1, p=bomb_passive_output[0])[0]
 
                             # save to buffer
-                            passive_bomb_input = bomb_passive_output
+                            passive_bomb_input = np.where(valid_bomb_passive == bomb_passive)[0]
                             passive_bomb_mask_input = bomb_mask
 
                             # converting 0-based index to 3-based value
-                            intention = np.array([passive_bomb_input + 3] * 4)
+                            intention = np.array([bomb_passive + 3] * 4)
                         elif decision_passive == 2:
                             is_passive_king = True
                             intention = np.array([16, 17])
@@ -1179,15 +1186,15 @@ class CardMaster:
                                     dump_buffer.append("SINGLE")
                                     dump_buffer.append("SINGLE")
                             else:
-                                valid_response_passive = np.take(np.arange(14), response_mask.nonzero())
-                                response_passive_output = np.random.choice(valid_response_passive, 1, p=response_passive_output[0])[0]
+                                valid_response_passive = np.arange(14)[response_mask.nonzero()]
+                                response_passive = np.random.choice(valid_response_passive, 1, p=response_passive_output[0])[0]
 
                                 # save to buffer
-                                passive_response_input = response_passive_output
+                                passive_response_input = np.where(valid_response_passive == response_passive)[0]
                                 passive_response_mask_input = response_mask
 
                                 # there is an offset when converting from 0-based index to 1-based index
-                                bigger = passive_response_input + 1
+                                bigger = response_passive + 1
 
                                 if len(dump_buffer) > 0:
                                     train_decision = False
@@ -1213,15 +1220,15 @@ class CardMaster:
                             })
 
                         # take action according to the mask
-                        valid_decision_active = np.take(np.arange(13), decision_mask.nonzero())
+                        valid_decision_active = np.arange(13)[decision_mask.nonzero()]
                         decision_active = np.random.choice(valid_decision_active, 1, p=decision_active_output[0])[0]
 
                         # save to buffer
-                        active_decision_input = decision_active
+                        active_decision_input = np.where(valid_decision_active == decision_active)[0]
                         active_decision_mask_input = decision_mask
 
                         # then convert 0-based decision_active_output to 1-based (empty eliminated) category idx
-                        active_category_idx = active_decision_input + 1
+                        active_category_idx = decision_active + 1
 
                         # If we give minor cards, make sure it's not duplicates of former cards
                         # add more mask
@@ -1242,11 +1249,11 @@ class CardMaster:
                                 self.agents[train_id].main_network.active_response_mask: np.reshape(response_mask[decision_active], [1, -1])
                             })
 
-                        valid_reponse_active = np.take(np.arange(15), response_mask[decision_active].nonzero())
+                        valid_reponse_active = np.arange(15)[response_mask[decision_active].nonzero()]
                         response_active = np.random.choice(valid_reponse_active, 1, p=response_active_output[0])[0]
 
                         # save to buffer
-                        active_response_input = response_active
+                        active_response_input = np.where(valid_reponse_active == response_active)[0]
                         active_response_mask_input = response_mask[decision_active]
 
                         # get length mask
@@ -1261,15 +1268,10 @@ class CardMaster:
                                 self.agents[train_id].main_network.seq_length_mask: np.reshape(length_mask[decision_active][response_active], [1, -1])
                             })
 
-                        valid_seq_length = np.take(np.arange(12), length_mask[decision_active][response_active])
-                        seq_length = np.random.choice(valid_seq_length, 1, p=seq_length_output[0])[0]
-
-                        # save to buffer
-                        seq_length_input = seq_length
-                        active_seq_length_mask_input = length_mask[decision_active][response_active]
-
-                        # seq length only has OFFSET 1 from 0-11 to 1-12 ('3' - 'A')
-                        seq_length = int(seq_length) + 1
+                        # print("decision mask", end='')
+                        # print(decision_mask)
+                        # print("decision active", end='')
+                        # print(decision_active)
 
                         if active_category_idx == Category.SINGLE_LINE.value or \
                                         active_category_idx == Category.DOUBLE_LINE.value or \
@@ -1278,6 +1280,16 @@ class CardMaster:
                                         active_category_idx == Category.THREE_TWO_LINE.value:
                             if not dump_buffer:
                                 has_seq_length = True
+
+                                valid_seq_length = np.arange(12)[length_mask[decision_active][response_active].nonzero()]
+                                seq_length = np.random.choice(valid_seq_length, 1, p=seq_length_output[0])[0]
+
+                                # save to buffer
+                                seq_length_input = np.where(valid_seq_length == seq_length)[0]
+                                active_seq_length_mask_input = length_mask[decision_active][response_active]
+
+                                # seq length only has OFFSET 1 from 0-11 to 1-12 ('3' - 'A')
+                                seq_length = int(seq_length) + 1
 
                         if is_minor_category(active_category_idx) and not dump_buffer:
                             train_response = False
@@ -1303,10 +1315,10 @@ class CardMaster:
                             if len(dump_buffer) > 0:
                                 train_decision = False
                                 hd = dump_buffer.pop(0)
-                                dump_cards.append(give_cards_fake(active_response_input, last_cards_value, hd, True))
+                                dump_cards.append(give_cards_fake(response_active, last_cards_value, hd, True))
                                 dump_mask[dump_cards[-1][0] - 3] = 0
                             else:
-                                intention = give_cards_with_minor(active_response_input, action_minors_train, curr_cards_value, last_cards_value, active_category_idx, seq_length)
+                                intention = give_cards_with_minor(response_active, action_minors_train, curr_cards_value, last_cards_value, active_category_idx, seq_length)
 
                     done = False
                     s_prime = s
