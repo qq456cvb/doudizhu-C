@@ -46,7 +46,7 @@ def get_mask(cards, action_space, last_cards):
     mask = mask.astype(bool)
     if last_cards:
         for j in range(1, mask.size):
-            if mask[j] == 1 and not card.CardGroup.to_cardgroup(action_space[j]).\
+            if mask[j] == True and not card.CardGroup.to_cardgroup(action_space[j]).\
                     bigger_than(card.CardGroup.to_cardgroup(last_cards)):
                 mask[j] = False
     # else:
@@ -258,8 +258,8 @@ def get_mask_alter(cards, last_cards, is_bomb, last_cards_category):
                     response_mask[i][response] = 1
                     decision_mask[i] = 1
                     if category_idx == Category.SINGLE_LINE.value:
-                        print("single line")
-                        print("%d %d %d" % (i, response, len(subspace[j]) - 1))
+                        # print("single line")
+                        # print("%d %d %d" % (i, response, len(subspace[j]) - 1))
                         length_mask[i][response][len(subspace[j]) - 1] = 1
                     elif category_idx == Category.DOUBLE_LINE.value:
                         length_mask[i][response][int(len(subspace[j]) / 2) - 1] = 1

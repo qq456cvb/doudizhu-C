@@ -365,7 +365,8 @@ public:
         
         if (clsGameSituation->nNowDiZhuID == -1)
         {
-            return -1;
+            reset();
+            return prepare_manual(pycards);
         }
         
         clsGameSituation->nDiZhuID=clsGameSituation->nNowDiZhuID;
@@ -384,7 +385,7 @@ public:
         return indexID;
     }
 
-    // 转one hot, 输入[0-56 color cards]
+    // 转one hot, 输入[0-53 color cards]
     std::vector<int> toOneHot(const std::vector<int>& v) {
         std::vector<int> result(54, 0);
         for (auto color : v) {

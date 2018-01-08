@@ -362,18 +362,20 @@ if __name__ == '__main__':
     TRAIN = args.train
     sess = tf.Session(graph=graph_sl)
     saver = tf.train.Saver(max_to_keep=50)
-    # saver.restore(sess, "./Model/accuracy_bugfixed_lr0001_1110/model-900.ckpt")
+    saver.restore(sess, "./Model/accuracy_fake_minor/model-9800")
 
-    file_writer = tf.summary.FileWriter('accuracy_fake_minor', sess.graph)
+    # file_writer = tf.summary.FileWriter('accuracy_fake_minor', sess.graph)
 
-    filelist = [ f for f in os.listdir('./accuracy_fake_minor') ]
-    for f in filelist:
-        os.remove(os.path.join('./accuracy_fake_minor', f))
+    # filelist = [ f for f in os.listdir('./accuracy_fake_minor') ]
+    # for f in filelist:
+    #     os.remove(os.path.join('./accuracy_fake_minor', f))
 
     logger = Logger()
     # TODO: support batch training
+    # test_cards = [i for i in range(3, 18)]
+    # test_cards = np.array(test_cards *)
     if TRAIN:
-        sess.run(tf.global_variables_initializer())
+        # sess.run(tf.global_variables_initializer())
         for i in range(epoches_train):
             e.reset()
             e.prepare()

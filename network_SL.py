@@ -347,11 +347,14 @@ class CardNetwork:
             with tf.name_scope("total_loss"):
                 self.loss = tf.to_float(self.is_active) * self.active_loss + (1 - tf.to_float(self.is_active)) * self.passive_loss
 
-            with tf.name_scope("optimize"):
-                self.optimize = trainer.minimize(self.loss)
+            # update moving avg/var in batch normalization!
+            extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(extra_update_ops):
+                with tf.name_scope("optimize"):
+                    self.optimize = trainer.minimize(self.loss)
 
-            with tf.name_scope("optimize_fake_response"):
-                self.optimize_fake = trainer.minimize(tf.reduce_sum(self.active_response_loss))
+                with tf.name_scope("optimize_fake_response"):
+                    self.optimize_fake = trainer.minimize(tf.reduce_sum(self.active_response_loss))
 
             local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
             self.gradients = tf.gradients(self.loss, local_vars)

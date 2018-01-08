@@ -164,8 +164,10 @@ void SendCards_manual(const py::array_t<int>& pycards, GameSituation & clsGameSi
     for (i = 0; i < 3; i++) {
         for (k = 0; k < 17; k++, j++) {
             uctALLCardsList.arrCardsList[i].push_back(cards[j]);
+            // std::cout << cards[j] << " ";
         }
     }
+    // std::cout << std::endl;
 
     clsGameSituation.DiPai[0] = cards[j];
     clsGameSituation.DiPai[1] = cards[j+1];
