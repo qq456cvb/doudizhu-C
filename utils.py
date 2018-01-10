@@ -3,6 +3,7 @@ from card import action_space, Category, action_space_category
 import numpy as np
 from collections import Counter
 import tensorflow as tf
+import argparse
 
 action_space_single = action_space[1:16]
 action_space_pair = action_space[16:29]
@@ -219,7 +220,25 @@ def train_fake_action(targets, handcards, s, sess, network):
                     network.active_response_input: np.array([target_val]),
             })
         handcards.remove(target)
-        acc.append(1 if np.argmax(response_active_output) == target_val else 0)
+        acc.append(1 if np.argmax(response_active_output[0]) == target_val else 0)
+    return acc
+
+def test_fake_action(targets, handcards, s, sess, network):
+    acc = []
+    for target in targets:
+        target_val = card.Card.char2value_3_17(target) - 3
+        input_single, input_pair, input_triple, input_quadric = get_masks(handcards, None)
+        response_active_output = sess.run(network.fc_response_active_output,
+                feed_dict = {
+                    network.training: False,
+                    network.input_state: s,
+                    network.input_single: np.reshape(input_single, [1, -1]),
+                    network.input_pair: np.reshape(input_pair, [1, -1]),
+                    network.input_triple: np.reshape(input_triple, [1, -1]),
+                    network.input_quadric: np.reshape(input_quadric, [1, -1])
+            })
+        handcards.remove(target)
+        acc.append(1 if np.argmax(response_active_output[0]) == target_val else 0)
     return acc
 
 def pick_minor_targets(category, cards_char):

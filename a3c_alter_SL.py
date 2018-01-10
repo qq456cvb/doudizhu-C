@@ -19,8 +19,8 @@ import random
 import argparse
 from logger import Logger
 from network_SL import CardNetwork
-from utils import get_mask, get_minor_cards, train_fake_action, get_masks
-from utils import get_seq_length, pick_minor_targets, to_char, to_value
+from utils import get_mask, get_minor_cards, train_fake_action, get_masks, test_fake_action
+from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter
 import shutil
 
 
@@ -347,8 +347,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='fight the lord feature vector')
     # parser.add_argument('--b', type=int, help='batch size', default=32)
     parser.add_argument('--epoches_train', type=int, help='num of epochs to train', default=10000)
-    parser.add_argument('--epoches_test', type=int, help='num of epochs to test', default=0)
-    parser.add_argument('--train', type=bool, help='whether to train', default=True)
+    parser.add_argument('--epoches_test', type=int, help='num of epochs to test', default=1000)
+    parser.add_argument('--train', dest='train', action='store_true')
+    parser.add_argument('--test', dest='train', action='store_false')
+    parser.set_defaults(train=True)
 
     args = parser.parse_args(sys.argv[1:])
     epoches_train = args.epoches_train
@@ -362,13 +364,12 @@ if __name__ == '__main__':
     TRAIN = args.train
     sess = tf.Session(graph=graph_sl)
     saver = tf.train.Saver(max_to_keep=50)
-    # saver.restore(sess, "./Model/accuracy_fake_minor/model-9800")
 
     file_writer = tf.summary.FileWriter('accuracy_fake_minor', sess.graph)
 
-    filelist = [ f for f in os.listdir('./accuracy_fake_minor') ]
-    for f in filelist:
-        os.remove(os.path.join('./accuracy_fake_minor', f))
+    # filelist = [ f for f in os.listdir('./accuracy_fake_minor') ]
+    # for f in filelist:
+    #     os.remove(os.path.join('./accuracy_fake_minor', f))
 
     logger = Logger()
     # TODO: support batch training
@@ -405,6 +406,7 @@ if __name__ == '__main__':
                 seq_length_input = np.array([0])
                 is_passive_bomb = np.array([False])
                 is_passive_king = np.array([False])
+                did_passive_response = np.array([False])
                 passive_decision_input = np.array([0])
                 passive_response_input = np.array([0])
                 passive_bomb_input = np.array([0])
@@ -452,6 +454,7 @@ if __name__ == '__main__':
                         else:
                             if category_idx != Category.EMPTY.value:
                                 passive_decision_input[0] = 3
+                                did_passive_response[0] = True
                                 # OFFSET_ONE
                                 passive_response_input[0] = intention[0] - last_cards_value[0] - 1
                                 if passive_response_input[0] < 0:
@@ -488,6 +491,7 @@ if __name__ == '__main__':
                             SLNetwork.is_active: np.array([active]),
                             SLNetwork.is_passive_bomb: is_passive_bomb,
                             SLNetwork.is_passive_king: is_passive_king,
+                            SLNetwork.did_passive_response: did_passive_response,
                             SLNetwork.passive_decision_input: passive_decision_input,
                             SLNetwork.passive_response_input: passive_response_input,
                             SLNetwork.passive_bomb_input: passive_bomb_input,
@@ -527,10 +531,10 @@ if __name__ == '__main__':
                     passive_decision_acc_temp = 1 if np.argmax(decision_passive_output) == passive_decision_input[0] else 0
                     logger.updateAcc("passive_decision", passive_decision_acc_temp)
 
-                    if is_passive_bomb:
+                    if is_passive_bomb[0]:
                         passive_bomb_acc_temp = 1 if np.argmax(bomb_passive_output) == passive_bomb_input[0] else 0
                         logger.updateAcc("passive_bomb", passive_bomb_acc_temp)
-                    else:
+                    elif passive_decision_input[0] == 3:
                         passive_response_acc_temp = 1 if np.argmax(response_passive_output) == passive_response_input[0] else 0
                         logger.updateAcc("passive_response", passive_response_acc_temp)
 
@@ -606,54 +610,187 @@ if __name__ == '__main__':
     # test part
     # saver.restore(sess, "./Model/SLNetwork_feat_deeper_1000000epoches.ckpt")
 
-    '''
-    cnt = 0
-    acc = 0.
-    for i in range(epoches_test):
-        e.reset()
-        e.prepare()
-
-        mask = get_mask(to_char(e.get_curr_handcards()), action_space, to_char(e.get_last_outcards()))
-        s = get_feature_state(e, mask)
-        r = 0
-        while r == 0:
-            intention, r, category_idx = e.step_auto()
-            # no training for empty actions
-            if np.count_nonzero(mask) == 1:
-                mask = get_mask(to_char(e.get_curr_handcards()), action_space, to_char(e.get_last_outcards()))
-                s = get_feature_state(e, mask)
-                continue
-            put_list = card.Card.to_cards_from_3_17(intention)
-            print(put_list)
-            
-            try:
-                a = next(i for i, v in enumerate(action_space) if v == put_list)
-            except StopIteration as e:
-                print(put_list)
-
-            valid_policy = sess.run(SLNetwork.valid_policy,
-                                    feed_dict = {
-                                        SLNetwork.training: False,
-                                        SLNetwork.input: np.reshape(s, [1, -1]),
-                                        SLNetwork.mask: np.reshape(mask, [1, -1])
-                                    })
-            valid_policy = valid_policy[0]
-            valid_actions = np.take(np.arange(a_dim), np.array(mask).nonzero()).reshape(-1)
-            # a = np.random.choice(valid_actions, p=valid_policy)
-            a_pred = valid_actions[np.argmax(valid_policy)]
-            accuracy = 0.
-            if a == a_pred:
-                accuracy = 1.
-            cnt += 1
-            acc += (accuracy - acc) / cnt
-
-            mask = get_mask(to_char(e.get_curr_handcards()), action_space, to_char(e.get_last_outcards()))
-            s = get_feature_state(e, mask)
+    if not TRAIN:
+        saver.restore(sess, "./Model/accuracy_fake_minor/model-9800")
+        for i in range(epoches_test):
+            e.reset()
+            e.prepare()
         
-        if i % 1000 == 0:
-            print("predict ", i, " ing...")
+            r = 0
+            done = False
+            while r == 0:
+                curr_cards_value = e.get_curr_handcards()
+                curr_cards_char = to_char(curr_cards_value)
+                last_cards_value = e.get_last_outcards()
+                last_cards_char = to_char(last_cards_value)
+                # print("curr_cards = ", curr_cards_char)
+                # print("last_cards = ", last_cards_value)
+                last_category_idx = e.get_last_outcategory_idx()
 
-    print("test accuracy = ", acc)
-    sess.close()
-    '''
+                input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
 
+                s = e.get_state()
+                s = np.reshape(s, [1, -1])
+
+                intention, r, category_idx = e.step_auto()       
+
+                is_passive_bomb = False
+                has_seq_length = False
+                is_active = (last_cards_value.size == 0)
+                if is_active:
+                    # first get mask
+                    decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], False, last_category_idx)
+
+                    decision_active_output = sess.run(SLNetwork.fc_decision_active_output,
+                        feed_dict={
+                            SLNetwork.training: False,
+                            SLNetwork.input_state: s,
+                            SLNetwork.input_single: np.reshape(input_single, [1, -1]),
+                            SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
+                            SLNetwork.input_triple: np.reshape(input_triple, [1, -1]),
+                            SLNetwork.input_quadric: np.reshape(input_quadric, [1, -1])
+                        })
+
+                    # make decision depending on output
+                    decision_active_output = decision_active_output[0]
+                    decision_active_output[decision_mask == 0] = -1
+                    decision_active_pred = np.argmax(decision_active_output)
+                    decision_active_target = category_idx - 1
+                    
+                    active_category_idx = decision_active_target + 1
+
+                    # give actual response
+                    response_active_output = sess.run(SLNetwork.fc_response_active_output,
+                        feed_dict={
+                            SLNetwork.training: False,
+                            SLNetwork.input_state: s,
+                            SLNetwork.input_single: np.reshape(input_single, [1, -1]),
+                            SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
+                            SLNetwork.input_triple: np.reshape(input_triple, [1, -1]),
+                            SLNetwork.input_quadric: np.reshape(input_quadric, [1, -1])
+                        })
+
+                    response_active_output = response_active_output[0]
+                    response_active_output[response_mask[decision_active_target] == 0] = -1
+                    response_active_pred = np.argmax(response_active_output)
+                    response_active_target = intention[0] - 3
+
+                    seq_length = get_seq_length(category_idx, intention)
+                    if seq_length is not None:
+                        has_seq_length = True
+                        seq_length_target = seq_length
+
+                    seq_length = 0
+
+                    # next sequence length
+                    if active_category_idx == Category.SINGLE_LINE.value or \
+                            active_category_idx == Category.DOUBLE_LINE.value or \
+                            active_category_idx == Category.TRIPLE_LINE.value or \
+                            active_category_idx == Category.THREE_ONE_LINE.value or \
+                            active_category_idx == Category.THREE_TWO_LINE.value:
+                        seq_length_output = sess.run(SLNetwork.fc_sequence_length_output,
+                            feed_dict={
+                                SLNetwork.training: False,
+                                SLNetwork.input_state: s,
+                                SLNetwork.input_single: np.reshape(input_single, [1, -1]),
+                                SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
+                                SLNetwork.input_triple: np.reshape(input_triple, [1, -1]),
+                                SLNetwork.input_quadric: np.reshape(input_quadric, [1, -1])
+                            })
+
+                        seq_length_output = seq_length_output[0]
+                        seq_length_output[length_mask[decision_active_target][response_active_target] == 0] = -1
+                        seq_length_pred = np.argmax(seq_length_output) + 1
+                    
+                else:
+                    is_bomb = False
+                    if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
+                        is_bomb = True
+                    decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, to_char(last_cards_value), is_bomb, last_category_idx)
+
+                    decision_passive_output, response_passive_output, bomb_passive_output \
+                        = sess.run([SLNetwork.fc_decision_passive_output,
+                                    SLNetwork.fc_response_passive_output, SLNetwork.fc_bomb_passive_output],
+                                    feed_dict={
+                                        SLNetwork.training: False,
+                                        SLNetwork.input_state: s,
+                                        SLNetwork.input_single: np.reshape(input_single, [1, -1]),
+                                        SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
+                                        SLNetwork.input_triple: np.reshape(input_triple, [1, -1]),
+                                        SLNetwork.input_quadric: np.reshape(input_quadric, [1, -1])
+                                    })
+                    
+                    decision_passive_target = 0
+                    if category_idx == Category.QUADRIC.value and category_idx != last_category_idx:
+                        is_passive_bomb = True
+                        decision_passive_target = 1
+                        bomb_passive_target = intention[0] - 3
+                    else:
+                        if category_idx == Category.BIGBANG.value:
+                            decision_passive_target = 2
+                        else:
+                            if category_idx != Category.EMPTY.value:
+                                decision_passive_target = 3
+                                # OFFSET_ONE
+                                response_passive_target = intention[0] - last_cards_value[0] - 1
+                    
+                    decision_passive_output = decision_passive_output[0]
+                    decision_passive_output[decision_mask == 0] = -1
+                    decision_passive_pred = np.argmax(decision_passive_output)
+                    
+
+                    if decision_passive_target == 0:
+                        pass
+                    elif decision_passive_target == 1:
+                        # print('bomb_mask', bomb_mask)
+                        bomb_passive_output = bomb_passive_output[0]
+                        bomb_passive_output[bomb_mask == 0] = -1
+                        bomb_passive_pred = np.argmax(bomb_passive_output)
+                    elif decision_passive_target == 2:
+                        pass
+                    elif decision_passive_target == 3:
+                        # print('response_mask', response_mask)
+                        response_passive_output = response_passive_output[0]
+                        response_passive_output[response_mask == 0] = -1
+                        response_passive_pred = np.argmax(response_passive_output)
+
+                minor_cards_targets = pick_minor_targets(category_idx, to_char(intention))
+                if minor_cards_targets is not None:
+                    # print(minor_cards_targets)
+                    # print(curr_cards_char)
+                    accs = test_fake_action(minor_cards_targets, curr_cards_char.copy(), s, sess, SLNetwork)
+                    for acc in accs:
+                        logger.updateAcc("minor_cards", acc)
+
+                if is_active:
+                    active_decision_acc_temp = 1 if decision_active_pred == decision_active_target else 0
+                    logger.updateAcc("active_decision", active_decision_acc_temp)
+
+                    active_response_acc_temp = 1 if response_active_pred == response_active_target else 0
+                    logger.updateAcc("active_response", active_response_acc_temp)
+
+                    if has_seq_length:
+                        seq_acc_temp = 1 if seq_length_pred == seq_length_target else 0
+                        logger.updateAcc("seq_length", seq_acc_temp)
+                else:
+                    passive_decision_acc_temp = 1 if decision_passive_pred == decision_passive_target else 0
+                    logger.updateAcc("passive_decision", passive_decision_acc_temp)
+
+                    if is_passive_bomb:
+                        passive_bomb_acc_temp = 1 if bomb_passive_pred == bomb_passive_target else 0
+                        logger.updateAcc("passive_bomb", passive_bomb_acc_temp)
+                    elif decision_passive_target == 3:
+                        passive_response_acc_temp = 1 if response_passive_pred == response_passive_target else 0
+                        logger.updateAcc("passive_response", passive_response_acc_temp)
+            
+            if i % 100 == 0:
+                print("test ", i, " ing...")
+                print("test passive decision accuracy = ", logger["passive_decision"])
+                print("test passive response accuracy = ", logger["passive_response"])
+                print("test passive bomb accuracy = ", logger["passive_bomb"])
+                print("test active decision accuracy = ", logger["active_decision"])
+                print("test active response accuracy = ", logger["active_response"])
+                print("test sequence length accuracy = ", logger["seq_length"])
+                print("test minor cards accuracy = ", logger["minor_cards"])
+
+                

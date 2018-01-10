@@ -825,6 +825,7 @@ public:
             clsGameSituation->nCardDroit = indexID;
             clsGameSituation->uctNowCardGroup = arrHandCardData[indexID].uctPutCardType;
             value_lastCards = arrHandCardData[indexID].value_nPutCardList;
+            last_category_idx = category_idx;
         }
         indexID == 2 ? indexID = 0 : indexID++;
 
@@ -960,6 +961,7 @@ public:
             clsGameSituation->nCardDroit = indexID;
             clsGameSituation->uctNowCardGroup = arrHandCardData[indexID].uctPutCardType;
             value_lastCards = arrHandCardData[indexID].value_nPutCardList;
+            last_category_idx = category_idx;
         }
         indexID == 2 ? indexID = 0 : indexID++;
 

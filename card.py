@@ -9,6 +9,7 @@ Category = Enum('Category', 'EMPTY SINGLE DOUBLE TRIPLE QUADRIC THREE_ONE THREE_
 
 Category2Range = []
 
+
 def get_action_space():
     actions = [[]]
     # max_cards = 20
