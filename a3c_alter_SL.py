@@ -405,7 +405,6 @@ if __name__ == '__main__':
                 has_seq_length = np.array([False])
                 seq_length_input = np.array([0])
                 is_passive_bomb = np.array([False])
-                is_passive_king = np.array([False])
                 did_passive_response = np.array([False])
                 passive_decision_input = np.array([0])
                 passive_response_input = np.array([0])
@@ -449,7 +448,6 @@ if __name__ == '__main__':
                         passive_bomb_input[0] = intention[0] - 3
                     else:
                         if category_idx == Category.BIGBANG.value:
-                            is_passive_king[0] = True
                             passive_decision_input[0] = 2
                         else:
                             if category_idx != Category.EMPTY.value:
@@ -490,7 +488,6 @@ if __name__ == '__main__':
                             SLNetwork.input_quadric: np.reshape(input_quadric, [1, -1]),
                             SLNetwork.is_active: np.array([active]),
                             SLNetwork.is_passive_bomb: is_passive_bomb,
-                            SLNetwork.is_passive_king: is_passive_king,
                             SLNetwork.did_passive_response: did_passive_response,
                             SLNetwork.passive_decision_input: passive_decision_input,
                             SLNetwork.passive_response_input: passive_response_input,

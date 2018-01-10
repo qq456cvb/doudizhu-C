@@ -308,7 +308,6 @@ class CardNetwork:
             # passive mode
             with tf.name_scope("passive_mode_loss"):
                 self.is_passive_bomb = tf.placeholder(tf.bool, [None], name='passive_bomb')
-                self.is_passive_king = tf.placeholder(tf.bool, [None], name='passive_is_king')
                 self.did_passive_response = tf.placeholder(tf.bool, [None], name='did_passive_response')
 
                 self.passive_decision_input = tf.placeholder(tf.int32, [None], name='passive_decision_in')
