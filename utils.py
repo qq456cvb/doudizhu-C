@@ -202,7 +202,10 @@ def get_masks(handcards, lastcards):
 
 
 # receive targets and handcards as chars
-def train_fake_action(targets, handcards, s, sess, network):
+def train_fake_action(targets, handcards, s, sess, network, category_idx):
+    is_pair = False
+    if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
+        is_pair = True
     acc = []
     for target in targets:
         target_val = card.Card.char2value_3_17(target) - 3
@@ -220,10 +223,15 @@ def train_fake_action(targets, handcards, s, sess, network):
                     network.active_response_input: np.array([target_val]),
             })
         handcards.remove(target)
+        if is_pair:
+            handcards.remove(target)
         acc.append(1 if np.argmax(response_active_output[0]) == target_val else 0)
     return acc
 
-def test_fake_action(targets, handcards, s, sess, network):
+def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mask):
+    is_pair = False
+    if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
+        is_pair = True
     acc = []
     for target in targets:
         target_val = card.Card.char2value_3_17(target) - 3
@@ -237,8 +245,24 @@ def test_fake_action(targets, handcards, s, sess, network):
                     network.input_triple: np.reshape(input_triple, [1, -1]),
                     network.input_quadric: np.reshape(input_quadric, [1, -1])
             })
+        # give minor cards
+        response_active_output = response_active_output[0]
+        response_active_output[dup_mask == 0] = -1
+        
+        if is_pair:
+            response_active_output[input_pair == 0] = -1
+        else:
+            response_active_output[input_single == 0] = -1
+        
+        response_active = np.argmax(response_active_output)
+        dup_mask[response_active] = 0
+
+        # convert network output to char cards
         handcards.remove(target)
-        acc.append(1 if np.argmax(response_active_output[0]) == target_val else 0)
+        if is_pair:
+            handcards.remove(target)
+
+        acc.append(1 if response_active == target_val else 0)
     return acc
 
 def pick_minor_targets(category, cards_char):

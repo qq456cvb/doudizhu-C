@@ -360,6 +360,10 @@ if __name__ == '__main__':
 
     graph_sl = tf.get_default_graph()
     SLNetwork = CardNetwork(54 * 6, tf.train.AdamOptimizer(learning_rate=0.0001), "SLNetwork")
+    variables = tf.all_variables()
+    for v in variables:
+        print(v.name)
+    exit(0)
     e = env.Env()
     TRAIN = args.train
     sess = tf.Session(graph=graph_sl)
@@ -583,12 +587,13 @@ if __name__ == '__main__':
         
         # saver.save(sess, "./Model/SLNetwork_feat_deeper_1000000epoches.ckpt")
 
-        print("train passive decision accuracy = ", passive_decision_acc)
-        print("train passive response accuracy = ", passive_response_acc)
-        print("train passive bomb accuracy = ", passive_bomb_acc)
-        print("train active decision accuracy = ", active_decision_acc)
-        print("train active response accuracy = ", active_response_acc)
-        print("train minor cards accuracy = ", minor_cards_acc)
+        print("train passive decision accuracy = ", logger["passive_decision"])
+        print("train passive response accuracy = ", logger["passive_response"])
+        print("train passive bomb accuracy = ", logger["passive_bomb"])
+        print("train active decision accuracy = ", logger["active_decision"])
+        print("train active response accuracy = ", logger["active_response"])
+        print("train seq length accuracy = ", logger["seq_length"])
+        print("train minor cards accuracy = ", logger["minor_cards"])
 
         file_writer.close()
 
@@ -755,7 +760,9 @@ if __name__ == '__main__':
                 if minor_cards_targets is not None:
                     # print(minor_cards_targets)
                     # print(curr_cards_char)
-                    accs = test_fake_action(minor_cards_targets, curr_cards_char.copy(), s, sess, SLNetwork)
+                    dup_mask = np.ones([15])
+                    dup_mask[intention[0] - 3] = 0
+                    accs = test_fake_action(minor_cards_targets, curr_cards_char.copy(), s, sess, SLNetwork, category_idx, dup_mask)
                     for acc in accs:
                         logger.updateAcc("minor_cards", acc)
 
