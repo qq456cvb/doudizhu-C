@@ -361,9 +361,7 @@ if __name__ == '__main__':
     graph_sl = tf.get_default_graph()
     SLNetwork = CardNetwork(54 * 6, tf.train.AdamOptimizer(learning_rate=0.0001), "SLNetwork")
     variables = tf.all_variables()
-    for v in variables:
-        print(v.name)
-    exit(0)
+
     e = env.Env()
     TRAIN = args.train
     sess = tf.Session(graph=graph_sl)
@@ -503,7 +501,7 @@ if __name__ == '__main__':
                 })
 
                 if minor_cards_targets is not None:
-                    accs = train_fake_action(minor_cards_targets, curr_cards_char.copy(), s, sess, SLNetwork)
+                    accs = train_fake_action(minor_cards_targets, curr_cards_char.copy(), s, sess, SLNetwork, category_idx)
                     for acc in accs:
                         logger.updateAcc("minor_cards", acc)
 
