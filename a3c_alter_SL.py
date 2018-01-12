@@ -643,7 +643,7 @@ if __name__ == '__main__':
 
                     decision_active_output = sess.run(SLNetwork.fc_decision_active_output,
                         feed_dict={
-                            SLNetwork.training: False,
+                            SLNetwork.training: True,
                             SLNetwork.input_state: s,
                             SLNetwork.input_single: np.reshape(input_single, [1, -1]),
                             SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
@@ -662,7 +662,7 @@ if __name__ == '__main__':
                     # give actual response
                     response_active_output = sess.run(SLNetwork.fc_response_active_output,
                         feed_dict={
-                            SLNetwork.training: False,
+                            SLNetwork.training: True,
                             SLNetwork.input_state: s,
                             SLNetwork.input_single: np.reshape(input_single, [1, -1]),
                             SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
@@ -690,7 +690,7 @@ if __name__ == '__main__':
                             active_category_idx == Category.THREE_TWO_LINE.value:
                         seq_length_output = sess.run(SLNetwork.fc_sequence_length_output,
                             feed_dict={
-                                SLNetwork.training: False,
+                                SLNetwork.training: True,
                                 SLNetwork.input_state: s,
                                 SLNetwork.input_single: np.reshape(input_single, [1, -1]),
                                 SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
@@ -712,7 +712,7 @@ if __name__ == '__main__':
                         = sess.run([SLNetwork.fc_decision_passive_output,
                                     SLNetwork.fc_response_passive_output, SLNetwork.fc_bomb_passive_output],
                                     feed_dict={
-                                        SLNetwork.training: False,
+                                        SLNetwork.training: True,
                                         SLNetwork.input_state: s,
                                         SLNetwork.input_single: np.reshape(input_single, [1, -1]),
                                         SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),

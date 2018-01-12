@@ -250,6 +250,8 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
         response_active_output[dup_mask == 0] = -1
         
         if is_pair:
+            # fix dimension mismatch
+            input_pair = np.concatenate([input_pair, [1, 1]])
             response_active_output[input_pair == 0] = -1
         else:
             response_active_output[input_single == 0] = -1
