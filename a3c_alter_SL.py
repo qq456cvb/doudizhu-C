@@ -754,6 +754,13 @@ if __name__ == '__main__':
                         response_passive_output[response_mask == 0] = -1
                         response_passive_pred = np.argmax(response_passive_output)
 
+                    if decision_mask[decision_passive_target] == 0:
+                        raise Exception('decision mask fault')
+
+                    if decision_passive_target == 3:
+                        if response_mask[response_passive_target] == 0:
+                            raise Exception('response mask fault')
+
                 minor_cards_targets = pick_minor_targets(category_idx, to_char(intention))
                 if minor_cards_targets is not None:
                     # print(minor_cards_targets)

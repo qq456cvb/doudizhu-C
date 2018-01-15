@@ -23,7 +23,7 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask):
     for i in range(num):
         response_active_output = sess.run(network.fc_response_active_output,
                 feed_dict = {
-                    network.training: False,
+                    network.training: True,
                     network.input_state: s,
                     network.input_single: np.reshape(input_single, [1, -1]),
                     network.input_pair: np.reshape(input_pair, [1, -1]),
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
                         decision_active_output = sess.run(network.fc_decision_active_output,
                             feed_dict={
-                                network.training: False,
+                                network.training: True,
                                 network.input_state: s,
                                 network.input_single: np.reshape(input_single, [1, -1]),
                                 network.input_pair: np.reshape(input_pair, [1, -1]),
@@ -132,7 +132,7 @@ if __name__ == '__main__':
                         # give actual response
                         response_active_output = sess.run(network.fc_response_active_output,
                             feed_dict={
-                                network.training: False,
+                                network.training: True,
                                 network.input_state: s,
                                 network.input_single: np.reshape(input_single, [1, -1]),
                                 network.input_pair: np.reshape(input_pair, [1, -1]),
@@ -153,7 +153,7 @@ if __name__ == '__main__':
                                 active_category_idx == Category.THREE_TWO_LINE.value:
                             seq_length_output = sess.run(network.fc_sequence_length_output,
                                 feed_dict={
-                                    network.training: False,
+                                    network.training: True,
                                     network.input_state: s,
                                     network.input_single: np.reshape(input_single, [1, -1]),
                                     network.input_pair: np.reshape(input_pair, [1, -1]),
@@ -188,7 +188,7 @@ if __name__ == '__main__':
                             = sess.run([network.fc_decision_passive_output,
                                         network.fc_response_passive_output, network.fc_bomb_passive_output],
                                         feed_dict={
-                                            network.training: False,
+                                            network.training: True,
                                             network.input_state: s,
                                             network.input_single: np.reshape(input_single, [1, -1]),
                                             network.input_pair: np.reshape(input_pair, [1, -1]),

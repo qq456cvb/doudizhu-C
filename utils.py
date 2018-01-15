@@ -238,7 +238,7 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
         input_single, input_pair, input_triple, input_quadric = get_masks(handcards, None)
         response_active_output = sess.run(network.fc_response_active_output,
                 feed_dict = {
-                    network.training: False,
+                    network.training: True,
                     network.input_state: s,
                     network.input_single: np.reshape(input_single, [1, -1]),
                     network.input_pair: np.reshape(input_pair, [1, -1]),
