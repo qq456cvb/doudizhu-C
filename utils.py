@@ -228,6 +228,7 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx):
         acc.append(1 if np.argmax(response_active_output[0]) == target_val else 0)
     return acc
 
+
 def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mask):
     is_pair = False
     if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
@@ -266,6 +267,7 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
 
         acc.append(1 if response_active == target_val else 0)
     return acc
+
 
 def pick_minor_targets(category, cards_char):
     if category == Category.THREE_ONE.value:
@@ -422,3 +424,46 @@ def give_cards_without_minor(response, last_cards_value, category_idx, length_ou
             return np.array([link, link, link]).T.reshape(-1)
         elif category_idx == Category.FOUR_TWO.value:
             return np.array([response + 3] * 4)
+
+
+# assumes that cards has been grouped with minor cards in the end
+def get_category_idx(cards):
+    size = cards.size
+    setsize = len(set(cards))
+    if size == 0:
+        return Category.EMPTY.value
+    if size == 1:
+        return Category.SINGLE.value
+    if size == 2:
+        if cards[0] == cards[1]:
+            return Category.DOUBLE.value
+        return Category.BIGBANG.value
+    if size == 3:
+        return Category.TRIPLE.value
+    if size == 4:
+        if setsize == 1:
+            return Category.QUADRIC.value
+        return Category.THREE_ONE.value
+    if size == 5 and setsize == 2:
+        return Category.THREE_TWO.value
+    if size == 6 and cards[3] == cards[0]:
+        return Category.FOUR_TWO.value
+    if cards[0] != cards[1]:
+        return Category.SINGLE_LINE.value
+    if cards[0] != cards[2]:
+        return Category.DOUBLE_LINE.value
+    if setsize * 3 == size:
+        return Category.TRIPLE_LINE.value
+    if setsize * 2 == size:
+        return Category.THREE_ONE_LINE.value
+    return Category.THREE_TWO_LINE.value
+
+
+if __name__ == '__main__':
+    for i in range(14):
+        for j in range(len(action_space_category[i])):
+            try:
+                assert get_category_idx(np.array(action_space_category[i][j])) == i
+            except AssertionError as error:
+                print(i, action_space_category[i][j])
+

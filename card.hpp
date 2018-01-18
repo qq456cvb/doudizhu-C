@@ -112,6 +112,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData);
 HandCardValue get_HandCardValue(HandCardData &clsHandCardData);
 string get_CardsName(const int& card);
 CardGroupData ins_SurCardsType(int arr[]);
+CardGroupData ins_SurCardsType(vector<int>);
 CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count);
 
 #endif /* card_hpp */

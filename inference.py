@@ -175,6 +175,7 @@ if __name__ == '__main__':
                                 active_category_idx == Category.THREE_TWO_LINE.value or \
                                 active_category_idx == Category.FOUR_TWO.value:
                             dup_mask = np.ones([15])
+                            # TODO: dup mask incorrect for sequence output
                             dup_mask[intention[0] - 3] = 0
                             intention = np.concatenate([intention, to_value(inference_minor_cards(active_category_idx, s, curr_cards_char.copy(), sess, network, seq_length, dup_mask))])
                     else:

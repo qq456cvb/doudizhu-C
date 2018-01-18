@@ -71,7 +71,7 @@ def get_action_space():
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
         for end_v in range(start_v + 3, int(min(start_v + 20 / 2, Card.to_value('*')))):
             seq = range(start_v, end_v)
-            actions.append(Card.to_cards(seq) * 2)
+            actions.append(sorted(Card.to_cards(seq) * 2))
     # print(len(actions))
     Category2Range.append([temp, len(actions)])
     temp = len(actions)
@@ -79,7 +79,7 @@ def get_action_space():
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
         for end_v in range(start_v + 2, int(min(start_v + 20 / 3, Card.to_value('*')))):
             seq = range(start_v, end_v)
-            actions.append(Card.to_cards(seq) * 3)
+            actions.append(sorted(Card.to_cards(seq) * 3))
     # print(len(actions))
     Category2Range.append([temp, len(actions)])
     temp = len(actions)
@@ -91,7 +91,7 @@ def get_action_space():
             remains = [card for card in Card.cards if card not in main]
             for extra in list(itertools.combinations(remains, end_v - start_v)):
                 if not ('*' in list(extra) and '$' in list(extra)):
-                    actions.append(main * 3 + list(extra))
+                    actions.append(sorted(main * 3) + list(extra))
     # print(len(actions))
     Category2Range.append([temp, len(actions)])
     temp = len(actions)
@@ -102,7 +102,7 @@ def get_action_space():
             main = Card.to_cards(seq)
             remains = [card for card in Card.cards if card not in main and card not in ['*', '$']]
             for extra in list(itertools.combinations(remains, end_v - start_v)):
-                actions.append(main * 3 + list(extra) * 2)
+                actions.append(sorted(main * 3) + list(extra) * 2)
     # print(len(actions))
     Category2Range.append([temp, len(actions)])
     temp = len(actions)

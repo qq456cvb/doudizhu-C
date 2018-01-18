@@ -868,6 +868,33 @@ public:
        return true;
    }
 
+    // handcards: 0-56 color cards, last_cards : 3 - 18 value cards
+    static auto step_auto_static(py::array_t<int> handcards, py::array_t<int> last_cards = py::array_t<int>()) {
+        auto c = handcards.unchecked<1>();
+        vector<int> cards;
+        for (int i = 0; i < c.shape(0); i++) {
+            cards.push_back(c[i]);
+        }
+        HandCardData data;
+        data.color_nHandCardList = cards;
+        data.Init();
+
+        if (last_cards.size() == 0) {
+            get_PutCardList_2_unlimit(data);
+        } else {
+            cards.clear();
+            auto last_cards_ptr = last_cards.unchecked<1>();
+            for (int i = 0; i < last_cards_ptr.shape(0); i++) {
+                cards.push_back(last_cards_ptr[i]);
+            }
+            GameSituation sit;
+            sit.uctNowCardGroup = ins_SurCardsType(cards);
+            get_PutCardList_2_limit(sit, data);
+        }
+        auto intention = data.value_nPutCardList;
+        return vector2numpy(intention);
+    }
+
     auto step_auto() {
         get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         arrHandCardData[indexID].PutCards();
@@ -983,6 +1010,7 @@ PYBIND11_MODULE(env, m) {
         .def("step_manual", &Env::step_manual, py::arg("cards") = py::array_t<int>())
         .def("step_trial", &Env::step_trial, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
         .def("step_auto", &Env::step_auto)
+        .def_static("step_auto_static", &Env::step_auto_static)
         .def("step2", &Env::step2, py::arg("cards") = py::array_t<int>())
         .def("step2_auto", &Env::step2_auto)
         .def("will_lose_control", &Env::will_lose_control)
