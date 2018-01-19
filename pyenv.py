@@ -4,6 +4,7 @@ from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
     get_mask, action_space_single, action_space_pair, get_category_idx
 import sys
 import copy
+import time
 from statewrapper import WrappedState
 
 sys.path.insert(0, './build/Release')
@@ -35,6 +36,22 @@ class Pyenv:
         self.last_category_idx = 0
         self.idx = 0
 
+    def get_role_ID(self):
+        if self.idx == self.lord_idx:
+            return 2
+        if self.idx == (self.lord_idx + 2) % 3:
+            return 1
+        if self.idx == (self.lord_idx + 1) % 3:
+            return 3
+
+    def get_state(self):
+        selfcards = Card.char2onehot(self.player_cards[self.idx])
+        histories = [Card.char2onehot(self.histories[(self.idx + i) % 3]) for i in range(3)]
+        total = np.ones([54])
+        extra_cards = Card.char2onehot(self.extra_cards)
+        remains = total - selfcards - histories[0] - histories[1] - histories[2]
+        return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
+
     def prepare(self):
         cards = np.array(Pyenv.total_cards.copy())
         np.random.shuffle(cards)
@@ -58,13 +75,20 @@ class Pyenv:
             self.land_score = 1
         self.idx = self.lord_idx
 
-    def get_handcards(self, idx):
-        return self.player_cards[idx]
+    def get_handcards(self):
+        return self.player_cards[self.idx]
 
-    def step(self, intention, idx):
+    def get_last_outcards(self):
+        if self.idx != self.control_idx:
+            return self.last_cards
+        else:
+            return None
+
+    def step(self, intention):
+        idx = self.idx
+        self.idx = (idx + 1) % 3
         if intention.size == 0:
-            idx = (idx + 1) % 3
-            return 0, False, idx
+            return 0, False
 
         self.last_category_idx = get_category_idx(intention)
         self.last_cards = intention
@@ -79,10 +103,10 @@ class Pyenv:
         if intention.size == 4 and np.count_nonzero(intention == intention[0]) == 4:
             self.land_score *= 2
 
-        idx = (idx + 1) % 3
         if self.player_cards[idx].size == 0:
-            return self.land_score, True, idx
-        return 0, False, idx
+            self.idx = idx
+            return self.land_score, True
+        return 0, False
 
     def dump_state(self):
         s = WrappedState()
@@ -115,6 +139,7 @@ class Pyenv:
             s['land_score'] *= 2
 
         if player_cards[idx].size == 0:
+            s['idx'] = idx
             return s['land_score'], True
         return 0, False
 
@@ -229,8 +254,9 @@ class Pyenv:
                 sprime['minor_cards'] += [to_char(a+3)] * (2 if is_pair else 1)
             sprime['curr_minor_length'] += 1
             if sprime['curr_minor_length'] == sprime['minor_length']:
+                sprime['stage'] = ''
                 intention = np.concatenate([sprime['main_cards'], sprime['minor_cards']])
-                return Pyenv.step_helper(sprime, np.array(to_char(intention)))
+                return Pyenv.step_helper(sprime, np.array(intention))
             else:
                 sprime['dup_mask'][a] = 0
                 return sprime, 0, False

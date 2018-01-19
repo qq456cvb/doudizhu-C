@@ -459,6 +459,14 @@ def get_category_idx(cards):
     return Category.THREE_TWO_LINE.value
 
 
+def discard_cards(handcards, intention):
+    for card in intention:
+        for i in range(handcards.size):
+            if handcards[i] == card:
+                handcards = np.delete(handcards, i)
+                break
+
+
 if __name__ == '__main__':
     for i in range(14):
         for j in range(len(action_space_category[i])):

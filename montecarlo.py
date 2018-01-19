@@ -2,7 +2,8 @@ import numpy as np
 import math
 from pyenv import Pyenv
 import card
-from utils import to_char, to_value
+from card import Category
+from utils import to_char, to_value, give_cards_without_minor
 import copy
 
 import sys
@@ -107,7 +108,7 @@ class Node:
         self.s = state
         self.a = actions
         self.src = src
-        self.edges = [Edge(self, self.s, a, 0) for a in self.a]
+        self.edges = [Edge(self, self.s, a, 1. / actions.size) for a in self.a]
 
     def choose(self, c):
         nsum_sqrt = math.sqrt(sum([e.n for e in self.edges]))
@@ -140,14 +141,14 @@ class MCTree:
                 self.backup(leaf, val)
     
     def explore(self, node):
-        edge = node.choose(0)
+        edge = node.choose(5.)
         sprime, r, done = self.env.step_static(edge.s, edge.a)
         if done:
             if not edge.node:
                 edge.node = Node(edge, sprime, self.env.get_actionspace(sprime))
                 return r, edge.node
             else:
-                # if we ran into this again, we want to reinforce our intuition
+                # if we ran into this again, we'd like to reinforce our intuition
                 return r, edge.node
         if edge.node:
             return self.explore(edge.node)
@@ -170,19 +171,178 @@ class MCTree:
         # print([e.n for e in self.root.edges])
         probs = np.array([pow(e.n, 1. / temp) for e in self.root.edges])
         probs = probs / np.sum(probs)
-        print(probs)
+        # print(probs)
         return np.argmax(probs)
         # return np.random.choice(probs.size, p=probs)
 
+    def give_cards_helper(self, node, temp, nactions):
+        probs = np.zeros([nactions])
+        valid_idx = [e.a for e in node.edges]
+        for e in node.edges:
+            probs[e.a] = pow(e.n, 1. / temp)
+        probs = probs / np.sum(probs)
 
+        # TODO: change max to sampling
+        idx_max = np.argmax(probs[valid_idx])
+        return node.edges[idx_max], probs
+
+    # return mode, target distribution, intention
+    def step(self, temp):
+        distribution = {
+            'decision_passive': np.zeros([4]),
+            'bomb_passive': np.zeros([13]),
+            'response_passive': np.zeros([14]),
+            'decision_active': np.zeros([13]),
+            'response_active': np.zeros([15]),
+            'seq_length': np.zeros([12]),
+            'minor_cards': [],
+            'cards_history': []
+        }
+
+        s = self.root.s
+        if s['stage'] == 'p_decision':
+            decision_edge, distribution['decision_passive'] = self.give_cards_helper(self.root, temp, 4)
+            decision = decision_edge.a
+            if decision == 0:
+                return 0, distribution, np.array([])
+            elif decision == 1:
+                bomb_edge, distribution['bomb_passive'] = self.give_cards_helper(decision_edge.node, temp, 13)
+                return 1, distribution, np.array(to_char([bomb_edge.a + 3] * 4))
+            elif decision == 2:
+                return 0, distribution, np.array(['*', '$'])
+            elif decision == 3:
+                response_edge, distribution['response_passive'] = self.give_cards_helper(decision_edge.node, temp, 14)
+                bigger = response_edge.a + 1
+                intention = give_cards_without_minor(bigger, np.array(
+                    to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])), s['last_category_idx'], None)
+                return 2, distribution, np.array(to_char(intention))
+        elif s['stage'] == 'a_decision':
+            decision_edge, distribution['decision_active'] = self.give_cards_helper(self.root, temp, 13)
+            active_category_idx = decision_edge.a + 1
+            node = decision_edge.node
+
+            # give response and go down once
+            response_edge, distribution['response_active'] = self.give_cards_helper(node, temp, 15)
+            node = response_edge.node
+
+            mode = 3
+            seq_length = None
+            if active_category_idx == Category.SINGLE_LINE.value or \
+                    active_category_idx == Category.DOUBLE_LINE.value or \
+                    active_category_idx == Category.TRIPLE_LINE.value or \
+                    active_category_idx == Category.THREE_ONE_LINE.value or \
+                    active_category_idx == Category.THREE_TWO_LINE.value:
+                seq_length_edge, distribution['seq_length'] = self.give_cards_helper(node, temp, 12)
+                seq_length = response_edge.a + 1
+                node = seq_length_edge.node
+                mode = 4
+            intention = give_cards_without_minor(response_edge.a, np.array(
+                to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])),
+                                                 active_category_idx, seq_length)
+            if active_category_idx == Category.THREE_ONE.value or \
+                    active_category_idx == Category.THREE_TWO.value or \
+                    active_category_idx == Category.THREE_ONE_LINE.value or \
+                    active_category_idx == Category.THREE_TWO_LINE.value or \
+                    active_category_idx == Category.FOUR_TWO.value:
+                mode += 5
+                minor_cards = []
+                distribution['cards_history'].append(to_char(intention))
+                while node.s['stage'] == 'a_minor':
+                    minor_card_edge, minor_dist = self.give_cards_helper(node, temp, 15)
+                    distribution['minor_cards'].append(minor_dist)
+                    minor_card = minor_card_edge.a + 3
+                    minor_cards.append(minor_card)
+                    distribution['cards_history'].append([to_char(minor_card)])
+                    if node.s['is_pair']:
+                        minor_cards.append(minor_card)
+                        distribution['cards_history'][-1].append(to_char(minor_card))
+                    node = minor_card_edge.node
+                intention = np.concatenate([intention, minor_cards])
+            return mode, distribution, np.array(to_char(intention))
+
+    def give_cards(self, temp):
+        decision_idx, decision = self.give_cards_helper(self.root, temp)
+        s = self.root.s
+        if s['stage'] == 'p_decision':
+            if decision == 0:
+                return np.array([])
+            elif decision == 1:
+                _, bomb_response = self.give_cards_helper(self.root.edges[decision_idx].node, temp)
+                return np.array(to_char([bomb_response + 3] * 4))
+            elif decision == 2:
+                return np.array(['*', '$'])
+            elif decision == 3:
+                _, bigger = self.give_cards_helper(self.root.edges[decision_idx].node, temp)
+                bigger += 1
+                intention = give_cards_without_minor(bigger, np.array(
+                    to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])), s['last_category_idx'], None)
+                return np.array(to_char(intention))
+        elif s['stage'] == 'a_decision':
+            active_category_idx = decision + 1
+            node = self.root.edges[decision_idx].node
+            # give response and go down once
+            response_active_idx, response_active = self.give_cards_helper(node, temp)
+            node = node.edges[response_active_idx].node
+
+            seq_length = None
+            if active_category_idx == Category.SINGLE_LINE.value or \
+                    active_category_idx == Category.DOUBLE_LINE.value or \
+                    active_category_idx == Category.TRIPLE_LINE.value or \
+                    active_category_idx == Category.THREE_ONE_LINE.value or \
+                    active_category_idx == Category.THREE_TWO_LINE.value:
+                seq_length_idx, seq_length = self.give_cards_helper(node, temp)
+                seq_length += 1
+                node = node.edges[seq_length_idx].node
+            intention = give_cards_without_minor(response_active, np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])),
+                                                 active_category_idx, seq_length)
+            if active_category_idx == Category.THREE_ONE.value or \
+                    active_category_idx == Category.THREE_TWO.value or \
+                    active_category_idx == Category.THREE_ONE_LINE.value or \
+                    active_category_idx == Category.THREE_TWO_LINE.value or \
+                    active_category_idx == Category.FOUR_TWO.value:
+                minor_cards = []
+                while node.s['stage'] == 'a_minor':
+                    minor_card_idx, minor_card = self.give_cards_helper(node, temp)
+                    minor_card += 3
+                    minor_cards.append(minor_card)
+                    if node.s['is_pair']:
+                        minor_cards.append(minor_card)
+                    node = node.edges[minor_card_idx].node
+                intention = np.concatenate([intention, minor_cards])
+            return np.array(to_char(intention))
+
+import tensorflow as tf
 if __name__ == '__main__':
-    pyenv = Pyenv()
-    pyenv.prepare()
-    s = pyenv.dump_state()
-    s['player_cards'][s['idx']] = np.array(['5', '5'])
-    mctree = MCTree(s)
-    mctree.search(1, 1000)
-    mctree.play(1.)
+    x = tf.placeholder(tf.float32, [None])
+    y = tf.squeeze(tf.Variable([[2.], [3.]]))
+    loss = tf.reduce_sum(tf.square(x - y))
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        l = sess.run(loss, feed_dict={
+            x: np.array([2, 2])
+        })
+        print(l)
+    # pyenv = Pyenv()
+    # for i in range(1):
+    #     done = False
+    #     pyenv.reset()
+    #     pyenv.prepare()
+    #     # pyenv.player_cards[0] = pyenv.player_cards[0][:-2]
+    #     pyenv.player_cards[pyenv.lord_idx] = np.array(['$', '2', 'A', 'K', 'Q', 'J'])
+    #     while not done:
+    #         s = pyenv.dump_state()
+    #         # s['player_cards'][s['idx']] = np.array(['5', '5', '5', '3'])
+    #         mctree = MCTree(s)
+    #         # print(mctree.root.a)
+    #         try:
+    #             mctree.search(1, 100)
+    #         except ValueError:
+    #             mctree.search(1, 1)
+    #         # print(mctree.root.a)
+    #         intention = mctree.give_cards(1.)
+    #         print(pyenv.idx, pyenv.get_handcards())
+    #         print('intention: ', intention)
+    #         _, done = pyenv.step(intention)
 
     # env = Environment()
     # evltr = Evaluator(env)

@@ -297,14 +297,6 @@ class CardNetwork:
             with tf.variable_scope("has_seq_length"):
                 self.has_seq_length = tf.placeholder(tf.bool, [None], name='has_seq_length')
 
-            # # minor cards
-            # with tf.variable_scope("minor_cards"):
-            #     self.has_minor_cards = tf.placeholder(tf.bool, [None], name='minor_cards')
-            #     self.minor_mask = tf.to_float(self.has_minor_cards)
-            #     self.minor_cards_target = tf.placeholder(tf.float32, [None, 15], name='minor_cards_target')
-            #     self.minor_loss = tf.reduce_sum(tf.square(self.minor_cards_target - self.fc_cards_value_output), 1)
-            #     self.minor_loss = self.minor_mask * self.minor_loss
-
             # passive mode
             with tf.variable_scope("passive_mode_loss"):
                 self.is_passive_bomb = tf.placeholder(tf.bool, [None], name='passive_bomb')
@@ -335,7 +327,6 @@ class CardNetwork:
                 self.seq_length_input = tf.placeholder(tf.int32, [None], name='sequence_length_in')
                 self.seq_length_target = tf.one_hot(self.seq_length_input, 12)
                 self.seq_length_loss = -tf.to_float(self.has_seq_length) * tf.reduce_sum(self.seq_length_target * tf.log(tf.clip_by_value(self.fc_sequence_length_output, 1e-10, 1-(1e-10))), 1)
-
 
             with tf.variable_scope("passive_loss"):
                 self.passive_loss = tf.reduce_sum(self.passive_decision_loss + tf.to_float(self.did_passive_response) * self.passive_response_loss + \

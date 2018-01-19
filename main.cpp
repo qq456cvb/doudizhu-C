@@ -406,10 +406,12 @@ public:
         auto self_cards = toOneHot(arrHandCardData[indexID].color_nHandCardList);
 
         std::vector<int> remains = total - self_cards;
+
+        // normalize history order
         vector<int> history[3] = {
-            toOneHot(clsGameSituation->color_aUnitOutCardList[0]),
-            toOneHot(clsGameSituation->color_aUnitOutCardList[1]),
-            toOneHot(clsGameSituation->color_aUnitOutCardList[2])
+            toOneHot(clsGameSituation->color_aUnitOutCardList[indexID]),
+            toOneHot(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
+            toOneHot(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
         };
         for (int i = 0; i < 3; i++) {
             remains = remains - history[i];
