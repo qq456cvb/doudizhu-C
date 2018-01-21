@@ -52,6 +52,15 @@ class Pyenv:
         remains = total - selfcards - histories[0] - histories[1] - histories[2]
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
+    @staticmethod
+    def get_state_static(s):
+        selfcards = Card.char2onehot(s['player_cards'][s['idx']])
+        histories = [Card.char2onehot(s['histories'][(s['idx'] + i) % 3]) for i in range(3)]
+        total = np.ones([54])
+        extra_cards = Card.char2onehot(s['extra_cards'])
+        remains = total - selfcards - histories[0] - histories[1] - histories[2]
+        return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
+
     def prepare(self):
         cards = np.array(Pyenv.total_cards.copy())
         np.random.shuffle(cards)
@@ -308,10 +317,26 @@ class Pyenv:
             dup_mask = s['dup_mask']
             return np.arange(15)[dup_mask == 1]
 
+import tensorflow as tf, threading, time
+
+class A:
+    def test(self, nthreads):
+        coord = tf.train.Coordinator()
+        threads = []
+        for i in range(nthreads):
+            t = threading.Thread(target=self.search_thread, args=(i,))
+            t.start()
+            time.sleep(0.25)
+            threads.append(t)
+        coord.join(threads)
+
+    def search_thread(self, i):
+        print(i)
+
 
 if __name__ == '__main__':
-    pyenv = Pyenv()
-    print(pyenv.__dict__)
+    a = A()
+    a.test(4)
     # last_cards = np.array(['7', '7'])
     # curr_handcards = Card.char2color(np.array(['5', '6', '7', '7']))
     # print(env.Env.step_auto_static(curr_handcards, to_value(last_cards)))

@@ -30,127 +30,126 @@ class CardAgent:
         self.episodes = tf.Variable(0, dtype=tf.int32, name='episodes_' + name, trainable=False)
         self.increment = self.episodes.assign_add(1)
         self.main_network = CardNetwork(54 * 6, trainer, self.name)
-        self.action_space_single = action_space[1:16]
-        self.action_space_pair = action_space[16:29]
-        self.action_space_triple = action_space[29:42]
-        self.action_space_quadric = action_space[42:55]
 
-    def train_batch_packed(self, buffer, sess, gamma, val_last):
-        rewards = np.array([buffer[i][1] for i in range(len(buffer))])
-        values = np.array([buffer[i][2] for i in range(len(buffer))])
-
-        rewards_plus = np.append(rewards, val_last)
-        val_truth = discounted_return(rewards_plus, gamma)[:-1]
-
-        val_pred_plus = np.append(values, val_last)
-        td0 = rewards + gamma * val_pred_plus[1:] - val_pred_plus[:-1]
-        advantages = discounted_return(td0, gamma)
-
-        records = []
-
-        for i in range(len(buffer)):
-            buffer[i][18] = advantages[i]
-            buffer[i][19] = [val_truth[i]]
-            buff = buffer[i]
-            records.append(self.train_batch(buff, sess))
-
-        return records
-
-    def train_batch(self, buffer, sess):
-        training, input_state, input_single, input_pair, input_triple, \
-        input_quadric, is_active, has_seq_length, seq_length_input, \
-        is_passive_bomb, is_passive_king, passive_decision_input, \
-        passive_response_input, passive_bomb_input, active_decision_input, \
-        active_response_input, advantages, val_truth, train_decision, train_response = [buffer[i] for i in range(2, 22)]
-
-        # pick up masks
-        passive_decision_mask_input, passive_response_mask_input, passive_bomb_mask_input, \
-        active_decision_mask_input, active_response_mask_input, active_seq_length_mask_input = [buffer[i] for i in
-                                                                                                range(22, 28)]
-
-        # main network training
-        decision_passive_output, response_passive_output, bomb_passive_output, \
-        decision_active_output, response_active_output, main_loss, main_val_loss, \
-        active_decision_loss, active_response_loss, passive_decision_loss, passive_response_loss, passive_bomb_loss, main_grads, _ \
-            = sess.run([self.main_network.fc_decision_passive_output,
-                        self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output,
-                        self.main_network.fc_decision_active_output, self.main_network.fc_response_active_output,
-                        self.main_network.loss, self.main_network.val_loss,
-                        self.main_network.active_decision_loss, self.main_network.active_response_loss,
-                        self.main_network.passive_decision_loss,
-                        self.main_network.passive_response_loss, self.main_network.passive_bomb_loss,
-                        self.main_network.gradients,
-                        self.main_network.optimize],
+    def evaluate(self, s, sess):
+        assert not s.is_intermediate()
+        curr_hands_char = s['player_cards'][s['idx']]
+        input_single, input_pair, input_triple, input_quadric = get_masks(curr_hands_char,
+                                                                          s['last_cards'] if s['idx'] != s[
+                                                                              'control_idx'] else None)
+        val = sess.run(self.main_network.fc_value_output,
                        feed_dict={
-                           self.main_network.training: training,
-                           self.main_network.input_state: input_state,
+                           self.main_network.training: True,
+                           self.main_network.input_state: Pyenv.get_state_static(s).reshape(1, -1),
                            self.main_network.input_single: input_single.reshape(1, -1),
                            self.main_network.input_pair: input_pair.reshape(1, -1),
                            self.main_network.input_triple: input_triple.reshape(1, -1),
-                           self.main_network.input_quadric: input_quadric.reshape(1, -1),
-                           self.main_network.val_truth: val_truth,
-                           self.main_network.advantages: advantages,
-                           self.main_network.is_active: np.array([is_active]),
-                           self.main_network.has_seq_length: np.array([has_seq_length]),
-                           self.main_network.length_input: np.array([seq_length_input]),
-                           self.main_network.is_passive_bomb: np.array([is_passive_bomb]),
-                           self.main_network.is_passive_king: np.array([is_passive_king]),
-                           self.main_network.passive_decision_input: np.array([passive_decision_input]),
-                           self.main_network.passive_response_input: np.array([passive_response_input]),
-                           self.main_network.passive_bomb_input: np.array([passive_bomb_input]),
-                           self.main_network.active_decision_input: np.array([active_decision_input]),
-                           self.main_network.active_response_input: np.array([active_response_input]),
-                           self.main_network.train_decision: np.array([train_decision]),
-                           self.main_network.train_response: np.array([train_response]),
-                           self.main_network.passive_decision_mask: passive_decision_mask_input.reshape(1, -1).astype(
-                               bool),
-                           self.main_network.passive_response_mask: passive_response_mask_input.reshape(1, -1).astype(
-                               bool),
-                           self.main_network.passive_bomb_mask: passive_bomb_mask_input.reshape(1, -1).astype(bool),
-                           self.main_network.active_decision_mask: active_decision_mask_input.reshape(1, -1).astype(
-                               bool),
-                           self.main_network.active_response_mask: active_response_mask_input.reshape(1, -1).astype(
-                               bool),
-                           self.main_network.seq_length_mask: active_seq_length_mask_input.reshape(1, -1).astype(bool)
-                       })
+                           self.main_network.input_quadric: input_quadric.reshape(1, -1)
+                       })[0]
+        return val
 
-        episode = sess.run(self.episodes)
-        return [decision_passive_output, response_passive_output, bomb_passive_output,
-                decision_active_output, response_active_output, main_loss, main_val_loss,
-                active_decision_loss, active_response_loss, passive_decision_loss, passive_response_loss,
-                passive_bomb_loss,
-                main_grads]
+    def predict(self, s, valid_space, sess):
+        stage = s['stage']
+        curr_hands_char = s['player_cards'][s['idx']]
+        input_single, input_pair, input_triple, input_quadric = get_masks(curr_hands_char, s['last_cards'] if s['idx'] != s['control_idx'] else None)
+        feeddict = {
+            self.main_network.training: True,
+            self.main_network.input_state: Pyenv.get_state_static(s).reshape(1, -1),
+            self.main_network.input_single: input_single.reshape(1, -1),
+            self.main_network.input_pair: input_pair.reshape(1, -1),
+            self.main_network.input_triple: input_triple.reshape(1, -1),
+            self.main_network.input_quadric: input_quadric.reshape(1, -1)
+        }
+        if stage == 'p_decision':
+            decision_output = sess.run(self.main_network.fc_decision_passive_output,
+                                       feed_dict=feeddict)[0]
+            return decision_output[valid_space]
+        elif stage == 'p_bomb':
+            bomb_output = sess.run(self.main_network.fc_bomb_passive_output,
+                                   feed_dict=feeddict)[0]
+            return bomb_output[valid_space]
+        elif stage == 'p_response':
+            response_output = sess.run(self.main_network.fc_response_passive_output,
+                                       feed_dict=feeddict)[0]
+            return response_output[valid_space]
+        elif stage == 'a_decision':
+            decision_output = sess.run(self.main_network.fc_decision_active_output,
+                                       feed_dict=feeddict)[0]
+            return decision_output[valid_space]
+        elif stage == 'a_response':
+            response_output = sess.run(self.main_network.fc_response_active_output,
+                                       feed_dict=feeddict)[0]
+            return response_output[valid_space]
+        elif stage == 'a_length':
+            length_output = sess.run(self.main_network.fc_sequence_length_output,
+                                       feed_dict=feeddict)[0]
+            return length_output[valid_space]
+        elif stage == 'a_minor':
+            card_history = s['main_cards'] + s['minor_cards']
+            curr_hands_char = discard_cards(curr_hands_char, card_history)
+            input_single, input_pair, input_triple, input_quadric = get_masks(curr_hands_char,
+                                                                              s['last_cards'] if s['idx'] != s[
+                                                                                  'control_idx'] else None)
+            # TODO: correct for state
+            state = Pyenv.get_state_static(s)
+            cards_onehot = card.Card.char2onehot(card_history)
+
+            state[:54] -= cards_onehot
+            state[2 * 54:3 * 54] += cards_onehot
+            minor_output = sess.run(self.main_network.fc_response_active_output,
+                                    feed_dict={
+                                        self.main_network.training: True,
+                                        self.main_network.input_state: state.reshape(1, -1),
+                                        self.main_network.input_single: input_single.reshape(1, -1),
+                                        self.main_network.input_pair: input_pair.reshape(1, -1),
+                                        self.main_network.input_triple: input_triple.reshape(1, -1),
+                                        self.main_network.input_quadric: input_quadric.reshape(1, -1)
+            })[0]
+            return minor_output[valid_space]
+        else:
+            raise Exception('unexpected stage name')
 
     def train_batch_sampled(self, buffer, batch_size):
-        batch_idx = np.random.choice(len(buffer), batch_size)
-        input_states, input_singles, input_pairs, input_triples, input_quadrics, vals, modes = [np.array([buffer[i][j] for i in batch_idx]) for j in range(7)]
-        passive_decision_input, passive_response_input, passive_bomb_input, active_decision_input, \
-            active_response_input, seq_length_input = [np.array([buffer[i][7][k] for i in batch_idx])
-                                                       for k in ['decision_passive', 'bomb_passive', 'response_passive',
-                                                                 'decision_active', 'response_active', 'seq_length']]
-        _, loss, gradients, decision_passive_output, response_passive_output, bomb_passive_output, \
-            decision_active_output, response_active_output, seq_length_output \
-            = sess.run([self.main_network.optimize, self.main_network.loss,
-                        self.main_network.gradients, self.main_network.fc_decision_passive_output,
-                        self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output,
-                        self.main_network.fc_decision_active_output, self.main_network.fc_response_active_output,
-                        self.main_network.fc_sequence_length_output
-                        ],
-                       feed_dict={
-                           self.main_network.training: True,
-                           self.main_network.input_state: input_states,
-                           self.main_network.input_single: input_singles,
-                           self.main_network.input_pair: input_pairs,
-                           self.main_network.input_triple: input_triples,
-                           self.main_network.input_quadric: input_quadrics,
-                           self.main_network.passive_decision_input: passive_decision_input,
-                           self.main_network.passive_response_input: passive_response_input,
-                           self.main_network.passive_bomb_input: passive_bomb_input,
-                           self.main_network.active_decision_input: active_decision_input,
-                           self.main_network.active_response_input: active_response_input,
-                           self.main_network.value_input: vals
-                       })
-        return loss, gradients
+        num_of_iters = len(buffer) // batch_size
+        mean_loss = 0
+        mean_var_norm = 0
+        mean_grad_norm = 0
+        for _ in range(num_of_iters):
+            batch_idx = np.random.choice(len(buffer), batch_size)
+            input_states, input_singles, input_pairs, input_triples, input_quadrics, vals, modes = [np.array([buffer[i][j] for i in batch_idx]) for j in range(7)]
+            passive_decision_input, passive_bomb_input, passive_response_input, active_decision_input, \
+                active_response_input, seq_length_input = [np.array([buffer[i][7][k] for i in batch_idx])
+                                                           for k in ['decision_passive', 'bomb_passive', 'response_passive',
+                                                                     'decision_active', 'response_active', 'seq_length']]
+            _, loss, var_norm, gradient_norm, decision_passive_output, response_passive_output, bomb_passive_output, \
+                decision_active_output, response_active_output, seq_length_output \
+                = sess.run([self.main_network.optimize, self.main_network.loss, self.main_network.var_norms,
+                            self.main_network.grad_norms, self.main_network.fc_decision_passive_output,
+                            self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output,
+                            self.main_network.fc_decision_active_output, self.main_network.fc_response_active_output,
+                            self.main_network.fc_sequence_length_output
+                            ],
+                           feed_dict={
+                               self.main_network.training: True,
+                               self.main_network.input_state: input_states,
+                               self.main_network.input_single: input_singles,
+                               self.main_network.input_pair: input_pairs,
+                               self.main_network.input_triple: input_triples,
+                               self.main_network.input_quadric: input_quadrics,
+                               self.main_network.passive_decision_input: passive_decision_input,
+                               self.main_network.passive_response_input: passive_response_input,
+                               self.main_network.passive_bomb_input: passive_bomb_input,
+                               self.main_network.active_decision_input: active_decision_input,
+                               self.main_network.active_response_input: active_response_input,
+                               self.main_network.value_input: vals
+                           })
+            mean_loss += loss
+            mean_grad_norm += gradient_norm
+            mean_var_norm += var_norm
+        mean_loss /= num_of_iters
+        mean_var_norm /= num_of_iters
+        mean_grad_norm /= num_of_iters
+        return mean_loss, mean_var_norm, mean_grad_norm
 
 
 class CardMaster:
@@ -164,7 +163,7 @@ class CardMaster:
 
         self.train_intervals = 10
 
-        self.trainer = tf.train.AdamOptimizer(learning_rate=0.0001)
+        self.trainer = tf.train.AdamOptimizer(learning_rate=0.001)
         self.episode_rewards = [[] for i in range(3)]
         self.episode_length = [[] for i in range(3)]
         self.episode_mean_values = [[] for i in range(3)]
@@ -175,38 +174,13 @@ class CardMaster:
         self.global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
         self.increment = self.global_episodes.assign_add(1)
 
-    def train_batch(self, buffer, sess, gamma, val_last, idx):
-        buffer = np.array(buffer)
-        return self.agents[idx].train_batch(buffer, sess, gamma, val_last)
-
-    def train_batch_packed(self, buffer, sess, gamma, val_last, idx):
-        return self.agents[idx].train_batch_packed(buffer, sess, gamma, val_last)
-
     def train_batch_sampled(self, buffer, batch_size):
+        logs = []
         for i in range(len(buffer)):
-            self.agents[i].train_batch_sampled(buffer[i], batch_size)
+            logs.append(self.agents[i].train_batch_sampled(buffer[i], batch_size))
+        return logs
 
-    def respond(self, env):
-        mask = get_mask(to_char(self.env.get_curr_handcards()), self.action_space,
-                        to_char(self.env.get_last_outcards()))
-        s = env.get_state()
-        s = np.reshape(s, [1, -1])
-        policy, val = self.sess.run([
-            self.agents[0].network.valid_policy,
-            self.agents[0].network.val_pred],
-            feed_dict={
-                self.agents[0].network.input: s,
-                self.agents[0].network.mask: np.reshape(mask, [1, -1])
-            })
-        policy = policy[0]
-        valid_actions = np.take(np.arange(self.a_dim), mask.nonzero())
-        valid_actions = valid_actions.reshape(-1)
-        # a = np.random.choice(valid_actions, p=policy)
-        a = valid_actions[np.argmax(policy)]
-        # print("taking action: ", self.action_space[a])
-        return env.step(self.action_space[a])
-
-    # train two farmers simultaneously
+    # train three agents simultaneously
     def run(self, sess, saver, max_episode_length):
         self.sess = sess
         with sess.as_default():
@@ -223,6 +197,7 @@ class CardMaster:
                 episode_reward = [0, 0, 0]
                 episode_steps = [0, 0, 0]
 
+                logs = []
                 for l in range(max_episode_length):
                     s = self.env.get_state()
                     # time.sleep(1)
@@ -235,9 +210,10 @@ class CardMaster:
                     input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char)
 
                     dump_s = self.env.dump_state()
-                    mctree = MCTree(dump_s)
-                    mctree.search(1, 100)
+                    mctree = MCTree(dump_s, self.agents[train_id], self.sess)
+                    mctree.search(1, 1)
 
+                    # TODO: decay temperature through time
                     mode, distribution, intention = mctree.step(1.)
                     has_minor = False
                     if mode > 4:
@@ -264,35 +240,39 @@ class CardMaster:
 
                     r, done = self.env.step(intention)
 
+                    episode_reward[train_id] += r
+                    episode_steps[train_id] += 1
+
                     if done:
                         for buf in episode_buffer[train_id]:
                             # update reward, with no decay
-                            buf[-1] = r
+                            buf[-3] = r
+
                         for i in range(3):
                             if i == train_id:
                                 continue
                             if train_id == lord_idx:
                                 for buf in episode_buffer[i]:
                                     # update reward, with no decay
-                                    buf[-1] = -r
+                                    buf[-3] = -r
+                                    episode_reward[i] += -r
                             elif i == lord_idx:
                                 for buf in episode_buffer[i]:
                                     # update reward, with no decay
-                                    buf[-1] = -r
+                                    buf[-3] = -r
+                                    episode_reward[i] += -r
                             else:
                                 for buf in episode_buffer[i]:
                                     # update reward, with no decay
-                                    buf[-1] = r
+                                    buf[-3] = r
+                                    episode_reward[i] += r
 
                         # then sample buffer for training
-                        self.train_batch_sampled([episode_buffer[i] for i in range(3)], 8)
-
-                    # episode_values[train_id].append(val_output[0])
-                    episode_reward[train_id] += r
-                    episode_steps[train_id] += 1
+                        logs = self.train_batch_sampled([episode_buffer[i] for i in range(3)], 8)
+                        break
 
                 for i in range(3):
-                    self.episode_mean_values[i].append(np.mean(episode_values[i]))
+                    # self.episode_mean_values[i].append(np.mean(episode_values[i]))
                     self.episode_length[i].append(episode_steps[i])
                     self.episode_rewards[i].append(episode_reward[i])
 
@@ -303,18 +283,18 @@ class CardMaster:
                     if episodes % update_rate == 0 and episodes > 0:
                         mean_reward = np.mean(self.episode_rewards[i][-update_rate:])
                         mean_length = np.mean(self.episode_length[i][-update_rate:])
-                        mean_value = np.mean(self.episode_mean_values[i][-update_rate:])
+                        # mean_value = np.mean(self.episode_mean_values[i][-update_rate:])
 
                         summary = tf.Summary()
-                        # TODO: add more summary
+                        # TODO: add more summary with value loss
                         summary.value.add(tag='Performance/rewards', simple_value=float(mean_reward))
                         summary.value.add(tag='Performance/length', simple_value=float(mean_length))
-                        summary.value.add(tag='Performance/values', simple_value=float(mean_value))
-                        # summary.value.add(tag='Losses/Value Loss', simple_value=float(val_loss))
+                        # summary.value.add(tag='Performance/values', simple_value=float(mean_value))
+                        summary.value.add(tag='Losses/Loss', simple_value=float(logs[i][0]))
                         # summary.value.add(tag='Losses/Prob pred', simple_value=float(pred_prob))
                         # summary.value.add(tag='Losses/Policy Loss', simple_value=float(policy_loss))
-                        # summary.value.add(tag='Losses/Grad Norm', simple_value=float(grad_norms))
-                        # summary.value.add(tag='Losses/Var Norm', simple_value=float(var_norms))
+                        summary.value.add(tag='Losses/Var Norm', simple_value=float(logs[i][1]))
+                        summary.value.add(tag='Losses/Grad Norm', simple_value=float(logs[i][2]))
                         # summary.value.add(tag='Losses/Policy Norm', simple_value=float(p_norm))
                         # summary.value.add(tag='Losses/a0', simple_value=float(a0))
                         self.summary_writers[i].add_summary(summary, episodes)
@@ -322,7 +302,7 @@ class CardMaster:
 
                 global_episodes += 1
                 sess.run(self.increment)
-                if global_episodes % 1000 == 0:
+                if global_episodes % 100 == 0:
                     saver.save(sess, './model' + '/model-' + str(global_episodes) + '.cptk')
                     print("Saved Model")
 
@@ -399,9 +379,8 @@ if __name__ == '__main__':
 
     load_model = False
     model_path = './model'
-    cardgame = env.Env()
-    master = CardMaster(cardgame)
-    saver = tf.train.Saver(max_to_keep=20)
+    master = CardMaster()
+    saver = tf.train.Saver(max_to_keep=100)
     with tf.Session() as sess:
         if load_model:
             print('Loading Model...')
@@ -412,5 +391,4 @@ if __name__ == '__main__':
         else:
             sess.run(tf.global_variables_initializer())
             master.run(sess, saver, 300)
-        sess.close()
         sess.close()

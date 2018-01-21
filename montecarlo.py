@@ -3,12 +3,16 @@ import math
 from pyenv import Pyenv
 import card
 from card import Category
+import threading
+import multiprocessing
 from utils import to_char, to_value, give_cards_without_minor
 import copy
+from time import sleep
 
 import sys
 sys.path.insert(0, './build/Release')
 import env
+
 
 class Environment:
     def __init__(self):
@@ -104,11 +108,14 @@ class CardEvaluator:
 
 
 class Node:
-    def __init__(self, src, state, actions):
+    def __init__(self, src, state, actions, priors):
         self.s = state
         self.a = actions
         self.src = src
-        self.edges = [Edge(self, self.s, a, 1. / actions.size) for a in self.a]
+        self.edges = []
+        self.lock = threading.Lock()
+        for i in self.a.size:
+            self.edges.append(Edge(self, self.s, self.a[i], priors[i]))
 
     def choose(self, c):
         nsum_sqrt = math.sqrt(sum([e.n for e in self.edges]))
@@ -129,42 +136,75 @@ class Edge:
 
 
 class MCTree:
-    def __init__(self, s):
+    def __init__(self, s, agent, sess):
         self.env = Pyenv
-        self.root = Node(None, s, Pyenv.get_actionspace(s))
-        self.evaluator = CardEvaluator
+        self.sess = sess
+        self.agent = agent
+        subspace = Pyenv.get_actionspace(s)
+        self.root = Node(None, s, subspace, agent.predict(s, subspace, sess))
+        self.counter = 0
+        self.counter_lock = threading.Lock()
+        # self.evaluator = CardEvaluator
 
     def search(self, nthreads, n):
-        for i in range(n):
+        self.counter = n
+        coord = tf.train.Coordinator()
+        threads = []
+        for i in range(nthreads):
+            t = threading.Thread(target=self.search_thread, args=())
+            t.start()
+            sleep(0.25)
+            threads.append(t)
+        coord.join(threads)
+
+    def search_thread(self):
+        while True:
+            self.counter_lock.acquire()
+            if self.counter == 0:
+                self.counter_lock.release()
+                break
+            else:
+                self.counter -= 1
+            self.counter_lock.release()
             val, leaf = self.explore(self.root)
             if leaf:
                 self.backup(leaf, val)
     
     def explore(self, node):
+        node.lock.acquire()
         edge = node.choose(5.)
         sprime, r, done = self.env.step_static(edge.s, edge.a)
         if done:
             if not edge.node:
-                edge.node = Node(edge, sprime, self.env.get_actionspace(sprime))
+                subspace = self.env.get_actionspace(sprime)
+                edge.node = Node(edge, sprime, subspace, self.agent.predict(sprime, subspace, self.sess))
+                node.lock.release()
                 return r, edge.node
             else:
                 # if we ran into this again, we'd like to reinforce our intuition
+                node.lock.release()
                 return r, edge.node
         if edge.node:
+            node.lock.release()
             return self.explore(edge.node)
         else:
-            edge.node = Node(edge, sprime, self.env.get_actionspace(sprime))
+            subspace = self.env.get_actionspace(sprime)
+            edge.node = Node(edge, sprime, subspace, self.agent.predict(sprime, subspace, self.sess))
             # we are in intermediate node, explore more
             if sprime.is_intermediate():
+                node.lock.release()
                 return self.explore(edge.node)
-            return self.evaluator.evaluate_v(sprime), edge.node
+            node.lock.release()
+            return self.agent.evaluate(sprime, self.sess), edge.node
         
     def backup(self, node, v):
         while node.src:
+            node.lock.acquire()
             edge = node.src
             edge.n += 1
             edge.w += v
             edge.q = edge.w / edge.n
+            node.lock.release()
             node = edge.src
 
     def play(self, temp):
@@ -183,7 +223,8 @@ class MCTree:
         probs = probs / np.sum(probs)
 
         # TODO: change max to sampling
-        idx_max = np.argmax(probs[valid_idx])
+        idx_max = np.random.choice(np.arange(len(valid_idx)), p=probs[valid_idx])
+        # idx_max = np.argmax(probs[valid_idx])
         return node.edges[idx_max], probs
 
     # return mode, target distribution, intention

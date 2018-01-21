@@ -393,21 +393,25 @@ class CardNetwork:
             # 4: active decision + active response + sequence length + value loss
             # 5: active response (do not add value loss since for minor cards, state won't change)
             self.mode = tf.placeholder(tf.int32, [None], name='mode')
-            self.losses = tf.Variable([self.passive_decision_loss + self.value_loss,
-                                       self.passive_decision_loss + self.passive_bomb_loss + self.value_loss,
-                                       self.passive_decision_loss + self.passive_response_loss + self.value_loss,
-                                       self.active_decision_loss + self.active_response_loss + self.value_loss,
-                                       self.active_decision_loss + self.active_response_loss + self.seq_length_loss + self.value_loss,
-                                       self.active_response_loss])
+            self.losses = tf.stack([self.passive_decision_loss + self.value_loss,
+                                    self.passive_decision_loss + self.passive_bomb_loss + self.value_loss,
+                                    self.passive_decision_loss + self.passive_response_loss + self.value_loss,
+                                    self.active_decision_loss + self.active_response_loss + self.value_loss,
+                                    self.active_decision_loss + self.active_response_loss + self.seq_length_loss + self.value_loss,
+                                    self.active_response_loss])
             mask = tf.transpose(tf.one_hot(self.mode, depth=6, dtype=tf.bool, on_value=True, off_value=False))
             self.loss = tf.reduce_sum(tf.boolean_mask(self.losses, mask))
+
+            local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
+            self.var_norms = tf.global_norm(local_vars)
+            self.gradients = tf.gradients(self.loss, local_vars)
+            grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 40.0)
 
             # update moving avg/var in batch normalization!
             extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(extra_update_ops):
                 with tf.variable_scope("optimize"):
-                    self.optimize = trainer.minimize(self.loss)
+                    self.optimize = trainer.apply_gradients(zip(grads, local_vars))
 
-            local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
-            self.gradients = tf.gradients(self.loss, local_vars)
+
 
