@@ -214,7 +214,8 @@ class CardMaster:
                     mctree.search(1, 1)
 
                     # TODO: decay temperature through time
-                    mode, distribution, intention = mctree.step(1.)
+                    temp = self.start_temp + global_episodes * temp_decay
+                    mode, distribution, intention = mctree.step(temp)
                     has_minor = False
                     if mode > 4:
                         mode = mode - 5
