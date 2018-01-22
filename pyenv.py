@@ -179,6 +179,34 @@ class Pyenv:
                 return Pyenv.step_helper(sprime, np.array(['*', '$']))
             elif a == 3:
                 sprime['stage'] = 'p_response'
+                sprime['pending_stage'] = []
+                last_category_idx = s['last_category_idx']
+                if last_category_idx == Category.THREE_ONE.value or \
+                        last_category_idx == Category.THREE_TWO.value or \
+                        last_category_idx == Category.THREE_ONE_LINE.value or \
+                        last_category_idx == Category.THREE_TWO_LINE.value or \
+                        last_category_idx == Category.FOUR_TWO.value:
+                    sprime['pending_stage'].append('minor')
+                    sprime['dup_mask'] = np.zeros([15])
+                    sprime['curr_minor_length'] = 0
+                    if last_category_idx == Category.THREE_ONE.value or \
+                            last_category_idx == Category.THREE_ONE_LINE.value or \
+                            last_category_idx == Category.FOUR_TWO.value:
+                        sprime['is_pair'] = False
+                        sprime['dup_mask'] = get_mask(s['player_cards'][s['idx']], action_space_single, None)
+                        if last_category_idx == Category.THREE_ONE.value:
+                            sprime['minor_length'] = 1
+                        elif last_category_idx == Category.FOUR_TWO.value:
+                            sprime['minor_length'] = 2
+                        else:
+                            sprime['minor_length'] = len(s['last_cards']) // 4
+                    else:
+                        sprime['is_pair'] = True
+                        sprime['dup_mask'][:13] = get_mask(s['player_cards'][s['idx']], action_space_pair, None)
+                        if last_category_idx == Category.THREE_TWO.value:
+                            sprime['minor_length'] = 1
+                        else:
+                            sprime['minor_length'] = len(s['last_cards']) // 5
                 return sprime, 0, False
         elif stage == 'p_bomb':
             sprime['stage'] = ''
@@ -187,6 +215,24 @@ class Pyenv:
             sprime['stage'] = ''
             bigger = a + 1
             intention = give_cards_without_minor(bigger, np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])), s['last_category_idx'], None)
+            pending_stage = sprime['pending_stage']
+            if len(pending_stage) > 0:
+                sprime['stage'] = pending_stage.pop(0)
+                assert sprime['stage'] == 'minor'
+                last_category_idx = s['last_category_idx']
+                base = to_value(s['last_cards'])[0] - 3
+                if last_category_idx == Category.THREE_ONE_LINE.value:
+                    seq_length = len(s['last_cards']) // 4
+                    for i in range(seq_length):
+                        sprime['dup_mask'][base + bigger + i] = 0
+                elif last_category_idx == Category.THREE_TWO_LINE.value:
+                    seq_length = len(s['last_cards']) // 4
+                    for i in range(seq_length):
+                        sprime['dup_mask'][base + bigger + i] = 0
+                else:
+                    sprime['dup_mask'][base + bigger] = 0
+                sprime['main_cards'] = to_char(intention)
+                return sprime, 0, False
             return Pyenv.step_helper(sprime, np.array(to_char(intention)))
         elif stage == 'a_decision':
             active_category_idx = a + 1
@@ -203,7 +249,7 @@ class Pyenv:
                     active_category_idx == Category.THREE_ONE_LINE.value or \
                     active_category_idx == Category.THREE_TWO_LINE.value or \
                     active_category_idx == Category.FOUR_TWO.value:
-                sprime['pending_stage'].append('a_minor')
+                sprime['pending_stage'].append('minor')
                 sprime['dup_mask'] = np.zeros([15])
                 sprime['curr_minor_length'] = 0
                 if active_category_idx == Category.THREE_ONE.value or \
@@ -227,7 +273,7 @@ class Pyenv:
             pending_stage = sprime['pending_stage']
             if len(pending_stage) > 0:
                 sprime['stage'] = pending_stage.pop(0)
-                if sprime['stage'] == 'a_minor':
+                if sprime['stage'] == 'minor':
                     intention = give_cards_without_minor(a, np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])), s['decision_active'] + 1, 0)
                     sprime['main_cards'] = to_char(intention)
                     sprime['dup_mask'][a] = 0
@@ -256,7 +302,7 @@ class Pyenv:
                 intention = give_cards_without_minor(response_active, np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])),
                                                      s['decision_active'] + 1, seq_length)
                 return Pyenv.step_helper(sprime, np.array(to_char(intention)))
-        elif stage == 'a_minor':
+        elif stage == 'minor':
             is_pair = s['is_pair']
             if s['curr_minor_length'] == 0:
                 sprime['minor_cards'] = [to_char(a+3)] * (2 if is_pair else 1)
@@ -281,6 +327,8 @@ class Pyenv:
         curr_handcards = player_cards[idx]
         last_category_idx = s['last_category_idx']
         if stage == '':
+            # clear dictionary
+            s.clear()
             if control_idx == idx:
                 s['stage'] = 'a_decision'
             else:
@@ -314,7 +362,7 @@ class Pyenv:
             response_active = s['response_active']
             length_mask = s['length_mask']
             return np.arange(12)[length_mask[decision_active][response_active] == 1]
-        elif stage == 'a_minor':
+        elif stage == 'minor':
             dup_mask = s['dup_mask']
             return np.arange(15)[dup_mask == 1]
 

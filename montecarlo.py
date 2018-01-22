@@ -153,7 +153,7 @@ class MCTree:
         for i in range(nthreads):
             t = threading.Thread(target=self.search_thread, args=(coord,))
             t.start()
-            sleep(0.25)
+            sleep(0.05)
             threads.append(t)
         coord.join(threads)
 
@@ -252,11 +252,33 @@ class MCTree:
             elif decision == 2:
                 return 0, distribution, np.array(['*', '$'])
             elif decision == 3:
+                mode = 2
                 response_edge, distribution['response_passive'] = self.give_cards_helper(decision_edge.node, temp, 14)
+                node = response_edge.node
                 bigger = response_edge.a + 1
                 intention = give_cards_without_minor(bigger, np.array(
                     to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])), s['last_category_idx'], None)
-                return 2, distribution, np.array(to_char(intention))
+                last_category_idx = s['last_category_idx']
+                if last_category_idx == Category.THREE_ONE.value or \
+                        last_category_idx == Category.THREE_TWO.value or \
+                        last_category_idx == Category.THREE_ONE_LINE.value or \
+                        last_category_idx == Category.THREE_TWO_LINE.value or \
+                        last_category_idx == Category.FOUR_TWO.value:
+                    mode += 5
+                    minor_cards = []
+                    distribution['cards_history'].append(to_char(intention))
+                    while node.s['stage'] == 'minor':
+                        minor_card_edge, minor_dist = self.give_cards_helper(node, temp, 15)
+                        distribution['minor_cards'].append(minor_dist)
+                        minor_card = minor_card_edge.a + 3
+                        minor_cards.append(minor_card)
+                        distribution['cards_history'].append([to_char(minor_card)])
+                        if node.s['is_pair']:
+                            minor_cards.append(minor_card)
+                            distribution['cards_history'][-1].append(to_char(minor_card))
+                        node = minor_card_edge.node
+                    intention = np.concatenate([intention, minor_cards])
+                return mode, distribution, np.array(to_char(intention))
         elif s['stage'] == 'a_decision':
             decision_edge, distribution['decision_active'] = self.give_cards_helper(self.root, temp, 13)
             active_category_idx = decision_edge.a + 1
@@ -288,7 +310,7 @@ class MCTree:
                 mode += 5
                 minor_cards = []
                 distribution['cards_history'].append(to_char(intention))
-                while node.s['stage'] == 'a_minor':
+                while node.s['stage'] == 'minor':
                     minor_card_edge, minor_dist = self.give_cards_helper(node, temp, 15)
                     distribution['minor_cards'].append(minor_dist)
                     minor_card = minor_card_edge.a + 3
@@ -342,7 +364,7 @@ class MCTree:
                     active_category_idx == Category.THREE_TWO_LINE.value or \
                     active_category_idx == Category.FOUR_TWO.value:
                 minor_cards = []
-                while node.s['stage'] == 'a_minor':
+                while node.s['stage'] == 'minor':
                     minor_card_idx, minor_card = self.give_cards_helper(node, temp)
                     minor_card += 3
                     minor_cards.append(minor_card)

@@ -85,7 +85,7 @@ class CardAgent:
             length_output = sess.run(self.main_network.fc_sequence_length_output,
                                        feed_dict=feeddict)[0]
             return length_output[valid_space]
-        elif stage == 'a_minor':
+        elif stage == 'minor':
             if 'minor_cards' in s:
                 card_history = s['main_cards'] + s['minor_cards']
             else:

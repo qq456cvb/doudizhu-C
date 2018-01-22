@@ -24,10 +24,8 @@ def normalized_columns_initializer(std=1.0):
 
 
 class CardNetwork:
-    def __init__(self, s_dim, trainer, scope, a_dim=9085):
+    def __init__(self, s_dim, trainer, scope):
         with tf.variable_scope(scope):
-            #card_cnt = 57
-            #self.temp = tf.placeholder(tf.float32, None, name="boltz")
             with tf.variable_scope("inputs"):
                 self.input_state = tf.placeholder(tf.float32, [None, s_dim], name="input")
                 self.training = tf.placeholder(tf.bool, None, name="mode")
