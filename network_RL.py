@@ -30,7 +30,7 @@ class CardNetwork:
             # card_cnt = 57
             # self.temp = tf.placeholder(tf.float32, None, name="boltz")
             with tf.variable_scope("inputs"):
-                self.input_state = tf.placeholder(tf.float32, [None, s_dim], name="input")
+                self.input_state = tf.placeholder(tf.float32, [None, s_dim], name="input_state")
                 self.training = tf.placeholder(tf.bool, None, name="training")
                 self.input_single = tf.placeholder(tf.float32, [None, 15], name="input_single")
                 self.input_pair = tf.placeholder(tf.float32, [None, 13], name="input_pair")
@@ -351,7 +351,7 @@ class CardNetwork:
                     slim.stack(self.fc_value, slim.fully_connected, [128, 64, 32])
                 with slim.arg_scope([slim.fully_connected], activation_fn=None):
                     slim.stack(self.fc_value, slim.fully_connected, [32, 16, 8])
-                self.fc_value_output = tf.squeeze(slim.fully_connected(self.fc_value, 1, None))
+                self.fc_value_output = tf.squeeze(slim.fully_connected(self.fc_value, 1, None), [1])
 
             # passive mode
             with tf.variable_scope("passive_mode_loss"):
@@ -399,19 +399,19 @@ class CardNetwork:
                                     self.active_decision_loss + self.active_response_loss + self.value_loss,
                                     self.active_decision_loss + self.active_response_loss + self.seq_length_loss + self.value_loss,
                                     self.active_response_loss])
-            mask = tf.transpose(tf.one_hot(self.mode, depth=6, dtype=tf.bool, on_value=True, off_value=False))
-            self.loss = tf.reduce_sum(tf.boolean_mask(self.losses, mask))
+            self.mask = tf.transpose(tf.one_hot(self.mode, depth=6, dtype=tf.bool, on_value=True, off_value=False))
+            self.loss = tf.reduce_sum(tf.boolean_mask(self.losses, self.mask))
 
-            local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
-            self.var_norms = tf.global_norm(local_vars)
-            self.gradients = tf.gradients(self.loss, local_vars)
-            grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 40.0)
+            self.local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
+            self.var_norms = tf.global_norm(self.local_vars)
+            self.gradients = tf.gradients(self.loss, self.local_vars)
+            self.cliped_grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 40.0)
 
             # update moving avg/var in batch normalization!
-            extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(extra_update_ops):
+            self.extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope=scope)
+            with tf.control_dependencies(self.extra_update_ops):
                 with tf.variable_scope("optimize"):
-                    self.optimize = trainer.apply_gradients(zip(grads, local_vars))
+                    self.optimize = trainer.apply_gradients(zip(self.cliped_grads, self.local_vars))
 
 
 

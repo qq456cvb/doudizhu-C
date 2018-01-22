@@ -25,11 +25,12 @@ from network_RL import CardNetwork
 
 
 class CardAgent:
-    def __init__(self, name, trainer):
+    def __init__(self, name):
+        self.trainer = tf.train.AdamOptimizer(learning_rate=0.001)
         self.name = name
         self.episodes = tf.Variable(0, dtype=tf.int32, name='episodes_' + name, trainable=False)
         self.increment = self.episodes.assign_add(1)
-        self.main_network = CardNetwork(54 * 6, trainer, self.name)
+        self.main_network = CardNetwork(54 * 6, self.trainer, self.name)
 
     def evaluate(self, s, sess):
         assert not s.is_intermediate()
@@ -85,7 +86,10 @@ class CardAgent:
                                        feed_dict=feeddict)[0]
             return length_output[valid_space]
         elif stage == 'a_minor':
-            card_history = s['main_cards'] + s['minor_cards']
+            if 'minor_cards' in s:
+                card_history = s['main_cards'] + s['minor_cards']
+            else:
+                card_history = s['main_cards']
             curr_hands_char = discard_cards(curr_hands_char, card_history)
             input_single, input_pair, input_triple, input_quadric = get_masks(curr_hands_char,
                                                                               s['last_cards'] if s['idx'] != s[
@@ -109,16 +113,16 @@ class CardAgent:
         else:
             raise Exception('unexpected stage name')
 
-    def train_batch_sampled(self, buffer, batch_size):
-        num_of_iters = len(buffer) // batch_size
+    def train_batch_sampled(self, buf, batch_size, sess):
+        num_of_iters = len(buf) // batch_size + 1
         mean_loss = 0
         mean_var_norm = 0
         mean_grad_norm = 0
         for _ in range(num_of_iters):
-            batch_idx = np.random.choice(len(buffer), batch_size)
-            input_states, input_singles, input_pairs, input_triples, input_quadrics, vals, modes = [np.array([buffer[i][j] for i in batch_idx]) for j in range(7)]
+            batch_idx = np.random.choice(len(buf), batch_size)
+            input_states, input_singles, input_pairs, input_triples, input_quadrics, vals, modes = [np.array([buf[i][j] for i in batch_idx]) for j in range(7)]
             passive_decision_input, passive_bomb_input, passive_response_input, active_decision_input, \
-                active_response_input, seq_length_input = [np.array([buffer[i][7][k] for i in batch_idx])
+                active_response_input, seq_length_input = [np.array([buf[i][7][k] for i in batch_idx])
                                                            for k in ['decision_passive', 'bomb_passive', 'response_passive',
                                                                      'decision_active', 'response_active', 'seq_length']]
             _, loss, var_norm, gradient_norm, decision_passive_output, response_passive_output, bomb_passive_output, \
@@ -131,6 +135,7 @@ class CardAgent:
                             ],
                            feed_dict={
                                self.main_network.training: True,
+                               self.main_network.mode: modes,
                                self.main_network.input_state: input_states,
                                self.main_network.input_single: input_singles,
                                self.main_network.input_pair: input_pairs,
@@ -141,6 +146,7 @@ class CardAgent:
                                self.main_network.passive_bomb_input: passive_bomb_input,
                                self.main_network.active_decision_input: active_decision_input,
                                self.main_network.active_response_input: active_response_input,
+                               self.main_network.seq_length_input: seq_length_input,
                                self.main_network.value_input: vals
                            })
             mean_loss += loss
@@ -162,22 +168,21 @@ class CardMaster:
         self.sess = None
 
         self.train_intervals = 10
-
-        self.trainer = tf.train.AdamOptimizer(learning_rate=0.001)
+        
         self.episode_rewards = [[] for i in range(3)]
         self.episode_length = [[] for i in range(3)]
         self.episode_mean_values = [[] for i in range(3)]
         self.summary_writers = [tf.summary.FileWriter("train_agent%d" % i) for i in range(3)]
 
-        self.agents = [CardAgent('agent%d' % i, self.trainer) for i in range(3)]
+        self.agents = [CardAgent('agent%d' % i) for i in range(3)]
 
         self.global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
         self.increment = self.global_episodes.assign_add(1)
 
-    def train_batch_sampled(self, buffer, batch_size):
+    def train_batch_sampled(self, buf, batch_size, sess):
         logs = []
-        for i in range(len(buffer)):
-            logs.append(self.agents[i].train_batch_sampled(buffer[i], batch_size))
+        for i in range(len(buf)):
+            logs.append(self.agents[i].train_batch_sampled(buf[i], batch_size, sess))
         return logs
 
     # train three agents simultaneously
@@ -211,11 +216,13 @@ class CardMaster:
 
                     dump_s = self.env.dump_state()
                     mctree = MCTree(dump_s, self.agents[train_id], self.sess)
-                    mctree.search(1, 1)
+                    mctree.search(1, 10)
+                    # print(train_id, 'single step')
 
                     # TODO: decay temperature through time
                     temp = self.start_temp + global_episodes * temp_decay
                     mode, distribution, intention = mctree.step(temp)
+                    print('lord: ' if train_id == 1 else 'farmer: ', intention)
                     has_minor = False
                     if mode > 4:
                         mode = mode - 5
@@ -243,6 +250,7 @@ class CardMaster:
 
                     episode_reward[train_id] += r
                     episode_steps[train_id] += 1
+                    # self.train_batch_sampled([episode_buffer[train_id]], 8)
 
                     if done:
                         for buf in episode_buffer[train_id]:
@@ -269,7 +277,7 @@ class CardMaster:
                                     episode_reward[i] += r
 
                         # then sample buffer for training
-                        logs = self.train_batch_sampled([episode_buffer[i] for i in range(3)], 8)
+                        logs = self.train_batch_sampled([episode_buffer[i] for i in range(3)], 8, sess)
                         break
 
                 for i in range(3):

@@ -118,9 +118,9 @@ def get_action_space():
                     actions.append([main] * 4 + list(extra))
     # print(len(actions))
     Category2Range.append([temp, len(actions)])
-    temp = len(actions)
-    # for a in actions:
-    #     a.sort(key=lambda c: Card.cards.index(c))
+    # temp = len(actions)
+    for a in actions:
+        a.sort(key=lambda c: Card.cards.index(c))
     return actions
 
 

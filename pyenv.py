@@ -245,6 +245,7 @@ class Pyenv:
                 intention = give_cards_without_minor(response_active, np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])),
                                                      s['decision_active'] + 1, seq_length)
                 sprime['main_cards'] = to_char(intention)
+                sprime['minor_length'] = seq_length
                 for i in range(seq_length):
                     sprime['dup_mask'][response_active + i] = 0
                 return sprime, 0, False

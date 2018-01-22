@@ -45,7 +45,7 @@ def get_mask(cards, action_space, last_cards):
         if counter_subset(action_space[j], cards):
             mask[j] = 1
     mask = mask.astype(bool)
-    if last_cards:
+    if last_cards is not None and len(last_cards) > 0:
         for j in range(1, mask.size):
             if mask[j] == True and not card.CardGroup.to_cardgroup(action_space[j]).\
                     bigger_than(card.CardGroup.to_cardgroup(last_cards)):
@@ -424,6 +424,8 @@ def give_cards_without_minor(response, last_cards_value, category_idx, length_ou
             return np.array([link, link, link]).T.reshape(-1)
         elif category_idx == Category.FOUR_TWO.value:
             return np.array([response + 3] * 4)
+        elif category_idx == Category.BIGBANG.value:
+            return np.array([16, 17])
 
 
 # assumes that cards has been grouped with minor cards in the end

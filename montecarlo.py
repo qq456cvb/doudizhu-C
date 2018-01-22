@@ -114,7 +114,7 @@ class Node:
         self.src = src
         self.edges = []
         self.lock = threading.Lock()
-        for i in self.a.size:
+        for i in range(self.a.size):
             self.edges.append(Edge(self, self.s, self.a[i], priors[i]))
 
     def choose(self, c):
@@ -151,13 +151,13 @@ class MCTree:
         coord = tf.train.Coordinator()
         threads = []
         for i in range(nthreads):
-            t = threading.Thread(target=self.search_thread, args=())
+            t = threading.Thread(target=self.search_thread, args=(coord,))
             t.start()
             sleep(0.25)
             threads.append(t)
         coord.join(threads)
 
-    def search_thread(self):
+    def search_thread(self, coord):
         while True:
             self.counter_lock.acquire()
             if self.counter == 0:
@@ -274,7 +274,7 @@ class MCTree:
                     active_category_idx == Category.THREE_ONE_LINE.value or \
                     active_category_idx == Category.THREE_TWO_LINE.value:
                 seq_length_edge, distribution['seq_length'] = self.give_cards_helper(node, temp, 12)
-                seq_length = response_edge.a + 1
+                seq_length = seq_length_edge.a + 1
                 node = seq_length_edge.node
                 mode = 4
             intention = give_cards_without_minor(response_edge.a, np.array(
