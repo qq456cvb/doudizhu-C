@@ -5,6 +5,7 @@ from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
 import sys
 import copy
 import time
+from datetime import datetime
 from statewrapper import WrappedState
 
 sys.path.insert(0, './build/Release')
@@ -61,7 +62,9 @@ class Pyenv:
         remains = total - selfcards - histories[0] - histories[1] - histories[2]
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
-    def prepare(self):
+    def prepare(self, seed=int(time.time())):
+        np.random.seed(seed)
+        print('seed=', seed)
         cards = np.array(Pyenv.total_cards.copy())
         np.random.shuffle(cards)
         for i in range(3):
@@ -157,10 +160,14 @@ class Pyenv:
         idx_self = s['idx']
         r, done = Pyenv.step_round(s, intention)
         while not done and s['idx'] != idx_self:
+            curr_idx = s['idx']
             intention = np.array(to_char(env.Env.step_auto_static(Card.char2color(s['player_cards'][s['idx']]), np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])))))
             r, done = Pyenv.step_round(s, intention)
             # TODO: check if it's on the same team
-            r = -r
+            if idx_self == s['lord_idx']:
+                r = -r
+            elif curr_idx == s['lord_idx']:
+                r = -r
         return s, r, done
 
     @staticmethod
@@ -221,12 +228,13 @@ class Pyenv:
                 assert sprime['stage'] == 'minor'
                 last_category_idx = s['last_category_idx']
                 base = to_value(s['last_cards'])[0] - 3
+                # print('last_cards', s['last_cards'])
                 if last_category_idx == Category.THREE_ONE_LINE.value:
                     seq_length = len(s['last_cards']) // 4
                     for i in range(seq_length):
                         sprime['dup_mask'][base + bigger + i] = 0
                 elif last_category_idx == Category.THREE_TWO_LINE.value:
-                    seq_length = len(s['last_cards']) // 4
+                    seq_length = len(s['last_cards']) // 5
                     for i in range(seq_length):
                         sprime['dup_mask'][base + bigger + i] = 0
                 else:

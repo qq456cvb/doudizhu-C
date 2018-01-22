@@ -26,7 +26,7 @@ from network_RL import CardNetwork
 
 class CardAgent:
     def __init__(self, name):
-        self.trainer = tf.train.AdamOptimizer(learning_rate=0.001)
+        self.trainer = tf.train.AdamOptimizer(learning_rate=0.0001)
         self.name = name
         self.episodes = tf.Variable(0, dtype=tf.int32, name='episodes_' + name, trainable=False)
         self.increment = self.episodes.assign_add(1)

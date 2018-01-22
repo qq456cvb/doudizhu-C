@@ -15,9 +15,12 @@ class WrappedState:
         return self['stage'] != 'p_decision' and self['stage'] != 'a_decision'
 
     def clear(self):
+        need_pop = set()
         for k in self.dic:
             if k not in WrappedState.reserved_key:
-                self.dic.pop(k, None)
+                need_pop.add(k)
+        for k in need_pop:
+            self.dic.pop(k, None)
 
     def __setitem__(self, key, value):
         self.dic[key] = value
