@@ -470,10 +470,12 @@ def discard_cards(handcards, intention):
 
 
 if __name__ == '__main__':
-    for i in range(14):
-        for j in range(len(action_space_category[i])):
-            try:
-                assert get_category_idx(np.array(action_space_category[i][j])) == i
-            except AssertionError as error:
-                print(i, action_space_category[i][j])
+    _, response_mask, _, _ = get_mask_alter(['A', 'A', 'A', 'J', 'J', '10', '6', '6', '5'], ['9', '9', '9', '5'], False,
+                                            5)
+    # for i in range(14):
+    #     for j in range(len(action_space_category[i])):
+    #         try:
+    #             assert get_category_idx(np.array(action_space_category[i][j])) == i
+    #         except AssertionError as error:
+    #             print(i, action_space_category[i][j])
 
