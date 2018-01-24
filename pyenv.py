@@ -156,14 +156,17 @@ class Pyenv:
         return 0, False
 
     @staticmethod
-    def step_helper(s, intention):
+    def step_helper(s, intention, sess, *oppo_agents):
         idx_self = s['idx']
         r, done = Pyenv.step_round(s, intention)
+        oppo_idx = 0
         while not done and s['idx'] != idx_self:
             curr_idx = s['idx']
-            intention = np.array(to_char(env.Env.step_auto_static(Card.char2color(s['player_cards'][s['idx']]), np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])))))
+            intention = np.array(to_char(oppo_agents[oppo_idx].inference_once(s, sess)))
+            oppo_idx += 1
+            # intention = np.array(to_char(env.Env.step_auto_static(Card.char2color(s['player_cards'][s['idx']]), np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])))))
             r, done = Pyenv.step_round(s, intention)
-            # TODO: check if it's on the same team
+            # TODO: check if it's on the same team -- DONE
             if idx_self == s['lord_idx']:
                 r = -r
             elif curr_idx == s['lord_idx']:
@@ -171,19 +174,19 @@ class Pyenv:
         return s, r, done
 
     @staticmethod
-    def step_static(s, a):
+    def step_static(s, a, sess, *oppo_agents):
         sprime = copy.deepcopy(s)
         stage = s['stage']
         if stage == 'p_decision':
             if a == 0:
                 sprime['stage'] = ''
-                return Pyenv.step_helper(sprime, np.array([]))
+                return Pyenv.step_helper(sprime, np.array([]), sess, *oppo_agents)
             elif a == 1:
                 sprime['stage'] = 'p_bomb'
                 return sprime, 0, False
             elif a == 2:
                 sprime['stage'] = ''
-                return Pyenv.step_helper(sprime, np.array(['*', '$']))
+                return Pyenv.step_helper(sprime, np.array(['*', '$']), sess, *oppo_agents)
             elif a == 3:
                 sprime['stage'] = 'p_response'
                 sprime['pending_stage'] = []
@@ -217,7 +220,7 @@ class Pyenv:
                 return sprime, 0, False
         elif stage == 'p_bomb':
             sprime['stage'] = ''
-            return Pyenv.step_helper(sprime, np.array(to_char([a+3] * 4)))
+            return Pyenv.step_helper(sprime, np.array(to_char([a+3] * 4)), sess, *oppo_agents)
         elif stage == 'p_response':
             sprime['stage'] = ''
             bigger = a + 1
@@ -241,7 +244,7 @@ class Pyenv:
                     sprime['dup_mask'][base + bigger] = 0
                 sprime['main_cards'] = to_char(intention)
                 return sprime, 0, False
-            return Pyenv.step_helper(sprime, np.array(to_char(intention)))
+            return Pyenv.step_helper(sprime, np.array(to_char(intention)), sess, *oppo_agents)
         elif stage == 'a_decision':
             active_category_idx = a + 1
             sprime['stage'] = 'a_response'
@@ -289,7 +292,7 @@ class Pyenv:
             else:
                 sprime['stage'] = ''
                 intention = give_cards_without_minor(a, np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])), s['decision_active'] + 1, 0)
-                return Pyenv.step_helper(sprime, np.array(to_char(intention)))
+                return Pyenv.step_helper(sprime, np.array(to_char(intention)), sess, *oppo_agents)
         elif stage == 'a_length':
             pending_stage = sprime['pending_stage']
             if len(pending_stage) > 0:
@@ -309,7 +312,7 @@ class Pyenv:
                 response_active = sprime['response_active']
                 intention = give_cards_without_minor(response_active, np.array(to_value(s['last_cards'] if s['control_idx'] != s['idx'] else [])),
                                                      s['decision_active'] + 1, seq_length)
-                return Pyenv.step_helper(sprime, np.array(to_char(intention)))
+                return Pyenv.step_helper(sprime, np.array(to_char(intention)), sess, *oppo_agents)
         elif stage == 'minor':
             is_pair = s['is_pair']
             if s['curr_minor_length'] == 0:
@@ -320,7 +323,7 @@ class Pyenv:
             if sprime['curr_minor_length'] == sprime['minor_length']:
                 sprime['stage'] = ''
                 intention = np.concatenate([sprime['main_cards'], sprime['minor_cards']])
-                return Pyenv.step_helper(sprime, np.array(intention))
+                return Pyenv.step_helper(sprime, np.array(intention), sess, *oppo_agents)
             else:
                 sprime['dup_mask'][a] = 0
                 return sprime, 0, False

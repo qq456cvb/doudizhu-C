@@ -19,7 +19,8 @@ import copy
 import random
 import argparse
 from pyenv import Pyenv
-from utils import get_masks, discard_cards
+from utils import get_masks, discard_cards, get_mask_alter, \
+    give_cards_without_minor, to_char, to_value, inference_minor_cards, get_seq_length
 from montecarlo import MCTree
 from network_RL import CardNetwork
 
@@ -94,7 +95,7 @@ class CardAgent:
             input_single, input_pair, input_triple, input_quadric = get_masks(curr_hands_char,
                                                                               s['last_cards'] if s['idx'] != s[
                                                                                   'control_idx'] else None)
-            # TODO: correct for state
+            # TODO: correct for state -- DONE
             state = Pyenv.get_state_static(s)
             cards_onehot = card.Card.char2onehot(card_history)
 
@@ -112,6 +113,137 @@ class CardAgent:
             return minor_output[valid_space]
         else:
             raise Exception('unexpected stage name')
+
+    def inference_once(self, s, sess):
+        is_active = s['control_idx'] == s['idx']
+        last_category_idx = s['last_category_idx'] if is_active else -1
+        last_cards_char = s['last_cards'] if is_active else None
+        last_cards_value = np.array(to_value(last_cards_char)) if is_active else None
+        curr_cards_char = s['player_cards'][s['idx']]
+
+        input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char)
+
+        state = Pyenv.get_state_static(s).reshape(1, -1)
+        feeddict = {
+            self.main_network.training: True,
+            self.main_network.input_state: state,
+            self.main_network.input_single: input_single.reshape(1, -1),
+            self.main_network.input_pair: input_pair.reshape(1, -1),
+            self.main_network.input_triple: input_triple.reshape(1, -1),
+            self.main_network.input_quadric: input_quadric.reshape(1, -1)
+        }
+        intention = None
+        if is_active:
+            # first get mask
+            decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], False, last_category_idx)
+
+            decision_active_output = sess.run(self.main_network.fc_decision_active_output,
+                                              feed_dict=feeddict)
+
+            # make decision depending on output
+            decision_active_output = decision_active_output[0]
+            decision_active_output[decision_mask == 0] = -1
+            decision_active = np.argmax(decision_active_output)
+
+            active_category_idx = decision_active + 1
+
+            # give actual response
+            response_active_output = sess.run(self.main_network.fc_response_active_output,
+                                              feed_dict=feeddict)
+
+            response_active_output = response_active_output[0]
+            response_active_output[response_mask[decision_active] == 0] = -1
+            response_active = np.argmax(response_active_output)
+
+            seq_length = 0
+            # next sequence length
+            if active_category_idx == Category.SINGLE_LINE.value or \
+                    active_category_idx == Category.DOUBLE_LINE.value or \
+                    active_category_idx == Category.TRIPLE_LINE.value or \
+                    active_category_idx == Category.THREE_ONE_LINE.value or \
+                    active_category_idx == Category.THREE_TWO_LINE.value:
+                seq_length_output = sess.run(self.main_network.fc_sequence_length_output,
+                                             feed_dict=feeddict)
+
+                seq_length_output = seq_length_output[0]
+                seq_length_output[length_mask[decision_active][response_active] == 0] = -1
+                seq_length = np.argmax(seq_length_output) + 1
+
+            # give main cards
+            intention = give_cards_without_minor(response_active, last_cards_value, active_category_idx, seq_length)
+
+            # then give minor cards
+            if active_category_idx == Category.THREE_ONE.value or \
+                    active_category_idx == Category.THREE_TWO.value or \
+                    active_category_idx == Category.THREE_ONE_LINE.value or \
+                    active_category_idx == Category.THREE_TWO_LINE.value or \
+                    active_category_idx == Category.FOUR_TWO.value:
+                dup_mask = np.ones([15])
+                if seq_length > 0:
+                    for i in range(seq_length):
+                        dup_mask[intention[0] - 3 + i] = 0
+                else:
+                    dup_mask[intention[0] - 3] = 0
+                intention = np.concatenate([intention, to_value(
+                    inference_minor_cards(active_category_idx, state,
+                                          list(curr_cards_char.copy()), sess, self.main_network, seq_length,
+                                          dup_mask))])
+        else:
+            is_bomb = False
+            if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
+                is_bomb = True
+            # print(to_char(last_cards_value), is_bomb, last_category_idx)
+            decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, to_char(last_cards_value),
+                                                                        is_bomb, last_category_idx)
+
+            decision_passive_output, response_passive_output, bomb_passive_output \
+                = sess.run([self.main_network.fc_decision_passive_output,
+                            self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output],
+                           feed_dict=feeddict)
+
+            # print(decision_mask)
+            # print(decision_passive_output)
+            decision_passive_output = decision_passive_output[0]
+            decision_passive_output[decision_mask == 0] = -1
+            decision_passive = np.argmax(decision_passive_output)
+
+            if decision_passive == 0:
+                intention = np.array([])
+            elif decision_passive == 1:
+                # print('bomb_mask', bomb_mask)
+                bomb_passive_output = bomb_passive_output[0]
+                bomb_passive_output[bomb_mask == 0] = -1
+                bomb_passive = np.argmax(bomb_passive_output)
+
+                # converting 0-based index to 3-based value
+                intention = np.array([bomb_passive + 3] * 4)
+
+            elif decision_passive == 2:
+                intention = np.array([16, 17])
+            elif decision_passive == 3:
+                # print('response_mask', response_mask)
+                response_passive_output = response_passive_output[0]
+                response_passive_output[response_mask == 0] = -1
+                response_passive = np.argmax(response_passive_output)
+
+                # there is an offset when converting from 0-based index to 1-based index
+                bigger = response_passive + 1
+
+                intention = give_cards_without_minor(bigger, last_cards_value, last_category_idx, None)
+                if last_category_idx == Category.THREE_ONE.value or \
+                        last_category_idx == Category.THREE_TWO.value or \
+                        last_category_idx == Category.THREE_ONE_LINE.value or \
+                        last_category_idx == Category.THREE_TWO_LINE.value or \
+                        last_category_idx == Category.FOUR_TWO.value:
+                    dup_mask = np.ones([15])
+                    dup_mask[intention[0] - 3] = 0
+                    intention = np.concatenate(
+                        [intention, to_value(inference_minor_cards(last_category_idx, state,
+                                                                   list(curr_cards_char.copy()),
+                                                                   sess, self.main_network,
+                                                                   get_seq_length(last_category_idx, last_cards_value),
+                                                                   dup_mask))])
+        return intention
 
     def train_batch_sampled(self, buf, batch_size, sess):
         num_of_iters = len(buf) // batch_size + 1
@@ -215,7 +347,8 @@ class CardMaster:
                     input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char)
 
                     dump_s = self.env.dump_state()
-                    mctree = MCTree(dump_s, self.agents[train_id], self.sess)
+                    mctree = MCTree(dump_s, self.agents[train_id], self.sess,
+                                    *[self.agents[(train_id + 1) % 3], self.agents[(train_id + 2) % 3]])
                     mctree.search(1, 10)
                     # print(train_id, 'single step')
 

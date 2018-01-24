@@ -569,6 +569,7 @@ if __name__ == '__main__':
                                 tf.Summary.Value(tag="Accuracy/active_response_accuracy", simple_value=logger["active_response"]),
                                 tf.Summary.Value(tag="Accuracy/seq_length_accuracy", simple_value=logger["seq_length"]),
                                 tf.Summary.Value(tag="Accuracy/minor_cards_accuracy", simple_value=logger["minor_cards"]),
+
                                 #tf.Summary.Value(tag="minor_loss", simple_value=minor_loss)
                                 tf.Summary.Value(tag="Loss/loss", simple_value=loss[0]),
                                 tf.Summary.Value(tag="Loss/active_decision_loss", simple_value=active_decision_loss[0]),

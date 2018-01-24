@@ -136,10 +136,11 @@ class Edge:
 
 
 class MCTree:
-    def __init__(self, s, agent, sess):
+    def __init__(self, s, agent, sess, *oppo_agents):
         self.env = Pyenv
         self.sess = sess
         self.agent = agent
+        self.oppo_agents = oppo_agents
         subspace = Pyenv.get_actionspace(s)
         self.root = Node(None, s, subspace, agent.predict(s, subspace, sess))
         self.counter = 0
@@ -173,7 +174,7 @@ class MCTree:
     def explore(self, node):
         node.lock.acquire()
         edge = node.choose(5.)
-        sprime, r, done = self.env.step_static(edge.s, edge.a)
+        sprime, r, done = self.env.step_static(edge.s, edge.a, self.sess, *self.oppo_agents)
         if done:
             if not edge.node:
                 subspace = self.env.get_actionspace(sprime)

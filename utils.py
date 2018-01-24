@@ -45,9 +45,11 @@ def get_mask(cards, action_space, last_cards):
         if counter_subset(action_space[j], cards):
             mask[j] = 1
     mask = mask.astype(bool)
-    if last_cards is not None and len(last_cards) > 0:
+    if last_cards is None:
+        return mask
+    if len(last_cards) > 0:
         for j in range(1, mask.size):
-            if mask[j] == True and not card.CardGroup.to_cardgroup(action_space[j]).\
+            if mask[j] is True and not card.CardGroup.to_cardgroup(action_space[j]).\
                     bigger_than(card.CardGroup.to_cardgroup(last_cards)):
                 mask[j] = False
     # else:
@@ -66,6 +68,7 @@ def get_mask(cards, action_space, last_cards):
 #                 if diff > 0:
 #                     mask[diff-1] = 1
 #     return mask.astype(bool)
+
 
 def get_seq_length(category, cards_val):
     if category == Category.SINGLE_LINE.value:
@@ -222,9 +225,18 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx):
                     network.input_quadric: np.reshape(input_quadric, [1, -1]),
                     network.active_response_input: np.array([target_val]),
             })
+        cards = [target]
         handcards.remove(target)
         if is_pair:
             handcards.remove(target)
+            cards.append(target)
+
+        # correct for one-hot state
+        cards_onehot = card.Card.char2onehot(cards)
+
+        s[:54] -= cards_onehot
+        s[2 * 54:3 * 54] += cards_onehot
+
         acc.append(1 if np.argmax(response_active_output[0]) == target_val else 0)
     return acc
 
@@ -261,9 +273,17 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
         dup_mask[response_active] = 0
 
         # convert network output to char cards
+        cards =[target]
         handcards.remove(target)
         if is_pair:
             handcards.remove(target)
+            cards.append(target)
+
+        # correct for one-hot state
+        cards_onehot = card.Card.char2onehot(cards)
+
+        s[:54] -= cards_onehot
+        s[2 * 54:3 * 54] += cards_onehot
 
         acc.append(1 if response_active == target_val else 0)
     return acc
@@ -469,9 +489,72 @@ def discard_cards(handcards, intention):
                 break
 
 
+# return char minor cards output
+def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask):
+    outputs = []
+    for i in range(num):
+        # update mask for the next loop
+        input_single, input_pair, input_triple, input_quadric = get_masks(handcards, None)
+
+        response_active_output = sess.run(network.fc_response_active_output,
+                                          feed_dict={
+                                              network.training: True,
+                                              network.input_state: s,
+                                              network.input_single: np.reshape(input_single, [1, -1]),
+                                              network.input_pair: np.reshape(input_pair, [1, -1]),
+                                              network.input_triple: np.reshape(input_triple, [1, -1]),
+                                              network.input_quadric: np.reshape(input_quadric, [1, -1])
+                                          })
+
+        # give minor cards
+        response_active_output = response_active_output[0]
+        response_active_output[dup_mask == 0] = -1
+        # print(handcards)
+        if is_pair:
+            response_active_output[input_pair == 0] = -1
+        else:
+            response_active_output[input_single == 0] = -1
+
+        response_active = np.argmax(response_active_output)
+        dup_mask[response_active] = 0
+
+        # convert network output to char cards
+        cards = [to_char(response_active + 3)]
+        handcards.remove(to_char(response_active + 3))
+        if is_pair:
+            handcards.remove(to_char(response_active + 3))
+            cards.append(to_char(response_active + 3))
+
+        # correct for one-hot state
+        cards_onehot = card.Card.char2onehot(cards)
+
+        s[:54] -= cards_onehot
+        s[2 * 54:3 * 54] += cards_onehot
+
+        # save to output
+        outputs.append(to_char(response_active + 3))
+        if is_pair:
+            outputs.append(to_char(response_active + 3))
+    return outputs
+
+
+def inference_minor_cards(category, s, handcards, sess, network, seq_length, dup_mask):
+    if category == Category.THREE_ONE.value:
+        return inference_minor_util(s, handcards, sess, network, 1, False, dup_mask)
+    if category == Category.THREE_TWO.value:
+        return inference_minor_util(s, handcards, sess, network, 1, True, dup_mask)
+    if category == Category.THREE_ONE_LINE.value:
+        return inference_minor_util(s, handcards, sess, network, seq_length, False, dup_mask)
+    if category == Category.THREE_TWO_LINE.value:
+        return inference_minor_util(s, handcards, sess, network, seq_length, True, dup_mask)
+    if category == Category.FOUR_TWO.value:
+        return inference_minor_util(s, handcards, sess, network, 2, False, dup_mask)
+
+
 if __name__ == '__main__':
-    _, response_mask, _, _ = get_mask_alter(['A', 'A', 'A', 'J', 'J', '10', '6', '6', '5'], ['9', '9', '9', '5'], False,
-                                            5)
+    # _, response_mask, _, _ = get_mask_alter(['A', 'A', 'A', 'J', 'J', '10', '6', '6', '5'], ['9', '9', '9', '5'], False,
+    #                                         5)
+    pass
     # for i in range(14):
     #     for j in range(len(action_space_category[i])):
     #         try:
