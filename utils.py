@@ -4,11 +4,14 @@ import numpy as np
 from collections import Counter
 import tensorflow as tf
 import argparse
+import time
+from contextlib import contextmanager
 
 action_space_single = action_space[1:16]
 action_space_pair = action_space[16:29]
 action_space_triple = action_space[29:42]
 action_space_quadric = action_space[42:55]
+
 
 ##################################################### UTILITIES ########################################################
 def counter_subset(list1, list2):
@@ -549,6 +552,30 @@ def inference_minor_cards(category, s, handcards, sess, network, seq_length, dup
         return inference_minor_util(s, handcards, sess, network, seq_length, True, dup_mask)
     if category == Category.FOUR_TWO.value:
         return inference_minor_util(s, handcards, sess, network, 2, False, dup_mask)
+
+
+class GPUTime:
+    total_time = 0
+
+
+@contextmanager
+def timeblock(label):
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        end = time.perf_counter()
+        print('time {} : {}'.format(label, end - start))
+
+
+@contextmanager
+def gputimeblock(label):
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        end = time.perf_counter()
+        GPUTime.total_time += end-start
 
 
 if __name__ == '__main__':

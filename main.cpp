@@ -10,6 +10,7 @@
 #include <memory>
 #include <algorithm>
 #include "game.hpp"
+#include "mctree.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
@@ -1023,6 +1024,9 @@ PYBIND11_MODULE(env, m) {
         .def("get_last_outcards", &Env::getLastCards)
         .def("get_last_outcategory_idx", &Env::getLastCategory)
         .def("get_lord_cnt", &Env::getLordCnt);
+    m.def("print_state", &print_state);
+    py::class_<MCTree>(m, "MCTree")
+        .def(py::init<py::dict>());
 }
 
 // int main(int argc, const char * argv[]) {

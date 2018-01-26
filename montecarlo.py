@@ -149,16 +149,16 @@ class MCTree:
 
     def search(self, nthreads, n):
         self.counter = n
-        coord = tf.train.Coordinator()
         threads = []
         for i in range(nthreads):
-            t = threading.Thread(target=self.search_thread, args=(coord,))
+            t = threading.Thread(target=self.search_thread, args=())
+            threads.append(t)
             t.start()
             sleep(0.05)
-            threads.append(t)
-        coord.join(threads)
+        for t in threads:
+            t.join()
 
-    def search_thread(self, coord):
+    def search_thread(self):
         while True:
             self.counter_lock.acquire()
             if self.counter == 0:

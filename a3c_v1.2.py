@@ -20,7 +20,8 @@ import random
 import argparse
 from pyenv import Pyenv
 from utils import get_masks, discard_cards, get_mask_alter, \
-    give_cards_without_minor, to_char, to_value, inference_minor_cards, get_seq_length
+    give_cards_without_minor, to_char, to_value, inference_minor_cards, get_seq_length, \
+    timeblock, gputimeblock, GPUTime
 from montecarlo import MCTree
 from network_RL import CardNetwork
 
@@ -39,15 +40,16 @@ class CardAgent:
         input_single, input_pair, input_triple, input_quadric = get_masks(curr_hands_char,
                                                                           s['last_cards'] if s['idx'] != s[
                                                                               'control_idx'] else None)
-        val = sess.run(self.main_network.fc_value_output,
-                       feed_dict={
-                           self.main_network.training: True,
-                           self.main_network.input_state: Pyenv.get_state_static(s).reshape(1, -1),
-                           self.main_network.input_single: input_single.reshape(1, -1),
-                           self.main_network.input_pair: input_pair.reshape(1, -1),
-                           self.main_network.input_triple: input_triple.reshape(1, -1),
-                           self.main_network.input_quadric: input_quadric.reshape(1, -1)
-                       })[0]
+        with gputimeblock('gpu'):
+            val = sess.run(self.main_network.fc_value_output,
+                           feed_dict={
+                               self.main_network.training: True,
+                               self.main_network.input_state: Pyenv.get_state_static(s).reshape(1, -1),
+                               self.main_network.input_single: input_single.reshape(1, -1),
+                               self.main_network.input_pair: input_pair.reshape(1, -1),
+                               self.main_network.input_triple: input_triple.reshape(1, -1),
+                               self.main_network.input_quadric: input_quadric.reshape(1, -1)
+                           })[0]
         return val
 
     def predict(self, s, valid_space, sess):
@@ -63,28 +65,34 @@ class CardAgent:
             self.main_network.input_quadric: input_quadric.reshape(1, -1)
         }
         if stage == 'p_decision':
-            decision_output = sess.run(self.main_network.fc_decision_passive_output,
-                                       feed_dict=feeddict)[0]
+            with gputimeblock('gpu'):
+                decision_output = sess.run(self.main_network.fc_decision_passive_output,
+                                           feed_dict=feeddict)[0]
             return decision_output[valid_space]
         elif stage == 'p_bomb':
-            bomb_output = sess.run(self.main_network.fc_bomb_passive_output,
-                                   feed_dict=feeddict)[0]
+            with gputimeblock('gpu'):
+                bomb_output = sess.run(self.main_network.fc_bomb_passive_output,
+                                       feed_dict=feeddict)[0]
             return bomb_output[valid_space]
         elif stage == 'p_response':
-            response_output = sess.run(self.main_network.fc_response_passive_output,
-                                       feed_dict=feeddict)[0]
+            with gputimeblock('gpu'):
+                response_output = sess.run(self.main_network.fc_response_passive_output,
+                                           feed_dict=feeddict)[0]
             return response_output[valid_space]
         elif stage == 'a_decision':
-            decision_output = sess.run(self.main_network.fc_decision_active_output,
-                                       feed_dict=feeddict)[0]
+            with gputimeblock('gpu'):
+                decision_output = sess.run(self.main_network.fc_decision_active_output,
+                                           feed_dict=feeddict)[0]
             return decision_output[valid_space]
         elif stage == 'a_response':
-            response_output = sess.run(self.main_network.fc_response_active_output,
-                                       feed_dict=feeddict)[0]
+            with gputimeblock('gpu'):
+                response_output = sess.run(self.main_network.fc_response_active_output,
+                                           feed_dict=feeddict)[0]
             return response_output[valid_space]
         elif stage == 'a_length':
-            length_output = sess.run(self.main_network.fc_sequence_length_output,
-                                       feed_dict=feeddict)[0]
+            with gputimeblock('gpu'):
+                length_output = sess.run(self.main_network.fc_sequence_length_output,
+                                           feed_dict=feeddict)[0]
             return length_output[valid_space]
         elif stage == 'minor':
             if 'minor_cards' in s:
@@ -101,15 +109,16 @@ class CardAgent:
 
             state[:54] -= cards_onehot
             state[2 * 54:3 * 54] += cards_onehot
-            minor_output = sess.run(self.main_network.fc_response_active_output,
-                                    feed_dict={
-                                        self.main_network.training: True,
-                                        self.main_network.input_state: state.reshape(1, -1),
-                                        self.main_network.input_single: input_single.reshape(1, -1),
-                                        self.main_network.input_pair: input_pair.reshape(1, -1),
-                                        self.main_network.input_triple: input_triple.reshape(1, -1),
-                                        self.main_network.input_quadric: input_quadric.reshape(1, -1)
-            })[0]
+            with gputimeblock('gpu'):
+                minor_output = sess.run(self.main_network.fc_response_active_output,
+                                        feed_dict={
+                                            self.main_network.training: True,
+                                            self.main_network.input_state: state.reshape(1, -1),
+                                            self.main_network.input_single: input_single.reshape(1, -1),
+                                            self.main_network.input_pair: input_pair.reshape(1, -1),
+                                            self.main_network.input_triple: input_triple.reshape(1, -1),
+                                            self.main_network.input_quadric: input_quadric.reshape(1, -1)
+                })[0]
             return minor_output[valid_space]
         else:
             raise Exception('unexpected stage name')
@@ -137,8 +146,9 @@ class CardAgent:
             # first get mask
             decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], False, last_category_idx)
 
-            decision_active_output = sess.run(self.main_network.fc_decision_active_output,
-                                              feed_dict=feeddict)
+            with gputimeblock('gpu'):
+                decision_active_output = sess.run(self.main_network.fc_decision_active_output,
+                                                  feed_dict=feeddict)
 
             # make decision depending on output
             decision_active_output = decision_active_output[0]
@@ -148,8 +158,9 @@ class CardAgent:
             active_category_idx = decision_active + 1
 
             # give actual response
-            response_active_output = sess.run(self.main_network.fc_response_active_output,
-                                              feed_dict=feeddict)
+            with gputimeblock('gpu'):
+                response_active_output = sess.run(self.main_network.fc_response_active_output,
+                                                  feed_dict=feeddict)
 
             response_active_output = response_active_output[0]
             response_active_output[response_mask[decision_active] == 0] = -1
@@ -162,8 +173,9 @@ class CardAgent:
                     active_category_idx == Category.TRIPLE_LINE.value or \
                     active_category_idx == Category.THREE_ONE_LINE.value or \
                     active_category_idx == Category.THREE_TWO_LINE.value:
-                seq_length_output = sess.run(self.main_network.fc_sequence_length_output,
-                                             feed_dict=feeddict)
+                with gputimeblock('gpu'):
+                    seq_length_output = sess.run(self.main_network.fc_sequence_length_output,
+                                                 feed_dict=feeddict)
 
                 seq_length_output = seq_length_output[0]
                 seq_length_output[length_mask[decision_active][response_active] == 0] = -1
@@ -196,10 +208,11 @@ class CardAgent:
             decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, to_char(last_cards_value),
                                                                         is_bomb, last_category_idx)
 
-            decision_passive_output, response_passive_output, bomb_passive_output \
-                = sess.run([self.main_network.fc_decision_passive_output,
-                            self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output],
-                           feed_dict=feeddict)
+            with gputimeblock('gpu'):
+                decision_passive_output, response_passive_output, bomb_passive_output \
+                    = sess.run([self.main_network.fc_decision_passive_output,
+                                self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output],
+                               feed_dict=feeddict)
 
             # print(decision_mask)
             # print(decision_passive_output)
@@ -349,7 +362,10 @@ class CardMaster:
                     dump_s = self.env.dump_state()
                     mctree = MCTree(dump_s, self.agents[train_id], self.sess,
                                     *[self.agents[(train_id + 1) % 3], self.agents[(train_id + 2) % 3]])
-                    mctree.search(1, 10)
+                    GPUTime.total_time = 0
+                    with timeblock('mctree'):
+                        mctree.search(1, 10)
+                    print('gpu time: ', GPUTime.total_time)
                     # print(train_id, 'single step')
 
                     # TODO: decay temperature through time
@@ -410,7 +426,7 @@ class CardMaster:
                                     episode_reward[i] += r
 
                         # then sample buffer for training
-                        logs = self.train_batch_sampled([episode_buffer[i] for i in range(3)], 8, sess)
+                        logs = self.train_batch_sampled([episode_buffer[i] for i in range(3)], 32, sess)
                         break
 
                 for i in range(3):
@@ -533,4 +549,4 @@ if __name__ == '__main__':
         else:
             sess.run(tf.global_variables_initializer())
             master.run(sess, saver, 300)
-        sess.close()
+

@@ -7,9 +7,12 @@ import copy
 import time
 from datetime import datetime
 from statewrapper import WrappedState
+from contextlib import contextmanager
 
 sys.path.insert(0, './build/Release')
+from env import print_state
 import env
+from env import MCTree
 
 
 def read_cards_input():
@@ -377,35 +380,22 @@ class Pyenv:
             dup_mask = s['dup_mask']
             return np.arange(15)[dup_mask == 1]
 
-import tensorflow as tf, threading, time
-
-class A:
-    def test(self, nthreads):
-        coord = tf.train.Coordinator()
-        threads = []
-        for i in range(nthreads):
-            t = threading.Thread(target=self.search_thread, args=(i,))
-            t.start()
-            time.sleep(0.25)
-            threads.append(t)
-        coord.join(threads)
-
-    def search_thread(self, i):
-        print(i)
-
 
 if __name__ == '__main__':
-    a = A()
-    a.test(4)
+    # a = A()
+    # a.test(4)
     # last_cards = np.array(['7', '7'])
     # curr_handcards = Card.char2color(np.array(['5', '6', '7', '7']))
     # print(env.Env.step_auto_static(curr_handcards, to_value(last_cards)))
-    # pyenv = Pyenv()
-    # pyenv.prepare()
-    # done = False
-    # idx = pyenv.lord_idx
-    # while not done:
-    #     print(pyenv.get_handcards(idx))
-    #     intention = read_cards_input()
-    #     _, done, idx = pyenv.step(intention, idx)
+    pyenv = Pyenv()
+    pyenv.prepare()
+
+    done = False
+    while not done:
+        print(pyenv.get_handcards())
+        intention = read_cards_input()
+        _, done = pyenv.step(intention)
+        dump_s = pyenv.dump_state()
+        mctree = MCTree(dump_s.dic)
+        # print_state(dump_s.dic)
 

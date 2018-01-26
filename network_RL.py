@@ -405,7 +405,7 @@ class CardNetwork:
             self.local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
             self.var_norms = tf.global_norm(self.local_vars)
             self.gradients = tf.gradients(self.loss, self.local_vars)
-            self.cliped_grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 40.0)
+            self.cliped_grads, self.grad_norms = tf.clip_by_global_norm(self.gradients, 400.0)
 
             # update moving avg/var in batch normalization!
             self.extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope=scope)
