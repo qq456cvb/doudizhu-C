@@ -6,6 +6,7 @@ import tensorflow as tf
 import argparse
 import time
 from contextlib import contextmanager
+from scheduler import scheduled_run
 
 action_space_single = action_space[1:16]
 action_space_pair = action_space[16:29]
@@ -499,15 +500,24 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask):
         # update mask for the next loop
         input_single, input_pair, input_triple, input_quadric = get_masks(handcards, None)
 
-        response_active_output = sess.run(network.fc_response_active_output,
-                                          feed_dict={
-                                              network.training: True,
-                                              network.input_state: s,
-                                              network.input_single: np.reshape(input_single, [1, -1]),
-                                              network.input_pair: np.reshape(input_pair, [1, -1]),
-                                              network.input_triple: np.reshape(input_triple, [1, -1]),
-                                              network.input_quadric: np.reshape(input_quadric, [1, -1])
-                                          })
+        response_active_output = scheduled_run(sess, network.fc_response_active_output,
+                                               {
+                                                   network.training: True,
+                                                   network.input_state: s,
+                                                   network.input_single: np.reshape(input_single, [1, -1]),
+                                                   network.input_pair: np.reshape(input_pair, [1, -1]),
+                                                   network.input_triple: np.reshape(input_triple, [1, -1]),
+                                                   network.input_quadric: np.reshape(input_quadric, [1, -1])
+                                               })
+        # response_active_output = sess.run(network.fc_response_active_output,
+        #                                   feed_dict={
+        #                                       network.training: True,
+        #                                       network.input_state: s,
+        #                                       network.input_single: np.reshape(input_single, [1, -1]),
+        #                                       network.input_pair: np.reshape(input_pair, [1, -1]),
+        #                                       network.input_triple: np.reshape(input_triple, [1, -1]),
+        #                                       network.input_quadric: np.reshape(input_quadric, [1, -1])
+        #                                   })
 
         # give minor cards
         response_active_output = response_active_output[0]

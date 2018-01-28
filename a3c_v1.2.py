@@ -24,6 +24,7 @@ from utils import get_masks, discard_cards, get_mask_alter, \
     timeblock, gputimeblock, GPUTime
 from montecarlo import MCTree
 from network_RL import CardNetwork
+from scheduler import scheduled_run
 
 
 class CardAgent:
@@ -41,58 +42,74 @@ class CardAgent:
                                                                           s['last_cards'] if s['idx'] != s[
                                                                               'control_idx'] else None)
         with gputimeblock('gpu'):
-            val = sess.run(self.main_network.fc_value_output,
-                           feed_dict={
-                               self.main_network.training: True,
-                               self.main_network.input_state: Pyenv.get_state_static(s).reshape(1, -1),
-                               self.main_network.input_single: input_single.reshape(1, -1),
-                               self.main_network.input_pair: input_pair.reshape(1, -1),
-                               self.main_network.input_triple: input_triple.reshape(1, -1),
-                               self.main_network.input_quadric: input_quadric.reshape(1, -1)
-                           })[0]
+            val = scheduled_run(sess, self.main_network.fc_value_output,
+                          (
+                              (self.main_network.training, True),
+                              (self.main_network.input_state, Pyenv.get_state_static(s).reshape(1, -1)),
+                              (self.main_network.input_single, input_single.reshape(1, -1)),
+                              (self.main_network.input_pair, input_pair.reshape(1, -1)),
+                              (self.main_network.input_triple, input_triple.reshape(1, -1)),
+                              (self.main_network.input_quadric, input_quadric.reshape(1, -1))
+                          )
+                          )[0]
+            # val = sess.run(self.main_network.fc_value_output,
+            #                feed_dict={
+            #                    self.main_network.training: True,
+            #                    self.main_network.input_state: Pyenv.get_state_static(s).reshape(1, -1),
+            #                    self.main_network.input_single: input_single.reshape(1, -1),
+            #                    self.main_network.input_pair: input_pair.reshape(1, -1),
+            #                    self.main_network.input_triple: input_triple.reshape(1, -1),
+            #                    self.main_network.input_quadric: input_quadric.reshape(1, -1)
+            #                })[0]
         return val
 
     def predict(self, s, valid_space, sess):
         stage = s['stage']
         curr_hands_char = s['player_cards'][s['idx']]
         input_single, input_pair, input_triple, input_quadric = get_masks(curr_hands_char, s['last_cards'] if s['idx'] != s['control_idx'] else None)
-        feeddict = {
-            self.main_network.training: True,
-            self.main_network.input_state: Pyenv.get_state_static(s).reshape(1, -1),
-            self.main_network.input_single: input_single.reshape(1, -1),
-            self.main_network.input_pair: input_pair.reshape(1, -1),
-            self.main_network.input_triple: input_triple.reshape(1, -1),
-            self.main_network.input_quadric: input_quadric.reshape(1, -1)
-        }
+        feeddict = (
+            (self.main_network.training,True),
+            (self.main_network.input_state, Pyenv.get_state_static(s).reshape(1, -1)),
+            (self.main_network.input_single, input_single.reshape(1, -1)),
+            (self.main_network.input_pair, input_pair.reshape(1, -1)),
+            (self.main_network.input_triple, input_triple.reshape(1, -1)),
+            (self.main_network.input_quadric, input_quadric.reshape(1, -1))
+        )
         if stage == 'p_decision':
             with gputimeblock('gpu'):
-                decision_output = sess.run(self.main_network.fc_decision_passive_output,
-                                           feed_dict=feeddict)[0]
+                decision_output = scheduled_run(sess, self.main_network.fc_decision_passive_output, feeddict)[0]
+                # decision_output = sess.run(self.main_network.fc_decision_passive_output,
+                #                            feed_dict=feeddict)[0]
             return decision_output[valid_space]
         elif stage == 'p_bomb':
             with gputimeblock('gpu'):
-                bomb_output = sess.run(self.main_network.fc_bomb_passive_output,
-                                       feed_dict=feeddict)[0]
+                bomb_output = scheduled_run(sess, self.main_network.fc_bomb_passive_output, feeddict)[0]
+                # bomb_output = sess.run(self.main_network.fc_bomb_passive_output,
+                #                        feed_dict=feeddict)[0]
             return bomb_output[valid_space]
         elif stage == 'p_response':
             with gputimeblock('gpu'):
-                response_output = sess.run(self.main_network.fc_response_passive_output,
-                                           feed_dict=feeddict)[0]
+                response_output = scheduled_run(sess, self.main_network.fc_response_passive_output, feeddict)[0]
+                # response_output = sess.run(self.main_network.fc_response_passive_output,
+                #                            feed_dict=feeddict)[0]
             return response_output[valid_space]
         elif stage == 'a_decision':
             with gputimeblock('gpu'):
-                decision_output = sess.run(self.main_network.fc_decision_active_output,
-                                           feed_dict=feeddict)[0]
+                decision_output = scheduled_run(sess, self.main_network.fc_decision_active_output, feeddict)[0]
+                # decision_output = sess.run(self.main_network.fc_decision_active_output,
+                #                            feed_dict=feeddict)[0]
             return decision_output[valid_space]
         elif stage == 'a_response':
             with gputimeblock('gpu'):
-                response_output = sess.run(self.main_network.fc_response_active_output,
-                                           feed_dict=feeddict)[0]
+                response_output = scheduled_run(sess, self.main_network.fc_response_active_output, feeddict)[0]
+                # response_output = sess.run(self.main_network.fc_response_active_output,
+                #                            feed_dict=feeddict)[0]
             return response_output[valid_space]
         elif stage == 'a_length':
             with gputimeblock('gpu'):
-                length_output = sess.run(self.main_network.fc_sequence_length_output,
-                                           feed_dict=feeddict)[0]
+                length_output = scheduled_run(sess, self.main_network.fc_sequence_length_output, feeddict)[0]
+                # length_output = sess.run(self.main_network.fc_sequence_length_output,
+                #                            feed_dict=feeddict)[0]
             return length_output[valid_space]
         elif stage == 'minor':
             if 'minor_cards' in s:
@@ -110,15 +127,24 @@ class CardAgent:
             state[:54] -= cards_onehot
             state[2 * 54:3 * 54] += cards_onehot
             with gputimeblock('gpu'):
-                minor_output = sess.run(self.main_network.fc_response_active_output,
-                                        feed_dict={
-                                            self.main_network.training: True,
-                                            self.main_network.input_state: state.reshape(1, -1),
-                                            self.main_network.input_single: input_single.reshape(1, -1),
-                                            self.main_network.input_pair: input_pair.reshape(1, -1),
-                                            self.main_network.input_triple: input_triple.reshape(1, -1),
-                                            self.main_network.input_quadric: input_quadric.reshape(1, -1)
-                })[0]
+                feeddict = (
+                    (self.main_network.training, True),
+                    (self.main_network.input_state, state.reshape(1, -1)),
+                    (self.main_network.input_single, input_single.reshape(1, -1)),
+                    (self.main_network.input_pair, input_pair.reshape(1, -1)),
+                    (self.main_network.input_triple, input_triple.reshape(1, -1)),
+                    (self.main_network.input_quadric, input_quadric.reshape(1, -1))
+                )
+                minor_output = scheduled_run(sess, self.main_network.fc_response_active_output, feeddict)[0]
+                # minor_output = sess.run(self.main_network.fc_response_active_output,
+                #                         feed_dict={
+                #                             self.main_network.training: True,
+                #                             self.main_network.input_state: state.reshape(1, -1),
+                #                             self.main_network.input_single: input_single.reshape(1, -1),
+                #                             self.main_network.input_pair: input_pair.reshape(1, -1),
+                #                             self.main_network.input_triple: input_triple.reshape(1, -1),
+                #                             self.main_network.input_quadric: input_quadric.reshape(1, -1)
+                # })[0]
             return minor_output[valid_space]
         else:
             raise Exception('unexpected stage name')
@@ -126,8 +152,8 @@ class CardAgent:
     def inference_once(self, s, sess):
         is_active = s['control_idx'] == s['idx']
         last_category_idx = s['last_category_idx'] if is_active else -1
-        last_cards_char = s['last_cards'] if is_active else None
-        last_cards_value = np.array(to_value(last_cards_char)) if is_active else None
+        last_cards_char = s['last_cards'] if not is_active else np.array([])
+        last_cards_value = np.array(to_value(last_cards_char)) if not is_active else np.array([])
         curr_cards_char = s['player_cards'][s['idx']]
 
         input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char)
@@ -147,8 +173,9 @@ class CardAgent:
             decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], False, last_category_idx)
 
             with gputimeblock('gpu'):
-                decision_active_output = sess.run(self.main_network.fc_decision_active_output,
-                                                  feed_dict=feeddict)
+                decision_active_output = scheduled_run(sess, self.main_network.fc_decision_active_output, feeddict)
+                # decision_active_output = sess.run(self.main_network.fc_decision_active_output,
+                #                                   feed_dict=feeddict)
 
             # make decision depending on output
             decision_active_output = decision_active_output[0]
@@ -159,8 +186,9 @@ class CardAgent:
 
             # give actual response
             with gputimeblock('gpu'):
-                response_active_output = sess.run(self.main_network.fc_response_active_output,
-                                                  feed_dict=feeddict)
+                response_active_output = scheduled_run(sess, self.main_network.fc_response_active_output, feeddict)
+                # response_active_output = sess.run(self.main_network.fc_response_active_output,
+                #                                   feed_dict=feeddict)
 
             response_active_output = response_active_output[0]
             response_active_output[response_mask[decision_active] == 0] = -1
@@ -174,8 +202,9 @@ class CardAgent:
                     active_category_idx == Category.THREE_ONE_LINE.value or \
                     active_category_idx == Category.THREE_TWO_LINE.value:
                 with gputimeblock('gpu'):
-                    seq_length_output = sess.run(self.main_network.fc_sequence_length_output,
-                                                 feed_dict=feeddict)
+                    seq_length_output = scheduled_run(sess, self.main_network.fc_sequence_length_output, feeddict)
+                    # seq_length_output = sess.run(self.main_network.fc_sequence_length_output,
+                    #                              feed_dict=feeddict)
 
                 seq_length_output = seq_length_output[0]
                 seq_length_output[length_mask[decision_active][response_active] == 0] = -1
@@ -210,9 +239,12 @@ class CardAgent:
 
             with gputimeblock('gpu'):
                 decision_passive_output, response_passive_output, bomb_passive_output \
-                    = sess.run([self.main_network.fc_decision_passive_output,
-                                self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output],
-                               feed_dict=feeddict)
+                    = scheduled_run([self.main_network.fc_decision_passive_output,
+                                     self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output], feeddict)
+                # decision_passive_output, response_passive_output, bomb_passive_output \
+                #     = sess.run([self.main_network.fc_decision_passive_output,
+                #                 self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output],
+                #                feed_dict=feeddict)
 
             # print(decision_mask)
             # print(decision_passive_output)
@@ -270,30 +302,30 @@ class CardAgent:
                 active_response_input, seq_length_input = [np.array([buf[i][7][k] for i in batch_idx])
                                                            for k in ['decision_passive', 'bomb_passive', 'response_passive',
                                                                      'decision_active', 'response_active', 'seq_length']]
+            feed_dict = (
+                (self.main_network.training, True),
+                (self.main_network.mode, modes),
+                (self.main_network.input_state, input_states),
+                (self.main_network.input_single, input_singles),
+                (self.main_network.input_pair, input_pairs),
+                (self.main_network.input_triple, input_triples),
+                (self.main_network.input_quadric, input_quadrics),
+                (self.main_network.passive_decision_input, passive_decision_input),
+                (self.main_network.passive_response_input, passive_response_input),
+                (self.main_network.passive_bomb_input, passive_bomb_input),
+                (self.main_network.active_decision_input, active_decision_input),
+                (self.main_network.active_response_input, active_response_input),
+                (self.main_network.seq_length_input, seq_length_input),
+                (self.main_network.value_input, vals)
+            )
             _, loss, var_norm, gradient_norm, decision_passive_output, response_passive_output, bomb_passive_output, \
                 decision_active_output, response_active_output, seq_length_output \
-                = sess.run([self.main_network.optimize, self.main_network.loss, self.main_network.var_norms,
-                            self.main_network.grad_norms, self.main_network.fc_decision_passive_output,
-                            self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output,
-                            self.main_network.fc_decision_active_output, self.main_network.fc_response_active_output,
-                            self.main_network.fc_sequence_length_output
-                            ],
-                           feed_dict={
-                               self.main_network.training: True,
-                               self.main_network.mode: modes,
-                               self.main_network.input_state: input_states,
-                               self.main_network.input_single: input_singles,
-                               self.main_network.input_pair: input_pairs,
-                               self.main_network.input_triple: input_triples,
-                               self.main_network.input_quadric: input_quadrics,
-                               self.main_network.passive_decision_input: passive_decision_input,
-                               self.main_network.passive_response_input: passive_response_input,
-                               self.main_network.passive_bomb_input: passive_bomb_input,
-                               self.main_network.active_decision_input: active_decision_input,
-                               self.main_network.active_response_input: active_response_input,
-                               self.main_network.seq_length_input: seq_length_input,
-                               self.main_network.value_input: vals
-                           })
+                = scheduled_run(sess, [self.main_network.optimize, self.main_network.loss, self.main_network.var_norms,
+                                       self.main_network.grad_norms, self.main_network.fc_decision_passive_output,
+                                       self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output,
+                                       self.main_network.fc_decision_active_output, self.main_network.fc_response_active_output,
+                                       self.main_network.fc_sequence_length_output
+                                       ], feed_dict)
             mean_loss += loss
             mean_grad_norm += gradient_norm
             mean_var_norm += var_norm
@@ -523,11 +555,11 @@ if __name__ == '__main__':
     f.close()
     '''
 
-    parser = argparse.ArgumentParser(description='fight the lord feature vector')
+    parser = argparse.ArgumentParser(description='fight the lord')
     # parser.add_argument('--b', type=int, help='batch size', default=32)
     parser.add_argument('--epoches_train', type=int, help='num of epochs to train', default=1)
     parser.add_argument('--epoches_test', type=int, help='num of epochs to test', default=0)
-    parser.add_argument('--train', type=bool, help='whether to train', default=True)
+    # parser.add_argument('--train', type=bool, help='whether to train', default=True)
 
     args = parser.parse_args(sys.argv[1:])
     epoches_train = args.epoches_train

@@ -14,6 +14,7 @@ sys.path.insert(0, './build/Release')
 import env
 
 
+# TODO: make the entire monte carlo tree run on C++
 class Environment:
     def __init__(self):
         self.board = np.zeros([3, 3])
@@ -130,6 +131,8 @@ class Edge:
         self.n = 0
         self.w = 0
         self.q = 0
+        self.terminated = False
+        self.r = 0
         self.p = prior
         self.src = src
         self.node = None
@@ -172,26 +175,25 @@ class MCTree:
                 self.backup(leaf, val)
     
     def explore(self, node):
+        # TODO: add virtual loss for current branch
         node.lock.acquire()
         edge = node.choose(5.)
-        sprime, r, done = self.env.step_static(edge.s, edge.a, self.sess, *self.oppo_agents)
-        if done:
-            if not edge.node:
-                subspace = self.env.get_actionspace(sprime)
-                edge.node = Node(edge, sprime, subspace, self.agent.predict(sprime, subspace, self.sess))
-                node.lock.release()
-                return r, edge.node
-            else:
-                # if we ran into this again, we'd like to reinforce our intuition
-                node.lock.release()
-                return r, edge.node
         if edge.node:
-            node.lock.release()
-            return self.explore(edge.node)
+            if edge.terminated:
+                node.lock.release()
+                return edge.r, edge.node
+            else:
+                node.lock.release()
+                return self.explore(edge.node)
         else:
+            sprime, r, done = self.env.step_static(edge.s, edge.a, self.sess, *self.oppo_agents)
             subspace = self.env.get_actionspace(sprime)
             edge.node = Node(edge, sprime, subspace, self.agent.predict(sprime, subspace, self.sess))
-            # we are in intermediate node, explore more
+            if done:
+                edge.terminated = True
+                edge.r = r
+                node.lock.release()
+                return r, edge.node
             if sprime.is_intermediate():
                 node.lock.release()
                 return self.explore(edge.node)
@@ -324,6 +326,7 @@ class MCTree:
                 intention = np.concatenate([intention, minor_cards])
             return mode, distribution, np.array(to_char(intention))
 
+    # Error code - legacy
     def give_cards(self, temp):
         decision_idx, decision = self.give_cards_helper(self.root, temp)
         s = self.root.s
