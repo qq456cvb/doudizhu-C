@@ -33,7 +33,7 @@ class CardAgent:
         self.name = name
         self.episodes = tf.Variable(0, dtype=tf.int32, name='episodes_' + name, trainable=False)
         self.increment = self.episodes.assign_add(1)
-        self.main_network = CardNetwork(54 * 6, self.trainer, self.name)
+        self.main_network = CardNetwork(54 * 6, self.trainer, self.name, 2)
 
     def evaluate(self, s, sess):
         assert not s.is_intermediate()
@@ -159,14 +159,14 @@ class CardAgent:
         input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char)
 
         state = Pyenv.get_state_static(s).reshape(1, -1)
-        feeddict = {
-            self.main_network.training: True,
-            self.main_network.input_state: state,
-            self.main_network.input_single: input_single.reshape(1, -1),
-            self.main_network.input_pair: input_pair.reshape(1, -1),
-            self.main_network.input_triple: input_triple.reshape(1, -1),
-            self.main_network.input_quadric: input_quadric.reshape(1, -1)
-        }
+        feeddict = (
+            (self.main_network.training, True),
+            (self.main_network.input_state, state),
+            (self.main_network.input_single, input_single.reshape(1, -1)),
+            (self.main_network.input_pair, input_pair.reshape(1, -1)),
+            (self.main_network.input_triple, input_triple.reshape(1, -1)),
+            (self.main_network.input_quadric, input_quadric.reshape(1, -1))
+        )
         intention = None
         if is_active:
             # first get mask
@@ -239,7 +239,7 @@ class CardAgent:
 
             with gputimeblock('gpu'):
                 decision_passive_output, response_passive_output, bomb_passive_output \
-                    = scheduled_run([self.main_network.fc_decision_passive_output,
+                    = scheduled_run(sess, [self.main_network.fc_decision_passive_output,
                                      self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output], feeddict)
                 # decision_passive_output, response_passive_output, bomb_passive_output \
                 #     = sess.run([self.main_network.fc_decision_passive_output,
@@ -396,7 +396,7 @@ class CardMaster:
                                     *[self.agents[(train_id + 1) % 3], self.agents[(train_id + 2) % 3]])
                     GPUTime.total_time = 0
                     with timeblock('mctree'):
-                        mctree.search(1, 10)
+                        mctree.search(20, 200)
                     print('gpu time: ', GPUTime.total_time)
                     # print(train_id, 'single step')
 
@@ -567,18 +567,31 @@ if __name__ == '__main__':
 
     a_dim = len(action_space)
 
-    load_model = False
+    load_model = True
     model_path = './model'
     master = CardMaster()
+    variables_to_restore = slim.get_variables(scope='agent0')
+    # vars_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='agent0')
+    # for v in vars_train:
+    #     print(v.name + ':', tf.shape(v))
     saver = tf.train.Saver(max_to_keep=100)
-    with tf.Session() as sess:
-        if load_model:
-            print('Loading Model...')
-            ckpt = tf.train.get_checkpoint_state(model_path)
-            saver.restore(sess, ckpt.model_checkpoint_path)
-            master.run(sess, saver, 300)
-            # run_game(sess, master)
-        else:
-            sess.run(tf.global_variables_initializer())
-            master.run(sess, saver, 300)
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        variables_names = [v.name for v in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='agent0')]
+        sess.run(tf.global_variables_initializer())
+        values = sess.run(variables_names)
+        for k, v in zip(variables_names, values):
+            print("Variable: ", k)
+            print("Shape: ", v.shape)
+            # print v
+    # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
+    #     if load_model:
+    #         print('Loading Model...')
+    #         # ckpt = tf.train.get_checkpoint_state(model_path)
+    #         saver.restore(sess, ckpt.model_checkpoint_path)
+    #         print('Loaded model.')
+    #         # master.run(sess, saver, 300)
+    #         # run_game(sess, master)
+    #     else:
+    #         sess.run(tf.global_variables_initializer())
+            # master.run(sess, saver, 300)
 

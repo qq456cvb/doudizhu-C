@@ -244,50 +244,50 @@ class CardNetwork:
             with tf.variable_scope("passive_decision_making"):
                 self.fc_decision_passive = self.fc_flattened
                 with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-                    slim.stack(self.fc_decision_passive, slim.fully_connected, [128, 64, 32])
+                    self.fc_decision_passive = slim.stack(self.fc_decision_passive, slim.fully_connected, [1024, 256, 64])
                 self.fc_decision_passive_output = slim.fully_connected(self.fc_decision_passive, 4, tf.nn.softmax)
 
             # passive response
             with tf.variable_scope("passive_response"):
                 self.fc_response_passive = self.fc_flattened
                 with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-                    slim.stack(self.fc_response_passive, slim.fully_connected, [128, 64, 32])
+                    self.fc_response_passive = slim.stack(self.fc_response_passive, slim.fully_connected, [1024, 256, 64])
                 self.fc_response_passive_output = slim.fully_connected(self.fc_response_passive, 14, tf.nn.softmax)
 
             # passive bomb response
             with tf.variable_scope("passive_bomb_reponse"):
                 self.fc_bomb_passive = self.fc_flattened
                 with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-                    slim.stack(self.fc_bomb_passive, slim.fully_connected, [128, 64, 32])
+                    self.fc_bomb_passive = slim.stack(self.fc_bomb_passive, slim.fully_connected, [1024, 256, 64])
                 self.fc_bomb_passive_output = slim.fully_connected(self.fc_bomb_passive, 13, tf.nn.softmax)
 
             # active decision making  mapped to [action space category - 1]
             with tf.variable_scope("active_decision_making"):
                 self.fc_decision_active = self.fc_flattened
                 with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-                    slim.stack(self.fc_decision_active, slim.fully_connected, [128, 64, 32])
+                    self.fc_decision_active = slim.stack(self.fc_decision_active, slim.fully_connected, [1024, 256, 64])
                 self.fc_decision_active_output = slim.fully_connected(self.fc_decision_active, 13, tf.nn.softmax)
 
             # active response
             with tf.variable_scope("active_response"):
                 self.fc_response_active = self.fc_flattened
                 with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-                    slim.stack(self.fc_response_active, slim.fully_connected, [128, 64, 32])
+                    self.fc_response_active = slim.stack(self.fc_response_active, slim.fully_connected, [1024, 256, 64])
                 self.fc_response_active_output = slim.fully_connected(self.fc_response_active, 15, tf.nn.softmax)
 
             # card length output
             with tf.variable_scope("fc_sequence_length_output"):
                 self.fc_seq_length = self.fc_flattened
                 with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-                    slim.stack(self.fc_seq_length, slim.fully_connected, [128, 64, 32])
+                    self.fc_seq_length = slim.stack(self.fc_seq_length, slim.fully_connected, [1024, 256, 64])
                 self.fc_sequence_length_output = slim.fully_connected(self.fc_seq_length, 12, tf.nn.softmax)
 
             # minor card value map output [-1, 1]
-            with tf.variable_scope("fc_cards_value_output"):
-                self.fc_cards_value = self.fc_flattened
-                with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
-                    slim.stack(self.fc_cards_value, slim.fully_connected, [128, 64, 32])
-                self.fc_cards_value_output = slim.fully_connected(self.fc_cards_value, 15, tf.nn.tanh)
+            # with tf.variable_scope("fc_cards_value_output"):
+            #     self.fc_cards_value = self.fc_flattened
+            #     with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
+            #         slim.stack(self.fc_cards_value, slim.fully_connected, [128, 64, 32])
+            #     self.fc_cards_value_output = slim.fully_connected(self.fc_cards_value, 15, tf.nn.tanh)
 
             # active or passive
             with tf.variable_scope("input_is_active"):
