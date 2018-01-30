@@ -359,7 +359,7 @@ if __name__ == '__main__':
     a_dim = len(action_space)
 
     graph_sl = tf.get_default_graph()
-    SLNetwork = CardNetwork(54 * 6, tf.train.AdamOptimizer(learning_rate=0.0001), "SLNetwork")
+    SLNetwork = CardNetwork(54 * 6, tf.train.AdamOptimizer(learning_rate=1e-4), "SLNetwork")
     variables = tf.all_variables()
 
     e = env.Env()
@@ -373,7 +373,7 @@ if __name__ == '__main__':
     # for f in filelist:
     #     os.remove(os.path.join('./accuracy_fake_minor', f))
 
-    logger = Logger()
+    logger = Logger(moving_avg=True if TRAIN else False)
     # TODO: support batch training
     # test_cards = [i for i in range(3, 18)]
     # test_cards = np.array(test_cards *)
@@ -395,7 +395,7 @@ if __name__ == '__main__':
             input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, None)
 
             s = e.get_state()
-            s = np.reshape(s, [1, -1])
+            s = np.reshape(s, [1, -1]).astype(np.float32)
             
             # s = get_feature_state(e, mask)
             r = 0
@@ -549,7 +549,7 @@ if __name__ == '__main__':
                 input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
 
                 s = e.get_state()
-                s = np.reshape(s, [1, -1])
+                s = np.reshape(s, [1, -1]).astype(np.float32)
             #print("End of one game")
             if i % 100 == 0:
                 print("train1 ", i, " ing...")
@@ -630,9 +630,10 @@ if __name__ == '__main__':
                 input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
 
                 s = e.get_state()
-                s = np.reshape(s, [1, -1])
+                s = np.reshape(s, [1, -1]).astype(np.float32)
 
-                intention, r, category_idx = e.step_auto()       
+                intention, r, category_idx = e.step_auto()
+                # print(intention)
 
                 is_passive_bomb = False
                 has_seq_length = False
@@ -759,6 +760,8 @@ if __name__ == '__main__':
 
                     if decision_passive_target == 3:
                         if response_mask[response_passive_target] == 0:
+                            print(to_char(intention))
+                            print(last_cards_char)
                             raise Exception('response mask fault')
 
                 minor_cards_targets = pick_minor_targets(category_idx, to_char(intention))

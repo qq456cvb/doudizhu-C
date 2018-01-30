@@ -238,8 +238,10 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx):
         # correct for one-hot state
         cards_onehot = card.Card.char2onehot(cards)
 
-        s[:54] -= cards_onehot
-        s[2 * 54:3 * 54] += cards_onehot
+        # print(s.shape)
+        # print(cards_onehot.shape)
+        s[0, :54] -= cards_onehot
+        s[0, 2 * 54:3 * 54] += cards_onehot
 
         acc.append(1 if np.argmax(response_active_output[0]) == target_val else 0)
     return acc
@@ -286,8 +288,8 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
         # correct for one-hot state
         cards_onehot = card.Card.char2onehot(cards)
 
-        s[:54] -= cards_onehot
-        s[2 * 54:3 * 54] += cards_onehot
+        s[0, :54] -= cards_onehot
+        s[0, 2 * 54:3 * 54] += cards_onehot
 
         acc.append(1 if response_active == target_val else 0)
     return acc
@@ -541,8 +543,8 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask):
         # correct for one-hot state
         cards_onehot = card.Card.char2onehot(cards)
 
-        s[:54] -= cards_onehot
-        s[2 * 54:3 * 54] += cards_onehot
+        s[0, :54] -= cards_onehot
+        s[0, 2 * 54:3 * 54] += cards_onehot
 
         # save to output
         outputs.append(to_char(response_active + 3))
