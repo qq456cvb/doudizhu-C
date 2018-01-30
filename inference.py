@@ -52,7 +52,7 @@ if __name__ == '__main__':
                     input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
 
                     s = e.get_state()
-                    s = np.reshape(s, [1, -1])
+                    s = np.reshape(s, [1, -1]).astype(np.float32)
 
                     is_active = (last_cards_value.size == 0)
                     if is_active:
