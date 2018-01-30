@@ -473,13 +473,12 @@ if __name__ == '__main__':
                     
 
                 _, decision_passive_output, response_passive_output, bomb_passive_output, \
-                    decision_active_output, response_active_output, seq_length_output, minor_cards_output, loss, \
+                    decision_active_output, response_active_output, seq_length_output, loss, \
                     active_decision_loss, active_response_loss, passive_decision_loss, passive_response_loss, passive_bomb_loss \
                      = sess.run([SLNetwork.optimize, SLNetwork.fc_decision_passive_output, 
                                 SLNetwork.fc_response_passive_output, SLNetwork.fc_bomb_passive_output,
                                 SLNetwork.fc_decision_active_output, SLNetwork.fc_response_active_output, 
-                                SLNetwork.fc_sequence_length_output,
-                                SLNetwork.fc_cards_value_output, SLNetwork.loss,
+                                SLNetwork.fc_sequence_length_output, SLNetwork.loss,
                                 SLNetwork.active_decision_loss, SLNetwork.active_response_loss, SLNetwork.passive_decision_loss, SLNetwork.passive_response_loss, SLNetwork.passive_bomb_loss],
                         feed_dict = {
                             SLNetwork.training: True,

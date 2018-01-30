@@ -457,8 +457,9 @@ action_space_category = [action_space[:1], action_space[1:16], action_space[16:2
 
 if __name__ == '__main__':
     pass
-    print(action_space_category[Category.SINGLE_LINE.value])
-    print(action_space_category[Category.DOUBLE_LINE.value])
+    # print(action_space_category[Category.SINGLE_LINE.value])
+    # print(action_space_category[Category.DOUBLE_LINE.value])
+    print(action_space_category[Category.THREE_ONE.value])
     # CardGroup.to_cardgroup(['6', '6', 'Q', 'Q', 'Q'])
     # actions = get_action_space()
     # for i in range(1, len(actions)):

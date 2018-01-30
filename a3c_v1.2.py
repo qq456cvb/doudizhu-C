@@ -2,7 +2,7 @@
 import sys
 
 sys.path.insert(0, './build/Release')
-import env
+from env import Env
 # from env_test import Env
 import card
 from card import action_space, Category, action_space_category
@@ -29,7 +29,7 @@ from scheduler import scheduled_run
 
 class CardAgent:
     def __init__(self, name):
-        self.trainer = tf.train.AdamOptimizer(learning_rate=0.0001)
+        self.trainer = tf.train.AdamOptimizer(learning_rate=1e-4)
         self.name = name
         self.episodes = tf.Variable(0, dtype=tf.int32, name='episodes_' + name, trainable=False)
         self.increment = self.episodes.assign_add(1)
@@ -290,6 +290,36 @@ class CardAgent:
                                                                    dup_mask))])
         return intention
 
+    def get_benchmark(self, sess):
+        num_tests = 100
+        env = Pyenv()
+        wins = 0
+        idx_role_self = int(self.name[-1])
+        idx_self = -1
+        for i in range(num_tests):
+            env.reset()
+            env.prepare()
+            s = env.dump_state()
+            done = False
+            while not done:
+                # use the network
+                if idx_role_self == Pyenv.get_role_ID_static(s) - 1:
+                    idx_self = s['idx']
+                    intention = np.array(to_char(self.inference_once(s, sess)))
+                else:
+                    intention = np.array(to_char(Env.step_auto_static(card.Card.char2color(s['player_cards'][s['idx']]),
+                                                                          np.array(to_value(
+                                                                              s['last_cards'] if s['control_idx'] != s[
+                                                                                  'idx'] else [])))))
+                r, done = Pyenv.step_round(s, intention)
+            # finished, see who wins
+            if idx_self == s['idx']:
+                wins += 1
+            elif idx_self != s['lord_idx'] and s['idx'] != s['lord_idx']:
+                wins += 1
+        return wins / num_tests
+
+
     def train_batch_sampled(self, buf, batch_size, sess):
         num_of_iters = len(buf) // batch_size + 1
         mean_loss = 0
@@ -541,6 +571,10 @@ def run_game(sess, network):
     print("lord winning rate: %f" % (lord_win_rate / 100.0))
 
 
+def name_in_checkpoint(var):
+    return var.op.name.replace("agent0", "SLNetwork")
+
+
 if __name__ == '__main__':
     '''
     demoGames = []
@@ -571,10 +605,12 @@ if __name__ == '__main__':
     model_path = './model'
     master = CardMaster()
     variables_to_restore = slim.get_variables(scope='agent0')
+    variables_to_restore = {name_in_checkpoint(v) for v in variables_to_restore if "value_output" not in v}
+
     # vars_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='agent0')
     # for v in vars_train:
     #     print(v.name + ':', tf.shape(v))
-    saver = tf.train.Saver(max_to_keep=100)
+    saver = tf.train.Saver(variables_to_restore, max_to_keep=100)
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         variables_names = [v.name for v in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='agent0')]
         sess.run(tf.global_variables_initializer())

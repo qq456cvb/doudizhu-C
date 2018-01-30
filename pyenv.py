@@ -48,6 +48,15 @@ class Pyenv:
         if self.idx == (self.lord_idx + 1) % 3:
             return 3
 
+    @staticmethod
+    def get_role_ID_static(s):
+        if s['idx'] == s['lord_idx']:
+            return 2
+        if s['idx'] == (s['lord_idx'] + 2) % 3:
+            return 1
+        if s['idx'] == (s['lord_idx'] + 1) % 3:
+            return 3
+
     def get_state(self):
         selfcards = Card.char2onehot(self.player_cards[self.idx])
         histories = [Card.char2onehot(self.histories[(self.idx + i) % 3]) for i in range(3)]
@@ -66,8 +75,6 @@ class Pyenv:
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
     def prepare(self, seed=int(time.time())):
-        np.random.seed(seed)
-        print('seed=', seed)
         cards = np.array(Pyenv.total_cards.copy())
         np.random.shuffle(cards)
         for i in range(3):
