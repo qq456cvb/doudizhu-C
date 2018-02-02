@@ -22,7 +22,7 @@ from logger import Logger
 from network_SL import CardNetwork
 from utils import get_mask, get_minor_cards, train_fake_action, get_masks, test_fake_action
 from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter
-from utils import inference_minor_cards, gputimeblock, scheduled_run, give_cards_without_minor
+from utils import inference_minor_cards, gputimeblock, scheduled_run, give_cards_without_minor, pick_main_cards
 import shutil
 from pyenv import Pyenv
 
@@ -411,7 +411,7 @@ def inference_once(s, sess, main_network):
             else:
                 dup_mask[intention[0] - 3] = 0
             intention = np.concatenate([intention, to_value(
-                inference_minor_cards(active_category_idx, state,
+                inference_minor_cards(active_category_idx, state.copy(),
                                       list(curr_cards_char.copy()), sess, main_network, seq_length,
                                       dup_mask))])
     else:
@@ -481,7 +481,7 @@ def inference_once(s, sess, main_network):
                 dup_mask = np.ones([15])
                 dup_mask[intention[0] - 3] = 0
                 intention = np.concatenate(
-                    [intention, to_value(inference_minor_cards(last_category_idx, state,
+                    [intention, to_value(inference_minor_cards(last_category_idx, state.copy(),
                                                                list(curr_cards_char.copy()),
                                                                sess, main_network,
                                                                get_seq_length(last_category_idx, last_cards_value),
@@ -701,7 +701,8 @@ if __name__ == '__main__':
                 })
 
                 if minor_cards_targets is not None:
-                    accs = train_fake_action(minor_cards_targets, curr_cards_char.copy(), s, sess, SLNetwork, category_idx)
+                    main_cards = pick_main_cards(category_idx, to_char(intention))
+                    accs = train_fake_action(minor_cards_targets, curr_cards_char.copy(), s.copy(), sess, SLNetwork, category_idx, main_cards)
                     for acc in accs:
                         logger.updateAcc("minor_cards", acc)
 
@@ -817,7 +818,7 @@ if __name__ == '__main__':
     # print(get_benchmark(sess, SLNetwork))
     # exit(0)
 
-    if TRAIN:
+    if not TRAIN:
         saver.restore(sess, "./Model/accuracy_fake_minor/model-9999")
         for i in range(epoches_test):
             e.reset()
@@ -845,6 +846,7 @@ if __name__ == '__main__':
 
                 is_passive_bomb = False
                 has_seq_length = False
+                seq_length = None
                 is_active = (last_cards_value.size == 0)
                 if is_active:
                     # first get mask
@@ -888,8 +890,6 @@ if __name__ == '__main__':
                     if seq_length is not None:
                         has_seq_length = True
                         seq_length_target = seq_length
-
-                    seq_length = 0
 
                     # next sequence length
                     if active_category_idx == Category.SINGLE_LINE.value or \
@@ -976,11 +976,15 @@ if __name__ == '__main__':
 
                 minor_cards_targets = pick_minor_targets(category_idx, to_char(intention))
                 if minor_cards_targets is not None:
+                    main_cards = pick_main_cards(category_idx, to_char(intention))
                     # print(minor_cards_targets)
-                    # print(curr_cards_char)
                     dup_mask = np.ones([15])
-                    dup_mask[intention[0] - 3] = 0
-                    accs = test_fake_action(minor_cards_targets, curr_cards_char.copy(), s, sess, SLNetwork, category_idx, dup_mask)
+                    if seq_length:
+                        for j in range(seq_length):
+                            dup_mask[intention[0] - 3 + j] = 0
+                    else:
+                        dup_mask[intention[0] - 3] = 0
+                    accs = test_fake_action(minor_cards_targets, curr_cards_char.copy(), s.copy(), sess, SLNetwork, category_idx, dup_mask, main_cards)
                     for acc in accs:
                         logger.updateAcc("minor_cards", acc)
 

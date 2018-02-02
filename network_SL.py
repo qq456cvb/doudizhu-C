@@ -398,6 +398,13 @@ class CardNetwork:
                             self.fc_response_active = slim.stack(self.fc_response_active, slim.fully_connected, [1024, 256, 64])
                         self.fc_response_active_output = slim.fully_connected(self.fc_response_active, 15, tf.nn.softmax)
 
+                    # minor response
+                    with tf.variable_scope("minor_response"):
+                        self.fc_response_minor = self.fc_flattened
+                        with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
+                            self.fc_response_minor = slim.stack(self.fc_response_minor, slim.fully_connected, [1024, 256, 64])
+                        self.fc_response_minor_output = slim.fully_connected(self.fc_response_active, 15, tf.nn.softmax)
+
                     # card length output
                     with tf.variable_scope("fc_sequence_length_output"):
                         self.fc_seq_length = self.fc_flattened
@@ -450,6 +457,11 @@ class CardNetwork:
                     self.seq_length_target = tf.one_hot(self.seq_length_input, 12)
                     self.seq_length_loss = -tf.to_float(self.has_seq_length) * tf.reduce_sum(self.seq_length_target * tf.log(tf.clip_by_value(self.fc_sequence_length_output, 1e-10, 1-(1e-10))), 1)
 
+                with tf.variable_scope("minor_mode_loss"):
+                    self.minor_response_input = tf.placeholder(tf.int32, [None], name='minor_response_in')
+                    self.minor_response_target = tf.one_hot(self.minor_response_input, 15)
+                    self.minor_response_loss = -tf.reduce_sum(self.minor_response_target * tf.log(tf.clip_by_value(self.fc_response_minor_output, 1e-10, 1 - (1e-10))), 1)
+
                 with tf.variable_scope("passive_loss"):
                     self.passive_loss = tf.reduce_sum(self.passive_decision_loss + tf.to_float(self.did_passive_response) * self.passive_response_loss + \
                         tf.to_float(self.is_passive_bomb) * self.passive_bomb_loss)
@@ -467,7 +479,7 @@ class CardNetwork:
                         self.optimize = trainer.minimize(self.loss)
 
                     with tf.variable_scope("optimize_fake_response"):
-                        self.optimize_fake = trainer.minimize(tf.reduce_sum(self.active_response_loss))
+                        self.optimize_fake = trainer.minimize(tf.reduce_sum(self.minor_response_loss))
 
                 local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
                 self.gradients = tf.gradients(self.loss, local_vars)

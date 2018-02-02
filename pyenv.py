@@ -110,6 +110,12 @@ class Pyenv:
         else:
             return None
 
+    def get_last_category_idx(self):
+        if self.idx != self.control_idx:
+            return self.last_category_idx
+        else:
+            return None
+
     def step(self, intention):
         idx = self.idx
         self.idx = (idx + 1) % 3
