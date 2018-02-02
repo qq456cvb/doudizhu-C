@@ -68,7 +68,7 @@ public:
     std::vector<int> color_aUnitOutCardList[3];
 };
 
-int LandScore(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
+int LandScore(GameSituation &clsGameSituation, HandCardData &clsHandCardData, int &);
 void InitCards(vector <int> &Cards);
 void InitCards2(const py::array_t<int>& pycards, vector <int> &Cards);
 void InitCards_Appoint(vector <int> &Cards);

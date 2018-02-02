@@ -2,7 +2,7 @@ from network_SL import CardNetwork
 import tensorflow as tf
 import numpy as np
 import sys
-from card import Category
+from card import Category, Card
 from utils import get_mask_alter, get_masks, to_char, to_value, get_seq_length, give_cards_without_minor
 sys.path.insert(0, './build/Release')
 import env
@@ -23,23 +23,27 @@ if __name__ == '__main__':
     saver = tf.train.Saver()
 
     e = env.Env()
-    player_id = 1
+    player_id = 2
     with tf.Session() as sess:
-        saver.restore(sess, './Model/accuracy_fake_minor/model-9800')
-        for i in range(10):
+        saver.restore(sess, './Model/accuracy_fake_minor/model-9999')
+        num_episodes = 100
+        n_wins = 0
+        for i in range(num_episodes):
             e.reset()
             e.prepare()
         
             r = 0
             done = False
             idx = 0
-            while not done:
+            while r == 0:
                 idx = e.get_role_ID()
-                if idx == player_id:
-                    print("current handcards: ", to_char(e.get_curr_handcards()))
-                    intention = read_cards_input()
+                if idx != player_id:
+                    intention = env.Env.step_auto_static(Card.char2color(to_char(e.get_curr_handcards())),
+                                             np.array(e.get_last_outcards()))
+                    r, done, category_idx = e.step_manual(intention)
+                    # print("current handcards: ", to_char(e.get_curr_handcards()))
+                    # intention = read_cards_input()
                 else:
-                
                     curr_cards_value = e.get_curr_handcards()
                     curr_cards_char = to_char(curr_cards_value)
                     last_cards_value = e.get_last_outcards()
@@ -50,6 +54,7 @@ if __name__ == '__main__':
                     # mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
                     input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
+                    input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(last_cards_char, None)
 
                     s = e.get_state()
                     s = np.reshape(s, [1, -1]).astype(np.float32)
@@ -144,7 +149,11 @@ if __name__ == '__main__':
                                             network.input_single: np.reshape(input_single, [1, -1]),
                                             network.input_pair: np.reshape(input_pair, [1, -1]),
                                             network.input_triple: np.reshape(input_triple, [1, -1]),
-                                            network.input_quadric: np.reshape(input_quadric, [1, -1])
+                                            network.input_quadric: np.reshape(input_quadric, [1, -1]),
+                                            network.input_single_last: np.reshape(input_single_last, [1, -1]),
+                                            network.input_pair_last: np.reshape(input_pair_last, [1, -1]),
+                                            network.input_triple_last: np.reshape(input_triple_last, [1, -1]),
+                                            network.input_quadric_last: np.reshape(input_quadric_last, [1, -1])
                                         })
                         
                         # print(decision_mask)
@@ -175,9 +184,9 @@ if __name__ == '__main__':
                             response_passive = np.argmax(response_passive_output)
 
                             # there is an offset when converting from 0-based index to 1-based index
-                            bigger = response_passive + 1
+                            # bigger = response_passive + 1
 
-                            intention = give_cards_without_minor(bigger, last_cards_value, last_category_idx, None)
+                            intention = give_cards_without_minor(response_passive, last_cards_value, last_category_idx, None)
                             if last_category_idx == Category.THREE_ONE.value or \
                                     last_category_idx == Category.THREE_TWO.value or \
                                     last_category_idx == Category.THREE_ONE_LINE.value or \
@@ -188,16 +197,19 @@ if __name__ == '__main__':
                                 intention = np.concatenate([intention, to_value(inference_minor_cards(last_category_idx, s, curr_cards_char.copy(), 
                                     sess, network, get_seq_length(last_category_idx, last_cards_value), dup_mask))])
                     
-                print("idx %d intention is " % idx, end='')
-                print(to_char(intention))
-                r, done, category_idx = e.step_manual(intention)
-                # intention, r, category_idx = e.step_auto()
+                # print("idx %d intention is " % idx, end='')
+                # print(to_char(intention))
+                # r, done, category_idx = e.step_manual(intention)
+                intention, r, category_idx = e.step_auto()
                 # print("auto intention is ", intention)
             if idx == player_id:
-                print("YOU WIN!")
+                n_wins += 1
+                # print("YOU WIN!")
             else:
-                print("YOU LOSE!")
+                pass
+                # print("YOU LOSE!")
 
+        print(n_wins / num_episodes)
 
 
 

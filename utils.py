@@ -36,6 +36,8 @@ def to_value(cards):
 # map 3 - 17 to char cards
 def to_char(cards):
     if isinstance(cards, list) or isinstance(cards, np.ndarray):
+        if len(cards) == 0:
+            return []
         chars = [card.Card.cards[c-3] for c in cards]
         return chars
     else:
@@ -45,6 +47,8 @@ def to_char(cards):
 def get_mask(cards, action_space, last_cards):
     # 1 valid; 0 invalid
     mask = np.zeros([len(action_space)])
+    if len(cards) == 0:
+        return mask
     for j in range(mask.size):
         if counter_subset(action_space[j], cards):
             mask[j] = 1
@@ -227,6 +231,10 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx):
                     network.input_pair: np.reshape(input_pair, [1, -1]),
                     network.input_triple: np.reshape(input_triple, [1, -1]),
                     network.input_quadric: np.reshape(input_quadric, [1, -1]),
+                    network.input_single_last: np.zeros([1, 15]),
+                    network.input_pair_last: np.zeros([1, 13]),
+                    network.input_triple_last: np.zeros([1, 13]),
+                    network.input_quadric_last: np.zeros([1, 13]),
                     network.active_response_input: np.array([target_val]),
             })
         cards = [target]
@@ -350,14 +358,15 @@ def get_mask_alter(cards, last_cards, is_bomb, last_cards_category):
             decision_mask[2] = 0
         if is_bomb:
             decision_mask[1] = 0
-        response_mask = np.zeros([14])
+        response_mask = np.zeros([15])
         subspace = action_space_category[last_cards_category]
         for j in range(len(subspace)):
             if counter_subset(subspace[j], cards) and card.CardGroup.to_cardgroup(subspace[j]).\
                     bigger_than(card.CardGroup.to_cardgroup(last_cards)):
-                diff = card.Card.to_value(subspace[j][0]) - card.Card.to_value(last_cards[0])
+                # diff = card.Card.to_value(subspace[j][0]) - card.Card.to_value(last_cards[0])
                 # assert(diff > 0)
-                response_mask[diff - 1] = 1
+                # response_mask[diff - 1] = 1
+                response_mask[card.Card.char2value_3_17(subspace[j][0]) - 3] = 1
                 decision_mask[3] = 1
         if not is_bomb:
             subspace = action_space_category[Category.QUADRIC.value]
@@ -387,37 +396,37 @@ def give_cards_without_minor(response, last_cards_value, category_idx, length_ou
 
     if last_cards_value.size > 0:
         if category_idx == Category.SINGLE.value:
-            return np.array([last_cards_value[0] + response])
+            return np.array([response + 3])
         elif category_idx == Category.DOUBLE.value:
-            return np.array([last_cards_value[0] + response] * 2)
+            return np.array([response + 3] * 2)
         elif category_idx == Category.TRIPLE.value:
-            return np.array([last_cards_value[0] + response] * 3)
+            return np.array([response + 3] * 3)
         elif category_idx == Category.QUADRIC.value:
-            return np.array([last_cards_value[0] + response] * 4)
+            return np.array([response + 3] * 4)
         elif category_idx == Category.THREE_ONE.value:
-            return np.array([last_cards_value[0] + response] * 3)
+            return np.array([response + 3] * 3)
         elif category_idx == Category.THREE_TWO.value:
-            return np.array([last_cards_value[0] + response] * 3)
+            return np.array([response + 3] * 3)
         elif category_idx == Category.SINGLE_LINE.value:
-            return np.arange(last_cards_value[0] + response, last_cards_value[0] + response + len(last_cards_value))
+            return np.arange(response + 3, response + 3 + len(last_cards_value))
         elif category_idx == Category.DOUBLE_LINE.value:
-            link = np.arange(last_cards_value[0] + response,
-                             last_cards_value[0] + response + int(len(last_cards_value) / 2))
+            link = np.arange(response + 3,
+                             response + 3 + int(len(last_cards_value) / 2))
             return np.array([link, link]).T.reshape(-1)
         elif category_idx == Category.TRIPLE_LINE.value:
-            link = np.arange(last_cards_value[0] + response,
-                             last_cards_value[0] + response + int(len(last_cards_value) / 3))
+            link = np.arange(response + 3,
+                             response + 3 + int(len(last_cards_value) / 3))
             return np.array([link, link, link]).T.reshape(-1)
         elif category_idx == Category.THREE_ONE_LINE.value:
             cnt = int(len(last_cards_value) / 4)
-            link = np.arange(last_cards_value[0] + response, last_cards_value[0] + response + cnt)
+            link = np.arange(response + 3, response + 3 + cnt)
             return np.array([link, link, link]).T.reshape(-1)
         elif category_idx == Category.THREE_TWO_LINE.value:
             cnt = int(len(last_cards_value) / 5)
-            link = np.arange(last_cards_value[0] + response, last_cards_value[0] + response + cnt)
+            link = np.arange(response + 3, response + 3 + cnt)
             return np.array([link, link, link]).T.reshape(-1)
         elif category_idx == Category.FOUR_TWO.value:
-            return np.array([last_cards_value[0] + response] * 4)
+            return np.array([response + 3] * 4)
     else:
         if category_idx == Category.SINGLE.value:
             return np.array([response + 3])
@@ -526,6 +535,7 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask):
         response_active_output[dup_mask == 0] = -1
         # print(handcards)
         if is_pair:
+            input_pair = np.concatenate([input_pair, [1, 1]])
             response_active_output[input_pair == 0] = -1
         else:
             response_active_output[input_single == 0] = -1
@@ -590,6 +600,30 @@ def gputimeblock(label):
         GPUTime.total_time += end-start
 
 
+def update_params(scope_from, scope_to):
+    vars_from = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope_from)
+    vars_to = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope_to)
+
+    ops = []
+    for from_var, to_var in zip(vars_from, vars_to):
+        ops.append(to_var.assign(from_var))
+    return ops
+
+
+# this is to fix negative values of remain one-hot cards since one-hot cards are unordered
+def fix_remain_cards(remains):
+    for i in range(remains.size):
+        if remains[i] < 0:
+            cnt = -int(remains[i])
+            for k in range(cnt):
+                for j in range(i+1, remains.size):
+                    if remains[j] > 0:
+                        remains[j] -= 1
+                        break
+            remains[i] = 0
+    return remains
+
+    
 if __name__ == '__main__':
     # _, response_mask, _, _ = get_mask_alter(['A', 'A', 'A', 'J', 'J', '10', '6', '6', '5'], ['9', '9', '9', '5'], False,
     #                                         5)

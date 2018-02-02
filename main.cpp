@@ -85,6 +85,7 @@ public:
         uctALLCardsList.reset(new ALLCardsList());
         memset(arrHandCardData, 0, sizeof(HandCardData) * 3);
         value_lastCards.clear();
+        srand(unsigned(time(NULL)));
     }
 
     auto getCurrID() {
@@ -296,11 +297,15 @@ public:
 
 
         // call for lord
+        int max_val = 0;
         for (int i = 0; i < 3; i++)
         {
-            int  tmpLandScore = LandScore(*clsGameSituation, arrHandCardData[i]);
-            if (tmpLandScore > clsGameSituation->nNowLandScore)
+            int val = 0;
+            int  tmpLandScore = LandScore(*clsGameSituation, arrHandCardData[i], val);
+//            py::print("分为：", tmpLandScore, "sep"_a="");
+            if (tmpLandScore >= clsGameSituation->nNowLandScore && val > max_val)
             {
+                max_val = val;
                 clsGameSituation->nNowLandScore = tmpLandScore;
                 clsGameSituation->nNowDiZhuID = i;
             }
@@ -313,7 +318,7 @@ public:
             return prepare();
         }
         
-        // py::print(clsGameSituation->nNowDiZhuID, "号是地主，分为：", clsGameSituation->nNowLandScore, "sep"_a="");
+//        py::print(clsGameSituation->nNowDiZhuID, "号是地主，分为：", clsGameSituation->nNowLandScore, "sep"_a="");
         clsGameSituation->nDiZhuID=clsGameSituation->nNowDiZhuID;
         clsGameSituation->nLandScore =clsGameSituation->nNowLandScore;
         
@@ -329,8 +334,8 @@ public:
         // py::print();
         
         
-        // py::print("0号玩家牌为：");
-        // arrHandCardData[0].PrintAll();
+//         py::print("0号玩家牌为：");
+//         arrHandCardData[0].PrintAll();
         // py::print("1号玩家牌为：");
         // arrHandCardData[1].PrintAll();
         // py::print("2号玩家牌为：");
@@ -354,11 +359,14 @@ public:
 
 
         // call for lord
+        int max_val = 0;
         for (int i = 0; i < 3; i++)
         {
-            int  tmpLandScore = LandScore(*clsGameSituation, arrHandCardData[i]);
-            if (tmpLandScore > clsGameSituation->nNowLandScore)
+            int val = 0;
+            int  tmpLandScore = LandScore(*clsGameSituation, arrHandCardData[i], val);
+            if (tmpLandScore >= clsGameSituation->nNowLandScore && val > max_val)
             {
+                max_val = val;
                 clsGameSituation->nNowLandScore = tmpLandScore;
                 clsGameSituation->nNowDiZhuID = i;
             }
@@ -390,13 +398,30 @@ public:
     std::vector<int> toOneHot(const std::vector<int>& v) {
         std::vector<int> result(54, 0);
         for (auto color : v) {
-            if (color > 52)
-            {
-                color = 53;
-            }
-            result[color]++;
+            if (color > 52) color = 56;
+            int unordered_color = color / 4 * 4;
+            if (unordered_color > 52) unordered_color = 53;
+            while (result[unordered_color++] > 0);
+            result[unordered_color - 1]++;
         }
         return result;
+    }
+
+    void fix_remain_cards(std::vector<int>& v) {
+        for (int i = 0; i < v.size(); i++) {
+            if (v[i] < 0) {
+                int cnt = -v[i];
+                for (int k = 0; k < cnt; k++) {
+                    for (int j = i + 1; j < v.size(); j++) {
+                        if (v[j] > 0) {
+                            v[j] -= 1;
+                            break;
+                        }
+                    }
+                }
+                v[i] = 0;
+            }
+        }
     }
 
     // one hot presentation: self_cards, remain_cards, [history 0-2], extra_cards
@@ -417,6 +442,7 @@ public:
         for (int i = 0; i < 3; i++) {
             remains = remains - history[i];
         }
+        fix_remain_cards(remains);
 
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot(extra_cards);

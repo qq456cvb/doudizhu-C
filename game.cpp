@@ -12,27 +12,27 @@
  
  */
 
-int LandScore(GameSituation &clsGameSituation, HandCardData &clsHandCardData)
+int LandScore(GameSituation &clsGameSituation, HandCardData &clsHandCardData, int &sum_value)
 {
-    int SumValue = 0;
     
     clsHandCardData.uctHandCardValue=get_HandCardValue(clsHandCardData);
     
-    SumValue = clsHandCardData.uctHandCardValue.SumValue;
+    sum_value = clsHandCardData.uctHandCardValue.SumValue;
     
-    // cout << "SumValue is :" << SumValue << ",";
+//     cout << "SumValue is :" << sum_value << ",";
     
     // cout << "NeedRound is :" << clsHandCardData.uctHandCardValue.NeedRound << endl;
     
-    if (SumValue<10)
-    {
-        return 0;
-    }
-    else if (SumValue < 15)
+//    if (SumValue<10)
+//    {
+//        return 0;
+//    }
+//    else
+    if (sum_value < 15)
     {
         return 1;
     }
-    else if (SumValue < 20)
+    else if (sum_value < 20)
     {
         return 2;
     }
@@ -70,21 +70,21 @@ void InitCards(vector <int> &Cards)
 {
     //Cards
     Cards.clear();
-    
+
     vector <int> tmpCards;
     int i;
-    
-    //5652535455
-    for (i = 0; i < 53; i++) {
+//
+//    //5652535455
+    for (int i = 0; i < 53; i++) {
         tmpCards.push_back(i);
     }
     tmpCards.push_back(56);
-    
-    
+
+
     //
     for (i = tmpCards.size(); i>0; i--) {
-        srand(unsigned(time(NULL)));
-        // 
+
+        //
         int index = rand() % i;
         Cards.push_back(tmpCards[index]);
         tmpCards.erase(tmpCards.begin() + index);
@@ -133,9 +133,8 @@ void SendCards(GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList)
     //InitCards_Appoint(Cards);
     int i, j, k;
     j = 0;
-    for (k = 0; k < 17; k++) {
-        for (i = 0; i < 3; i++,j++)
-        {
+    for (i = 0; i < 3; i++) {
+        for (k = 0; k < 17; k++,j++) {
             uctALLCardsList.arrCardsList[i].push_back(Cards[j]);
         }
     }

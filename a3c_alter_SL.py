@@ -2,6 +2,7 @@
 import sys
 sys.path.insert(0, './build/Release')
 import env
+from env import Env
 # from env_test import Env
 import card
 from card import action_space, Category
@@ -11,7 +12,7 @@ import numpy as np
 import tensorflow.contrib.slim as slim
 import tensorflow.contrib.rnn as rnn
 import time
-from env_test import get_benchmark
+# from env_test import get_benchmark
 from collections import Counter
 import struct
 import copy
@@ -21,8 +22,9 @@ from logger import Logger
 from network_SL import CardNetwork
 from utils import get_mask, get_minor_cards, train_fake_action, get_masks, test_fake_action
 from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter
+from utils import inference_minor_cards, gputimeblock, scheduled_run, give_cards_without_minor
 import shutil
-
+from pyenv import Pyenv
 
 ##################################################### UTILITIES ########################################################
 
@@ -330,6 +332,197 @@ def run_game(sess, network):
             s = s_prime
     print("lord winning rate: %f" % (lord_win_rate / 100.0))
 
+
+def inference_once(s, sess, main_network):
+    is_active = (s['control_idx'] == s['idx'])
+    last_category_idx = s['last_category_idx'] if is_active else -1
+    last_cards_char = s['last_cards'] if not is_active else np.array([])
+    last_cards_value = np.array(to_value(last_cards_char)) if not is_active else np.array([])
+    curr_cards_char = s['player_cards'][s['idx']]
+
+    input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char)
+    input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(last_cards_char, None)
+
+    state = Pyenv.get_state_static(s).reshape(1, -1)
+    feeddict = (
+        (main_network.training, True),
+        (main_network.input_state, state),
+        (main_network.input_single, input_single.reshape(1, -1)),
+        (main_network.input_pair, input_pair.reshape(1, -1)),
+        (main_network.input_triple, input_triple.reshape(1, -1)),
+        (main_network.input_quadric, input_quadric.reshape(1, -1))
+    )
+    intention = None
+    if is_active:
+        # first get mask
+        decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], False, last_category_idx)
+
+        with gputimeblock('gpu'):
+            decision_active_output = scheduled_run(sess, main_network.fc_decision_active_output, feeddict)
+            # decision_active_output = sess.run(self.main_network.fc_decision_active_output,
+            #                                   feed_dict=feeddict)
+
+        # make decision depending on output
+        decision_active_output = decision_active_output[0]
+        decision_active_output[decision_mask == 0] = -1
+        decision_active = np.argmax(decision_active_output)
+
+        active_category_idx = decision_active + 1
+
+        # give actual response
+        with gputimeblock('gpu'):
+            response_active_output = scheduled_run(sess, main_network.fc_response_active_output, feeddict)
+            # response_active_output = sess.run(self.main_network.fc_response_active_output,
+            #                                   feed_dict=feeddict)
+
+        response_active_output = response_active_output[0]
+        response_active_output[response_mask[decision_active] == 0] = -1
+        response_active = np.argmax(response_active_output)
+
+        seq_length = 0
+        # next sequence length
+        if active_category_idx == Category.SINGLE_LINE.value or \
+                active_category_idx == Category.DOUBLE_LINE.value or \
+                active_category_idx == Category.TRIPLE_LINE.value or \
+                active_category_idx == Category.THREE_ONE_LINE.value or \
+                active_category_idx == Category.THREE_TWO_LINE.value:
+            with gputimeblock('gpu'):
+                seq_length_output = scheduled_run(sess, main_network.fc_sequence_length_output, feeddict)
+                # seq_length_output = sess.run(self.main_network.fc_sequence_length_output,
+                #                              feed_dict=feeddict)
+
+            seq_length_output = seq_length_output[0]
+            seq_length_output[length_mask[decision_active][response_active] == 0] = -1
+            seq_length = np.argmax(seq_length_output) + 1
+
+        # give main cards
+        intention = give_cards_without_minor(response_active, last_cards_value, active_category_idx, seq_length)
+
+        # then give minor cards
+        if active_category_idx == Category.THREE_ONE.value or \
+                active_category_idx == Category.THREE_TWO.value or \
+                active_category_idx == Category.THREE_ONE_LINE.value or \
+                active_category_idx == Category.THREE_TWO_LINE.value or \
+                active_category_idx == Category.FOUR_TWO.value:
+            dup_mask = np.ones([15])
+            if seq_length > 0:
+                for i in range(seq_length):
+                    dup_mask[intention[0] - 3 + i] = 0
+            else:
+                dup_mask[intention[0] - 3] = 0
+            intention = np.concatenate([intention, to_value(
+                inference_minor_cards(active_category_idx, state,
+                                      list(curr_cards_char.copy()), sess, main_network, seq_length,
+                                      dup_mask))])
+    else:
+        is_bomb = False
+        if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
+            is_bomb = True
+        # print(to_char(last_cards_value), is_bomb, last_category_idx)
+        decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, to_char(last_cards_value),
+                                                                    is_bomb, last_category_idx)
+
+        feeddict = (
+            (main_network.training, True),
+            (main_network.input_state, state),
+            (main_network.input_single, input_single.reshape(1, -1)),
+            (main_network.input_pair, input_pair.reshape(1, -1)),
+            (main_network.input_triple, input_triple.reshape(1, -1)),
+            (main_network.input_quadric, input_quadric.reshape(1, -1)),
+            (main_network.input_single_last, input_single_last.reshape(1, -1)),
+            (main_network.input_pair_last, input_pair_last.reshape(1, -1)),
+            (main_network.input_triple_last, input_triple_last.reshape(1, -1)),
+            (main_network.input_quadric_last, input_quadric_last.reshape(1, -1)),
+        )
+        with gputimeblock('gpu'):
+            decision_passive_output, response_passive_output, bomb_passive_output \
+                = scheduled_run(sess, [main_network.fc_decision_passive_output,
+                                 main_network.fc_response_passive_output, main_network.fc_bomb_passive_output], feeddict)
+            # decision_passive_output, response_passive_output, bomb_passive_output \
+            #     = sess.run([self.main_network.fc_decision_passive_output,
+            #                 self.main_network.fc_response_passive_output, self.main_network.fc_bomb_passive_output],
+            #                feed_dict=feeddict)
+
+        # print(decision_mask)
+        # print(decision_passive_output)
+        decision_passive_output = decision_passive_output[0]
+        decision_passive_output[decision_mask == 0] = -1
+        decision_passive = np.argmax(decision_passive_output)
+
+        if decision_passive == 0:
+            intention = np.array([])
+        elif decision_passive == 1:
+            # print('bomb_mask', bomb_mask)
+            bomb_passive_output = bomb_passive_output[0]
+            bomb_passive_output[bomb_mask == 0] = -1
+            bomb_passive = np.argmax(bomb_passive_output)
+
+            # converting 0-based index to 3-based value
+            intention = np.array([bomb_passive + 3] * 4)
+
+        elif decision_passive == 2:
+            intention = np.array([16, 17])
+        elif decision_passive == 3:
+            # print('response_mask', response_mask)
+            response_passive_output = response_passive_output[0]
+            response_passive_output[response_mask == 0] = -1
+            # 0-14
+            response_passive = np.argmax(response_passive_output)
+
+            # there is an offset when converting from 0-based index to 1-based index
+            # bigger = response_passive + 1
+
+            intention = give_cards_without_minor(response_passive, last_cards_value, last_category_idx, None)
+            if last_category_idx == Category.THREE_ONE.value or \
+                    last_category_idx == Category.THREE_TWO.value or \
+                    last_category_idx == Category.THREE_ONE_LINE.value or \
+                    last_category_idx == Category.THREE_TWO_LINE.value or \
+                    last_category_idx == Category.FOUR_TWO.value:
+                dup_mask = np.ones([15])
+                dup_mask[intention[0] - 3] = 0
+                intention = np.concatenate(
+                    [intention, to_value(inference_minor_cards(last_category_idx, state,
+                                                               list(curr_cards_char.copy()),
+                                                               sess, main_network,
+                                                               get_seq_length(last_category_idx, last_cards_value),
+                                                               dup_mask))])
+    return intention
+
+
+def get_benchmark(sess, network):
+    num_tests = 100
+    env = Pyenv()
+    wins = 0
+    idx_role_self = 1
+    idx_self = -1
+    for i in range(num_tests):
+        env.reset()
+        env.prepare()
+        s = env.dump_state()
+        # print('lord is ', s['lord_idx'])
+        done = False
+        while not done:
+            # use the network
+            if idx_role_self == Pyenv.get_role_ID_static(s) - 1:
+                idx_self = s['idx']
+                # print('this is the lord ', end='')
+                # print(s['player_cards'][s['idx']])
+                intention = np.array(to_char(inference_once(s, sess, network)))
+            else:
+                intention = np.array(to_char(Env.step_auto_static(card.Card.char2color(s['player_cards'][s['idx']]),
+                                                                      np.array(to_value(
+                                                                          s['last_cards'] if s['control_idx'] != s[
+                                                                              'idx'] else [])))))
+            # print(s['idx'], intention)
+            r, done = Pyenv.step_round(s, intention)
+        # finished, see who wins
+        if idx_self == s['idx']:
+            wins += 1
+        elif idx_self != s['lord_idx'] and s['idx'] != s['lord_idx']:
+            wins += 1
+    return wins / num_tests
+
+
 if __name__ == '__main__':
     '''
     demoGames = []
@@ -360,11 +553,11 @@ if __name__ == '__main__':
 
     graph_sl = tf.get_default_graph()
     SLNetwork = CardNetwork(54 * 6, tf.train.AdamOptimizer(learning_rate=1e-4), "SLNetwork")
-    variables = tf.all_variables()
+    # variables = tf.all_variables()
 
     e = env.Env()
     TRAIN = args.train
-    sess = tf.Session(graph=graph_sl)
+    sess = tf.Session(graph=graph_sl, config=tf.ConfigProto(allow_soft_placement=True))
     saver = tf.train.Saver(max_to_keep=50)
 
     file_writer = tf.summary.FileWriter('accuracy_fake_minor', sess.graph)
@@ -380,6 +573,7 @@ if __name__ == '__main__':
     if TRAIN:
         sess.run(tf.global_variables_initializer())
         for i in range(epoches_train):
+            # print('episode: ', i)
             e.reset()
             e.prepare()
             
@@ -389,10 +583,11 @@ if __name__ == '__main__':
             # print("curr_cards = ", curr_cards_value)
             # print("last_cards = ", last_cards_value)
             last_category_idx = -1
-            # last_cards_char = to_char(last_cards_value)
+            last_cards_char = to_char(last_cards_value)
             # mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
             input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, None)
+            input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(last_cards_char, None)
 
             s = e.get_state()
             s = np.reshape(s, [1, -1]).astype(np.float32)
@@ -430,10 +625,12 @@ if __name__ == '__main__':
                     last_cards_value = e.get_last_outcards()
                     if last_cards_value.size > 0:
                         last_category_idx = category_idx
-                    # last_cards_char = to_char(last_cards_value)
+                    last_cards_char = to_char(last_cards_value)
                     # mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
                     input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, None)
+                    input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(
+                        last_cards_char, None)
                     continue
 
                 # if category_idx == Category.THREE_ONE.value or category_idx == Category.THREE_TWO.value or \
@@ -456,7 +653,8 @@ if __name__ == '__main__':
                                 passive_decision_input[0] = 3
                                 did_passive_response[0] = True
                                 # OFFSET_ONE
-                                passive_response_input[0] = intention[0] - last_cards_value[0] - 1
+                                # 1st, Feb - remove relative card output since shift is hard for the network to learn
+                                passive_response_input[0] = intention[0] - 3
                                 if passive_response_input[0] < 0:
                                     print("something bad happens")
                                     passive_response_input[0] = 0
@@ -470,7 +668,6 @@ if __name__ == '__main__':
                     # ACTIVE OFFSET ONE!
                     active_decision_input[0] = category_idx - 1
                     active_response_input[0] = intention[0] - 3
-                    
 
                 _, decision_passive_output, response_passive_output, bomb_passive_output, \
                     decision_active_output, response_active_output, seq_length_output, loss, \
@@ -487,6 +684,10 @@ if __name__ == '__main__':
                             SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
                             SLNetwork.input_triple: np.reshape(input_triple, [1, -1]),
                             SLNetwork.input_quadric: np.reshape(input_quadric, [1, -1]),
+                            SLNetwork.input_single_last: np.reshape(input_single_last, [1, -1]),
+                            SLNetwork.input_pair_last: np.reshape(input_pair_last, [1, -1]),
+                            SLNetwork.input_triple_last: np.reshape(input_triple_last, [1, -1]),
+                            SLNetwork.input_quadric_last: np.reshape(input_quadric_last, [1, -1]),
                             SLNetwork.is_active: np.array([active]),
                             SLNetwork.is_passive_bomb: is_passive_bomb,
                             SLNetwork.did_passive_response: did_passive_response,
@@ -539,14 +740,17 @@ if __name__ == '__main__':
                 curr_cards_value = e.get_curr_handcards()
                 curr_cards_char = to_char(curr_cards_value)
                 last_cards_value = e.get_last_outcards()
+                last_cards_char = to_char(last_cards_value)
                 # print("curr_cards = ", curr_cards_value)
                 # print("last_cards = ", last_cards_value)
                 if last_cards_value.size > 0:
                     last_category_idx = category_idx
-                    last_cards_char = to_char(last_cards_value)
+
                 # mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
                 input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
+                input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(last_cards_char,
+                                                                                                      None)
 
                 s = e.get_state()
                 s = np.reshape(s, [1, -1]).astype(np.float32)
@@ -579,7 +783,7 @@ if __name__ == '__main__':
                                 #tf.Summary.Value(tag="gradients", )
                 ])
                 file_writer.add_summary(summary, i / 100 - 1)
-            if i % 200 == 0:
+            if i % 500 == 0 and i > 0:
                 saver.save(sess, "./Model/accuracy_fake_minor/model", global_step=i)
 
         
@@ -609,9 +813,12 @@ if __name__ == '__main__':
 
     # test part
     # saver.restore(sess, "./Model/SLNetwork_feat_deeper_1000000epoches.ckpt")
+    # saver.restore(sess, "./Model/accuracy_fake_minor/model-9999")
+    # print(get_benchmark(sess, SLNetwork))
+    # exit(0)
 
-    if not TRAIN:
-        saver.restore(sess, "./Model/accuracy_fake_minor/model-9800")
+    if TRAIN:
+        saver.restore(sess, "./Model/accuracy_fake_minor/model-9999")
         for i in range(epoches_test):
             e.reset()
             e.prepare()
@@ -628,6 +835,7 @@ if __name__ == '__main__':
                 last_category_idx = e.get_last_outcategory_idx()
 
                 input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
+                input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(last_cards_char, None)
 
                 s = e.get_state()
                 s = np.reshape(s, [1, -1]).astype(np.float32)
@@ -718,7 +926,11 @@ if __name__ == '__main__':
                                         SLNetwork.input_single: np.reshape(input_single, [1, -1]),
                                         SLNetwork.input_pair: np.reshape(input_pair, [1, -1]),
                                         SLNetwork.input_triple: np.reshape(input_triple, [1, -1]),
-                                        SLNetwork.input_quadric: np.reshape(input_quadric, [1, -1])
+                                        SLNetwork.input_quadric: np.reshape(input_quadric, [1, -1]),
+                                        SLNetwork.input_single_last: np.reshape(input_single_last, [1, -1]),
+                                        SLNetwork.input_pair_last: np.reshape(input_pair_last, [1, -1]),
+                                        SLNetwork.input_triple_last: np.reshape(input_triple_last, [1, -1]),
+                                        SLNetwork.input_quadric_last: np.reshape(input_quadric_last, [1, -1])
                                     })
                     
                     decision_passive_target = 0
@@ -732,13 +944,11 @@ if __name__ == '__main__':
                         else:
                             if category_idx != Category.EMPTY.value:
                                 decision_passive_target = 3
-                                # OFFSET_ONE
-                                response_passive_target = intention[0] - last_cards_value[0] - 1
+                                response_passive_target = intention[0] - 3
                     
                     decision_passive_output = decision_passive_output[0]
                     decision_passive_output[decision_mask == 0] = -1
                     decision_passive_pred = np.argmax(decision_passive_output)
-                    
 
                     if decision_passive_target == 0:
                         pass
@@ -805,4 +1015,4 @@ if __name__ == '__main__':
                 print("test sequence length accuracy = ", logger["seq_length"])
                 print("test minor cards accuracy = ", logger["minor_cards"])
 
-                
+

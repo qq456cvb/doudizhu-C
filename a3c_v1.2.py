@@ -21,7 +21,7 @@ import argparse
 from pyenv import Pyenv
 from utils import get_masks, discard_cards, get_mask_alter, \
     give_cards_without_minor, to_char, to_value, inference_minor_cards, get_seq_length, \
-    timeblock, gputimeblock, GPUTime
+    timeblock, gputimeblock, GPUTime, update_params
 from montecarlo import MCTree
 from network_RL import CardNetwork
 from scheduler import scheduled_run
@@ -375,6 +375,8 @@ class CardMaster:
         self.sess = None
 
         self.train_intervals = 10
+        self.update_ops = update_params('agent0', 'agent1')
+        self.update_ops += update_params('agent0', 'agent2')
         
         self.episode_rewards = [[] for i in range(3)]
         self.episode_length = [[] for i in range(3)]
@@ -391,6 +393,13 @@ class CardMaster:
         for i in range(len(buf)):
             logs.append(self.agents[i].train_batch_sampled(buf[i], batch_size, sess))
         return logs
+
+    def print_benchmarks(self, sess):
+        for agent in self.agents:
+            print("%s: %f" % (agent.name, agent.get_benchmark(sess)))
+
+    def update_params_from_agent0(self, sess):
+        sess.run(self.update_ops)
 
     # train three agents simultaneously
     def run(self, sess, saver, max_episode_length):
@@ -604,20 +613,25 @@ if __name__ == '__main__':
     load_model = True
     model_path = './model'
     master = CardMaster()
-    variables_to_restore = slim.get_variables(scope='agent0')
-    variables_to_restore = {name_in_checkpoint(v) for v in variables_to_restore if "value_output" not in v}
+    # variables_to_restore = slim.get_variables(scope='agent0')
+    variables_to_restore = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='agent0')
+    variables_to_restore = {name_in_checkpoint(v):v for v in variables_to_restore if "value_output" not in v.name}
 
     # vars_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='agent0')
     # for v in vars_train:
     #     print(v.name + ':', tf.shape(v))
     saver = tf.train.Saver(variables_to_restore, max_to_keep=100)
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        variables_names = [v.name for v in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='agent0')]
+        # variables_names = [v.name for v in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='agent0')]
+        # sess.run(tf.global_variables_initializer())
+        # values = sess.run(variables_names)
+        # for k, v in zip(variables_names, values):
+        #     print("Variable: ", k)
+        #     print("Shape: ", v.shape)
         sess.run(tf.global_variables_initializer())
-        values = sess.run(variables_names)
-        for k, v in zip(variables_names, values):
-            print("Variable: ", k)
-            print("Shape: ", v.shape)
+        saver.restore(sess, "./Model/accuracy_fake_minor/model-9800")
+        master.update_params_from_agent0(sess)
+        master.print_benchmarks(sess)
             # print v
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
     #     if load_model:

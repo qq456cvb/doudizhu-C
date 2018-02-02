@@ -8,7 +8,7 @@ class Logger:
             self.dic[key] = []
         
         self.dic[key].append(val)
-        if self.moving_avg and len(self.dic[key]) > 100:
+        if self.moving_avg and len(self.dic[key]) > 1000:
             self.dic[key].pop(0)
         # self.dic[key]['cnt'] += 1
         # self.dic[key]['acc'] += (val - self.dic[key]['acc']) / self.dic[key]['cnt']

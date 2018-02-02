@@ -1,7 +1,7 @@
 import numpy as np
 from card import Card, Category
 from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
-    get_mask, action_space_single, action_space_pair, get_category_idx
+    get_mask, action_space_single, action_space_pair, get_category_idx, fix_remain_cards
 import sys
 import copy
 import time
@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 sys.path.insert(0, './build/Release')
 from env import print_state
-import env
+from env import  Env as CEnv
 from env import MCTree
 
 
@@ -24,7 +24,7 @@ def read_cards_input():
 
 
 class Pyenv:
-    total_cards = to_char(np.arange(3, 16)) * 4 + ['*', '$']
+    total_cards = sorted(to_char(np.arange(3, 16)) * 4 + ['*', '$'], key=lambda k: Card.cards_to_value[k])
 
     def __init__(self):
         self.reset()
@@ -63,6 +63,7 @@ class Pyenv:
         total = np.ones([54])
         extra_cards = Card.char2onehot(self.extra_cards)
         remains = total - selfcards - histories[0] - histories[1] - histories[2]
+
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
     @staticmethod
@@ -72,6 +73,7 @@ class Pyenv:
         total = np.ones([54])
         extra_cards = Card.char2onehot(s['extra_cards'])
         remains = total - selfcards - histories[0] - histories[1] - histories[2]
+        fix_remain_cards(remains)
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
     def prepare(self, seed=int(time.time())):
@@ -80,22 +82,24 @@ class Pyenv:
         for i in range(3):
             self.player_cards[i] = cards[i*17:(i+1)*17]
         self.extra_cards = cards[51:]
-        vals = [env.Env.get_cards_value(Card.char2color(self.player_cards[i]))[0] for i in range(3)]
+        vals = [CEnv.get_cards_value(Card.char2color(self.player_cards[i]))[0] for i in range(3)]
         self.lord_idx = np.argmax(vals)
+        print('lord idx', self.lord_idx)
         # distribute extra cards
         self.player_cards[self.lord_idx] = np.concatenate([self.player_cards[self.lord_idx], self.extra_cards])
-        for i in range(3):
-            self.player_cards[i] = np.array(sorted(list(self.player_cards[i]), key=lambda k: -Card.cards_to_value[k]))
+        # for i in range(3):
+        #     self.player_cards[i] = np.array(sorted(list(self.player_cards[i]), key=lambda k: Card.cards_to_value[k]))
         self.control_idx = self.lord_idx
         best_val = np.amax(vals)
         # call for score according to value
-        if best_val > 20:
+        if best_val >= 20:
             self.land_score = 3
-        elif best_val > 15:
+        elif best_val >= 15:
             self.land_score = 2
         else:
             self.land_score = 1
         self.idx = self.lord_idx
+        return cards
 
     def get_handcards(self):
         return self.player_cards[self.idx]
@@ -395,14 +399,38 @@ if __name__ == '__main__':
     # curr_handcards = Card.char2color(np.array(['5', '6', '7', '7']))
     # print(env.Env.step_auto_static(curr_handcards, to_value(last_cards)))
     pyenv = Pyenv()
-    pyenv.prepare()
+    init_cards = pyenv.prepare()
+    # print(init_cards)
 
-    done = False
-    while not done:
-        print(pyenv.get_handcards())
-        intention = read_cards_input()
-        _, done = pyenv.step(intention)
-        dump_s = pyenv.dump_state()
-        mctree = MCTree(dump_s.dic)
+    s = pyenv.dump_state()
+    # s['player_cards'][0] = np.concatenate([s['player_cards'][0], ['2', '2']])
+    intention = np.array([s['player_cards'][s['idx']][0]])
+    print(intention)
+    Pyenv.step_round(s, intention)
+    intention = np.array([intention[0], intention[0]])
+    Pyenv.step_round(s, intention)
+    # print('pyenv', end='')
+    s1 = pyenv.get_state_static(s)
+
+    cenv = CEnv()
+    cenv.reset()
+    cenv.prepare_manual(Card.char2color(init_cards))
+    intention = np.array(to_value(intention))
+    cenv.step_manual(intention)
+    # print('cenv', end='')
+    s2 = cenv.get_state()
+    # print(s1 - s2)
+    # print(s1)
+    # print(s['player_cards'][s['idx']])
+    # print(to_char(cenv.get_curr_handcards()))
+
+
+
+        # print('lord is ', s['lord_idx'])
+        # print(pyenv.get_handcards())
+        # intention = read_cards_input()
+        # _, done = pyenv.step(intention)
+        # dump_s = pyenv.dump_state()
+        # mctree = MCTree(dump_s.dic)
         # print_state(dump_s.dic)
 
