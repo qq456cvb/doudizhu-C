@@ -212,13 +212,34 @@ def get_masks(handcards, lastcards):
     return input_single, input_pair, input_triple, input_quadric
 
 
+def normalize(cards, l, h):
+    for i in range(l, h, 4):
+        cnt = 0
+        for j in range(i, i + 4):
+            cnt += cards[j]
+        for j in range(i, i + 4):
+            if cnt > 0:
+                cards[j] = 1
+                cnt -= 1
+            else:
+                cards[j] = 0
+
+
+def discard_onehot_from_s(s, cards_onehot):
+    s[:54] -= cards_onehot
+    normalize(s, 0, 52)
+    s[2 * 54:3 * 54] += cards_onehot
+    normalize(s, 2 * 54, 2 * 54 + 52)
+
+
 # receive targets and handcards as chars
 def train_fake_action(targets, handcards, s, sess, network, category_idx, main_cards_char):
     for main_card in main_cards_char:
         handcards.remove(main_card)
     cards_onehot = card.Card.char2onehot(main_cards_char)
-    s[0, :54] -= cards_onehot
-    s[0, 2 * 54:3 * 54] += cards_onehot
+    # we must make the order in each 4 batch correct...
+    discard_onehot_from_s(s[0], cards_onehot)
+    assert np.amax(s) < 1.1 and np.amin(s) > -0.1
 
     is_pair = False
     if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
@@ -247,16 +268,21 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx, main_c
         cards = [target]
         handcards.remove(target)
         if is_pair:
-            handcards.remove(target)
-            cards.append(target)
+            if target not in handcards:
+                print('something wrong...')
+                print('minor', target)
+                print('main_cards', main_cards_char)
+                print('handcards', handcards)
+            else:
+                handcards.remove(target)
+                cards.append(target)
 
         # correct for one-hot state
         cards_onehot = card.Card.char2onehot(cards)
 
         # print(s.shape)
         # print(cards_onehot.shape)
-        s[0, :54] -= cards_onehot
-        s[0, 2 * 54:3 * 54] += cards_onehot
+        discard_onehot_from_s(s[0], cards_onehot)
 
         acc.append(1 if np.argmax(response_active_output[0]) == target_val else 0)
     return acc
@@ -266,8 +292,7 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
     for main_card in main_cards_char:
         handcards.remove(main_card)
     cards_onehot = card.Card.char2onehot(main_cards_char)
-    s[0, :54] -= cards_onehot
-    s[0, 2 * 54:3 * 54] += cards_onehot
+    discard_onehot_from_s(s[0], cards_onehot)
 
     is_pair = False
     if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
@@ -309,8 +334,7 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
         # correct for one-hot state
         cards_onehot = card.Card.char2onehot(cards)
 
-        s[0, :54] -= cards_onehot
-        s[0, 2 * 54:3 * 54] += cards_onehot
+        discard_onehot_from_s(s[0], cards_onehot)
 
         acc.append(1 if response_minor == target_val else 0)
     return acc
@@ -538,8 +562,7 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, ma
     for main_card in main_cards_char:
         handcards.remove(main_card)
     cards_onehot = card.Card.char2onehot(main_cards_char)
-    s[0, :54] -= cards_onehot
-    s[0, 2 * 54:3 * 54] += cards_onehot
+    discard_onehot_from_s(s[0], cards_onehot)
 
     outputs = []
     inter_states = []
@@ -595,8 +618,7 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, ma
         # correct for one-hot state
         cards_onehot = card.Card.char2onehot(cards)
 
-        s[0, :54] -= cards_onehot
-        s[0, 2 * 54:3 * 54] += cards_onehot
+        discard_onehot_from_s(s[0], cards_onehot)
 
         # save to output
         outputs.append(to_char(response_active + 3))

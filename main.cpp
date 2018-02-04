@@ -407,19 +407,19 @@ public:
         return result;
     }
 
-    void fix_remain_cards(std::vector<int>& v) {
-        for (int i = 0; i < v.size(); i++) {
-            if (v[i] < 0) {
-                int cnt = -v[i];
-                for (int k = 0; k < cnt; k++) {
-                    for (int j = i + 1; j < v.size(); j++) {
-                        if (v[j] > 0) {
-                            v[j] -= 1;
-                            break;
-                        }
-                    }
+    void normalize(std::vector<int>& v, int l, int h) {
+        for (int i = l; i < h; i += 4) {
+            int cnt = 0;
+            for (int j = i; j < i + 4; j++) {
+                cnt += v[j];
+            }
+            for (int j = i; j < i + 4; j++) {
+                if (cnt > 0) {
+                    v[j] = 1;
+                    cnt--;
+                } else {
+                    v[j] = 0;
                 }
-                v[i] = 0;
             }
         }
     }
@@ -442,7 +442,7 @@ public:
         for (int i = 0; i < 3; i++) {
             remains = remains - history[i];
         }
-        fix_remain_cards(remains);
+        normalize(remains, 0, 52);
 
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot(extra_cards);

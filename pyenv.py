@@ -1,7 +1,7 @@
 import numpy as np
 from card import Card, Category
 from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
-    get_mask, action_space_single, action_space_pair, get_category_idx, fix_remain_cards
+    get_mask, action_space_single, action_space_pair, get_category_idx, fix_remain_cards, normalize
 import sys
 import copy
 import time
@@ -73,7 +73,7 @@ class Pyenv:
         total = np.ones([54])
         extra_cards = Card.char2onehot(s['extra_cards'])
         remains = total - selfcards - histories[0] - histories[1] - histories[2]
-        fix_remain_cards(remains)
+        normalize(remains, 0, 52)
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
     def prepare(self, seed=int(time.time())):
@@ -413,8 +413,8 @@ if __name__ == '__main__':
     intention = np.array([s['player_cards'][s['idx']][0]])
     print(intention)
     Pyenv.step_round(s, intention)
-    intention = np.array([intention[0], intention[0]])
-    Pyenv.step_round(s, intention)
+    # intention = np.array([intention[0], intention[0]])
+    # Pyenv.step_round(s, intention)
     # print('pyenv', end='')
     s1 = pyenv.get_state_static(s)
 
@@ -425,7 +425,7 @@ if __name__ == '__main__':
     cenv.step_manual(intention)
     # print('cenv', end='')
     s2 = cenv.get_state()
-    # print(s1 - s2)
+    print(s1 - s2)
     # print(s1)
     # print(s['player_cards'][s['idx']])
     # print(to_char(cenv.get_curr_handcards()))
