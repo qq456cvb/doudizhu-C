@@ -31,9 +31,9 @@ def discounted_return(r, gamma):
     r = r.astype(float)
     r_out = np.zeros_like(r)
     val = 0
-    for i in reversed(range(r.shape[1])):
-        r_out[:, i] = r[:, i] + gamma * val
-        val = r_out[:, i]
+    for i in reversed(range(r.shape[0])):
+        r_out[i] = r[i] + gamma * val
+        val = r_out[i]
     return r_out
 
 
@@ -47,7 +47,7 @@ class CardAgent:
 
     def inference_once(self, s, sess):
         is_active = s['control_idx'] == s['idx']
-        last_category_idx = s['last_category_idx'] if is_active else -1
+        last_category_idx = s['last_category_idx'] if not is_active else -1
         last_cards_char = s['last_cards'] if not is_active else np.array([])
         last_cards_value = np.array(to_value(last_cards_char)) if not is_active else np.array([])
         curr_cards_char = s['player_cards'][s['idx']]
@@ -124,7 +124,7 @@ class CardAgent:
                 intention = np.concatenate([intention, to_value(
                     inference_minor_cards(active_category_idx, state,
                                           list(curr_cards_char.copy()), sess, self.main_network, seq_length,
-                                          dup_mask))])
+                                          dup_mask, to_char(intention))[0])])
         else:
             is_bomb = False
             if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
@@ -132,7 +132,20 @@ class CardAgent:
             # print(to_char(last_cards_value), is_bomb, last_category_idx)
             decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, to_char(last_cards_value),
                                                                         is_bomb, last_category_idx)
+            input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(last_cards_char, None)
 
+            feeddict = (
+                (self.main_network.training, True),
+                (self.main_network.input_state, state),
+                (self.main_network.input_single, input_single.reshape(1, -1)),
+                (self.main_network.input_pair, input_pair.reshape(1, -1)),
+                (self.main_network.input_triple, input_triple.reshape(1, -1)),
+                (self.main_network.input_quadric, input_quadric.reshape(1, -1)),
+                (self.main_network.input_single_last, input_single_last.reshape(1, -1)),
+                (self.main_network.input_pair_last, input_pair_last.reshape(1, -1)),
+                (self.main_network.input_triple_last, input_triple_last.reshape(1, -1)),
+                (self.main_network.input_quadric_last, input_quadric_last.reshape(1, -1)),
+            )
             with gputimeblock('gpu'):
                 decision_passive_output, response_passive_output, bomb_passive_output \
                     = scheduled_run(sess, [self.main_network.fc_decision_passive_output,
@@ -168,39 +181,42 @@ class CardAgent:
                 response_passive_output[response_mask == 0] = -1
                 response_passive = np.argmax(response_passive_output)
 
-                # there is an offset when converting from 0-based index to 1-based index
-                bigger = response_passive + 1
-
-                intention = give_cards_without_minor(bigger, last_cards_value, last_category_idx, None)
+                intention = give_cards_without_minor(response_passive, last_cards_value, last_category_idx, None)
                 if last_category_idx == Category.THREE_ONE.value or \
                         last_category_idx == Category.THREE_TWO.value or \
                         last_category_idx == Category.THREE_ONE_LINE.value or \
                         last_category_idx == Category.THREE_TWO_LINE.value or \
                         last_category_idx == Category.FOUR_TWO.value:
                     dup_mask = np.ones([15])
-                    dup_mask[intention[0] - 3] = 0
+                    seq_length = get_seq_length(last_category_idx, intention)
+                    if seq_length:
+                        for i in range(seq_length):
+                            dup_mask[intention[0] - 3 + i] = 0
+                    else:
+                        dup_mask[intention[0] - 3] = 0
                     intention = np.concatenate(
                         [intention, to_value(inference_minor_cards(last_category_idx, state,
                                                                    list(curr_cards_char.copy()),
                                                                    sess, self.main_network,
                                                                    get_seq_length(last_category_idx, last_cards_value),
-                                                                   dup_mask))])
+                                                                   dup_mask, to_char(intention))[0])])
         return intention
 
     def get_benchmark(self, sess):
         num_tests = 100
         env = Pyenv()
         wins = 0
-        idx_role_self = int(self.name[-1])
+        idx_role_self = int(self.name[-1]) + 1
         idx_self = -1
         for i in range(num_tests):
             env.reset()
             env.prepare()
-            s = env.dump_state()
+
             done = False
             while not done:
+                s = env.dump_state()
                 # use the network
-                if idx_role_self == Pyenv.get_role_ID_static(s) - 1:
+                if idx_role_self == Pyenv.get_role_ID_static(s):
                     idx_self = s['idx']
                     intention = np.array(to_char(self.inference_once(s, sess)))
                 else:
@@ -208,7 +224,7 @@ class CardAgent:
                                                                       np.array(to_value(
                                                                           s['last_cards'] if s['control_idx'] != s[
                                                                               'idx'] else [])))))
-                r, done = Pyenv.step_round(s, intention)
+                r, done = env.step(intention)
             # finished, see who wins
             if idx_self == s['idx']:
                 wins += 1
@@ -264,7 +280,7 @@ class CardAgent:
         return mean_loss, mean_var_norm, mean_grad_norm
 
     def train_batch(self, buf, minor_buf, sess, gamma):
-        rewards, values, s, input_single, input_pair, input_triple, \
+        s, rewards, values, input_single, input_pair, input_triple, \
         input_quadric, input_single_last, input_pair_last, input_triple_last, \
         input_quadric_last, seq_length_input, passive_decision_input, passive_response_input, \
         passive_bomb_input, active_decision_input, active_response_input, mode = [buf[:, i] for i in range(18)]
@@ -280,8 +296,8 @@ class CardAgent:
         input_quadric_last = np.vstack(input_quadric_last)
 
         val_truth = discounted_return(rewards, gamma)
-        val_pred_plus = np.concatenate([values, np.zeros([values.shape[0], 1])], axis=1)
-        td0 = rewards + gamma * val_pred_plus[:, 1:] - val_pred_plus[:, -1]
+        val_pred_plus = np.append(values, 0)
+        td0 = rewards + gamma * val_pred_plus[1:] - val_pred_plus[:-1]
         advantages = discounted_return(td0, gamma)
         feed_dict = (
             (self.main_network.training, True),
@@ -300,6 +316,7 @@ class CardAgent:
             (self.main_network.passive_bomb_input, passive_bomb_input),
             (self.main_network.active_decision_input, active_decision_input),
             (self.main_network.active_response_input, active_response_input),
+            (self.main_network.minor_response_input, active_response_input), # not used
             (self.main_network.seq_length_input, seq_length_input),
             (self.main_network.advantages_input, advantages),
             (self.main_network.value_input, val_truth)
@@ -308,39 +325,42 @@ class CardAgent:
             = scheduled_run(sess, [self.main_network.optimize, self.main_network.loss, self.main_network.var_norms,
                                    self.main_network.grad_norms], feed_dict)
         # minor target
-        minor_idx, s_minor, input_single, input_pair, input_triple, input_quadric, minor_response_input = [minor_buf[:, i] for i in range(7)]
-        s_minor = np.vstack(s_minor)
-        input_single = np.vstack(input_single)
-        input_pair = np.vstack(input_pair)
-        input_triple = np.vstack(input_triple)
-        input_quadric = np.vstack(input_quadric)
-        rows = minor_buf.shape[0]
-        feed_dict = (
-            (self.main_network.training, True),
-            (self.main_network.mode, np.ones([rows]) * 5),
-            (self.main_network.input_state, s_minor),
-            (self.main_network.input_single, input_single),
-            (self.main_network.input_pair, input_pair),
-            (self.main_network.input_triple, input_triple),
-            (self.main_network.input_quadric, input_quadric),
-            (self.main_network.input_single_last, np.zeros([rows, 15])),
-            (self.main_network.input_pair_last, np.zeros([rows, 13])),
-            (self.main_network.input_triple_last, np.zeros([rows, 13])),
-            (self.main_network.input_quadric_last, np.zeros([rows, 13])),
-            (self.main_network.passive_decision_input, np.zeros([rows])),
-            (self.main_network.passive_response_input, np.zeros([rows])),
-            (self.main_network.passive_bomb_input, np.zeros([rows])),
-            (self.main_network.active_decision_input, np.zeros([rows])),
-            (self.main_network.active_response_input, minor_response_input),
-            (self.main_network.seq_length_input, np.zeros([rows])),
-            (self.main_network.advantages_input, advantages[minor_idx]),
-            (self.main_network.value_input, np.zeros([rows]))
-        )
-        _, loss_minor, var_norm_minor, gradient_norm_minor \
-            = scheduled_run(sess, [self.main_network.optimize, self.main_network.loss, self.main_network.var_norms,
-                                   self.main_network.grad_norms], feed_dict)
+        if minor_buf.size > 0:
+            s_minor, input_single, input_pair, input_triple, input_quadric, minor_response_input, minor_idx = [minor_buf[:, i] for i in range(7)]
+            s_minor = np.vstack(s_minor)
+            input_single = np.vstack(input_single)
+            input_pair = np.vstack(input_pair)
+            input_triple = np.vstack(input_triple)
+            input_quadric = np.vstack(input_quadric)
+            rows = minor_buf.shape[0]
+            feed_dict = (
+                (self.main_network.training, True),
+                (self.main_network.mode, np.ones([rows]) * 5),
+                (self.main_network.input_state, s_minor),
+                (self.main_network.input_single, input_single),
+                (self.main_network.input_pair, input_pair),
+                (self.main_network.input_triple, input_triple),
+                (self.main_network.input_quadric, input_quadric),
+                (self.main_network.input_single_last, np.zeros([rows, 15])),
+                (self.main_network.input_pair_last, np.zeros([rows, 13])),
+                (self.main_network.input_triple_last, np.zeros([rows, 13])),
+                (self.main_network.input_quadric_last, np.zeros([rows, 13])),
+                (self.main_network.passive_decision_input, np.zeros([rows])),
+                (self.main_network.passive_response_input, np.zeros([rows])),
+                (self.main_network.passive_bomb_input, np.zeros([rows])),
+                (self.main_network.active_decision_input, np.zeros([rows])),
+                (self.main_network.active_response_input, np.zeros([rows])),
+                (self.main_network.minor_response_input, minor_response_input),
+                (self.main_network.seq_length_input, np.zeros([rows])),
+                (self.main_network.advantages_input, advantages[minor_idx.astype(np.int)]),
+                (self.main_network.value_input, np.zeros([rows]))
+            )
+            _, loss_minor, var_norm_minor, gradient_norm_minor \
+                = scheduled_run(sess, [self.main_network.optimize, self.main_network.loss, self.main_network.var_norms,
+                                       self.main_network.grad_norms], feed_dict)
+            return loss, var_norm, gradient_norm, loss_minor, var_norm_minor, gradient_norm_minor
 
-        return loss, var_norm, gradient_norm, loss_minor, var_norm_minor, gradient_norm_minor
+        return loss, var_norm, gradient_norm, 0, 0, 0
 
 
 class CardMaster:
@@ -354,8 +374,6 @@ class CardMaster:
         self.sess = None
 
         self.train_intervals = 10
-        self.update_ops = update_params('agent0', 'agent1')
-        self.update_ops += update_params('agent0', 'agent2')
 
         self.episode_rewards = [[] for i in range(3)]
         self.episode_length = [[] for i in range(3)]
@@ -366,6 +384,9 @@ class CardMaster:
 
         self.global_episodes = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
         self.increment = self.global_episodes.assign_add(1)
+
+        self.update_ops = update_params('agent0', 'agent1')
+        self.update_ops += update_params('agent0', 'agent2')
 
     def train_batch_sampled(self, buf, batch_size, sess):
         logs = []
@@ -382,6 +403,7 @@ class CardMaster:
     def print_benchmarks(self, sess):
         for agent in self.agents:
             print("%s: %f" % (agent.name, agent.get_benchmark(sess)))
+        # print("%s: %f" % (self.agents[1].name, self.agents[1].get_benchmark(sess)))
 
     def update_params_from_agent0(self, sess):
         sess.run(self.update_ops)
@@ -421,36 +443,29 @@ class CardMaster:
                     input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(
                         last_cards_char, None)
 
+                    feed_dict = (
+                        (self.agents[train_id].main_network.training, False),
+                        (self.agents[train_id].main_network.input_state, s),
+                        (self.agents[train_id].main_network.input_single, np.reshape(input_single, [1, -1])),
+                        (self.agents[train_id].main_network.input_pair, np.reshape(input_pair, [1, -1])),
+                        (self.agents[train_id].main_network.input_triple, np.reshape(input_triple, [1, -1])),
+                        (self.agents[train_id].main_network.input_quadric, np.reshape(input_quadric, [1, -1])),
+                        (self.agents[train_id].main_network.input_single_last, np.reshape(input_single_last, [1, -1])),
+                        (self.agents[train_id].main_network.input_pair_last, np.reshape(input_pair_last, [1, -1])),
+                        (self.agents[train_id].main_network.input_triple_last, np.reshape(input_triple_last, [1, -1])),
+                        (self.agents[train_id].main_network.input_quadric_last, np.reshape(input_quadric_last, [1, -1]))
+                    )
                     # forward feed, exploring
                     decision_passive_output, response_passive_output, bomb_passive_output, \
                     decision_active_output, response_active_output, seq_length_output, val_output \
-                        = self.sess.run([self.agents[train_id].main_network.fc_decision_passive_output,
+                        = scheduled_run(sess, [self.agents[train_id].main_network.fc_decision_passive_output,
                                          self.agents[train_id].main_network.fc_response_passive_output,
                                          self.agents[train_id].main_network.fc_bomb_passive_output,
                                          self.agents[train_id].main_network.fc_decision_active_output,
                                          self.agents[train_id].main_network.fc_response_active_output,
                                          self.agents[train_id].main_network.fc_sequence_length_output,
-                                         self.agents[train_id].main_network.fc_value_output],
-                                        feed_dict={
-                                            self.agents[train_id].main_network.training: False,
-                                            self.agents[train_id].main_network.input_state: s,
-                                            self.agents[train_id].main_network.input_single: np.reshape(input_single,
-                                                                                                        [1, -1]),
-                                            self.agents[train_id].main_network.input_pair: np.reshape(input_pair,
-                                                                                                      [1, -1]),
-                                            self.agents[train_id].main_network.input_triple: np.reshape(input_triple,
-                                                                                                        [1, -1]),
-                                            self.agents[train_id].main_network.input_quadric: np.reshape(input_quadric,
-                                                                                                         [1, -1]),
-                                            self.agents[train_id].main_network.input_single_last: np.reshape(input_single_last,
-                                                                                                             [1, -1]),
-                                            self.agents[train_id].main_network.input_pair_last: np.reshape(input_pair_last,
-                                                                                                           [1, -1]),
-                                            self.agents[train_id].main_network.input_triple_last: np.reshape(input_triple_last,
-                                                                                                             [1, -1]),
-                                            self.agents[train_id].main_network.input_quadric_last: np.reshape(input_quadric_last,
-                                                                                                              [1, -1]),
-                                        })
+                                         self.agents[train_id].main_network.fc_value_output], feed_dict
+                                        )
 
                     intention = None
                     seq_length_input = -1
@@ -461,9 +476,6 @@ class CardMaster:
                     active_response_input = -1
                     mode = -1
                     if last_cards_value.size > 0:
-                        print("passive: last idx %d" % last_category_idx)
-                        print("passive: last cards", end='')
-                        print(last_cards_value)
                         is_bomb = False
                         if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
                             is_bomb = True
@@ -510,17 +522,18 @@ class CardMaster:
                                 else:
                                     dup_mask[intention[0] - 3] = 0
                                 minor_cards_val, inter_states, inter_masks, inter_outputs = \
-                                    inference_minor_cards(last_category_idx, s.copy(), curr_cards_char.copy(),
+                                    inference_minor_cards(last_category_idx, s.copy(), list(curr_cards_char.copy()),
                                                           sess, self.agents[train_id].main_network,
                                                           get_seq_length(last_category_idx, last_cards_value),
-                                                          dup_mask)
+                                                          dup_mask, to_char(intention))
                                 minor_cards_val = to_value(minor_cards_val)
                                 for i in range(len(inter_states)):
-                                    episode_minor_buffer[train_id].append([len(episode_buffer[train_id]) - 1,
+                                    episode_minor_buffer[train_id].append([
                                                                            inter_states[i], inter_masks[i][0],
                                                                            inter_masks[i][1],
                                                                            inter_masks[i][2], inter_masks[i][3],
-                                                                           inter_outputs[i]])
+                                                                           inter_outputs[i],
+                                        len(episode_buffer[train_id]) - 1])
 
                                 intention = np.concatenate([intention, minor_cards_val])
                     else:
@@ -553,8 +566,7 @@ class CardMaster:
                         seq_length_input = np.random.choice(12, 1, p=seq_length_output / seq_length_output.sum())[0]
 
                         # seq length only has OFFSET 1 from 0-11 to 1-12 ('3' - 'A')
-                        seq_length = seq_length_input + 1
-                        seq_length = int(seq_length)
+                        seq_length = int(seq_length_input + 1)
 
                         if active_category_idx == Category.SINGLE_LINE.value or \
                                 active_category_idx == Category.DOUBLE_LINE.value or \
@@ -581,28 +593,30 @@ class CardMaster:
                                 dup_mask[intention[0] - 3] = 0
 
                             minor_cards_val, inter_states, inter_masks, inter_outputs = \
-                                inference_minor_cards(last_category_idx, s.copy(), curr_cards_char.copy(),
+                                inference_minor_cards(active_category_idx, s.copy(), list(curr_cards_char.copy()),
                                                       sess, self.agents[train_id].main_network,
-                                                      get_seq_length(last_category_idx, last_cards_value),
-                                                      dup_mask)
+                                                      seq_length,
+                                                      dup_mask, to_char(intention))
                             minor_cards_val = to_value(minor_cards_val)
                             for i in range(len(inter_states)):
-                                episode_minor_buffer[train_id].append([len(episode_buffer[train_id]) - 1,
+                                episode_minor_buffer[train_id].append([
                                                                        inter_states[i], inter_masks[i][0],
                                                                        inter_masks[i][1],
                                                                        inter_masks[i][2], inter_masks[i][3],
-                                                                       inter_outputs[i]])
+                                                                       inter_outputs[i],
+                                    len(episode_buffer[train_id]) - 1])
 
                             intention = np.concatenate([intention, minor_cards_val])
 
                     # print(train_id, 'single step')
+                    print(self.env.idx, ": ", to_char(intention))
+                    r, done = self.env.step(np.array(to_char(intention)))
 
-                    r, done = self.env.step(intention)
 
                     episode_reward[train_id] += r
                     episode_steps[train_id] += 1
                     episode_buffer[train_id].append(
-                        [r, val_output[0], s[0], input_single, input_pair, input_triple,
+                        [s[0], r, val_output[0], input_single, input_pair, input_triple,
                          input_quadric, input_single_last, input_pair_last, input_triple_last,
                          input_quadric_last, seq_length_input, passive_decision_input, passive_response_input,
                          passive_bomb_input, active_decision_input, active_response_input, mode])
@@ -613,14 +627,16 @@ class CardMaster:
                             if i == train_id:
                                 continue
                             if train_id == lord_idx:
-                                episode_buffer[i][-1][0] = -r
+                                episode_buffer[i][-1][1] = -r
                                 episode_reward[i] -= r
                             elif i == lord_idx:
-                                episode_buffer[i][-1][0] = -r
+                                episode_buffer[i][-1][1] = -r
                                 episode_reward[i] -= r
                             else:
-                                episode_buffer[i][-1][0] = r
+                                episode_buffer[i][-1][1] = r
                                 episode_reward[i] += r
+
+                        logs = self.train_batch(episode_buffer, episode_minor_buffer, sess)
 
                         # then sample buffer for training
                         # logs = self.train_batch_sampled([episode_buffer[i] for i in range(3)], 32, sess)
@@ -713,9 +729,10 @@ if __name__ == '__main__':
         #     print("Variable: ", k)
         #     print("Shape: ", v.shape)
         sess.run(tf.global_variables_initializer())
-        saver.restore(sess, "./Model/accuracy_fake_minor/model-9800")
+        saver.restore(sess, "./Model/accuracy_fake_minor/model-9500")
         master.update_params_from_agent0(sess)
-        master.print_benchmarks(sess)
+        master.run(sess, saver, 300)
+        # master.print_benchmarks(sess)
         # print v
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
     #     if load_model:

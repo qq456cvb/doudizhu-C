@@ -47,6 +47,8 @@ def to_char(cards):
 def get_mask(cards, action_space, last_cards):
     # 1 valid; 0 invalid
     mask = np.zeros([len(action_space)])
+    if cards is None:
+        return mask
     if len(cards) == 0:
         return mask
     for j in range(mask.size):
@@ -316,7 +318,7 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
         
         if is_pair:
             # fix dimension mismatch
-            input_pair = np.concatenate([input_pair, [1, 1]])
+            input_pair = np.concatenate([input_pair, [0, 0]])
             response_minor_output[input_pair == 0] = -1
         else:
             response_minor_output[input_single == 0] = -1
@@ -575,7 +577,7 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, ma
         inter_states.append(s.copy())
         inter_masks.append([input_single, input_pair, input_triple, input_quadric])
 
-        response_active_output = scheduled_run(sess, network.fc_response_active_output,
+        response_minor_output = scheduled_run(sess, network.fc_response_minor_output,
                                                (
                                                    (network.training, True),
                                                    (network.input_state, s),
@@ -595,25 +597,25 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, ma
         #                                   })
 
         # give minor cards
-        response_active_output = response_active_output[0]
-        response_active_output[dup_mask == 0] = -1
+        response_minor_output = response_minor_output[0]
+        response_minor_output[dup_mask == 0] = -1
         # print(handcards)
         if is_pair:
-            input_pair = np.concatenate([input_pair, [1, 1]])
-            response_active_output[input_pair == 0] = -1
+            input_pair = np.concatenate([input_pair, [0, 0]])
+            response_minor_output[input_pair == 0] = -1
         else:
-            response_active_output[input_single == 0] = -1
+            response_minor_output[input_single == 0] = -1
 
-        response_active = np.argmax(response_active_output)
-        inter_outputs.append(response_active)
-        dup_mask[response_active] = 0
+        response_minor = np.argmax(response_minor_output)
+        inter_outputs.append(response_minor)
+        dup_mask[response_minor] = 0
 
         # convert network output to char cards
-        cards = [to_char(response_active + 3)]
-        handcards.remove(to_char(response_active + 3))
+        cards = [to_char(response_minor + 3)]
+        handcards.remove(to_char(response_minor + 3))
         if is_pair:
-            handcards.remove(to_char(response_active + 3))
-            cards.append(to_char(response_active + 3))
+            handcards.remove(to_char(response_minor + 3))
+            cards.append(to_char(response_minor + 3))
 
         # correct for one-hot state
         cards_onehot = card.Card.char2onehot(cards)
@@ -621,23 +623,23 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, ma
         discard_onehot_from_s(s[0], cards_onehot)
 
         # save to output
-        outputs.append(to_char(response_active + 3))
+        outputs.append(to_char(response_minor + 3))
         if is_pair:
-            outputs.append(to_char(response_active + 3))
+            outputs.append(to_char(response_minor + 3))
     return outputs, inter_states, inter_masks, inter_outputs
 
 
-def inference_minor_cards(category, s, handcards, sess, network, seq_length, dup_mask):
+def inference_minor_cards(category, s, handcards, sess, network, seq_length, dup_mask, main_cards_char):
     if category == Category.THREE_ONE.value:
-        return inference_minor_util(s, handcards, sess, network, 1, False, dup_mask)
+        return inference_minor_util(s, handcards, sess, network, 1, False, dup_mask, main_cards_char)
     if category == Category.THREE_TWO.value:
-        return inference_minor_util(s, handcards, sess, network, 1, True, dup_mask)
+        return inference_minor_util(s, handcards, sess, network, 1, True, dup_mask, main_cards_char)
     if category == Category.THREE_ONE_LINE.value:
-        return inference_minor_util(s, handcards, sess, network, seq_length, False, dup_mask)
+        return inference_minor_util(s, handcards, sess, network, seq_length, False, dup_mask, main_cards_char)
     if category == Category.THREE_TWO_LINE.value:
-        return inference_minor_util(s, handcards, sess, network, seq_length, True, dup_mask)
+        return inference_minor_util(s, handcards, sess, network, seq_length, True, dup_mask, main_cards_char)
     if category == Category.FOUR_TWO.value:
-        return inference_minor_util(s, handcards, sess, network, 2, False, dup_mask)
+        return inference_minor_util(s, handcards, sess, network, 2, False, dup_mask, main_cards_char)
 
 
 class GPUTime:
@@ -670,22 +672,9 @@ def update_params(scope_from, scope_to):
 
     ops = []
     for from_var, to_var in zip(vars_from, vars_to):
-        ops.append(to_var.assign(from_var))
+        if 'value_output' not in from_var.name:
+            ops.append(to_var.assign(from_var))
     return ops
-
-
-# this is to fix negative values of remain one-hot cards since one-hot cards are unordered
-def fix_remain_cards(remains):
-    for i in range(remains.size):
-        if remains[i] < 0:
-            cnt = -int(remains[i])
-            for k in range(cnt):
-                for j in range(i+1, remains.size):
-                    if remains[j] > 0:
-                        remains[j] -= 1
-                        break
-            remains[i] = 0
-    return remains
 
     
 if __name__ == '__main__':

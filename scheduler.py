@@ -32,16 +32,16 @@ class GpuProfiler:
 def scheduled_run(sess, output, feed_tuple, hard_assign=-1):
     gpu_id = hard_assign if hard_assign >= 0 else GpuProfiler.get_instance().find_free_gpu()
     # print('scheduled to gpu: ', gpu_id)
-    # if isinstance(output[0], list):
-    #     for i, o in enumerate(output):
-    #         output[i] = o[gpu_id]
-    # else:
-    #     output = output[gpu_id]
+    if isinstance(output[0], list):
+        for i, o in enumerate(output):
+            output[i] = o[gpu_id]
+    else:
+        output = output[gpu_id]
 
     feed_dict = {}
     for t in feed_tuple:
-        feed_dict[t[0]] = t[1]
-        # feed_dict[t[0][gpu_id]] = t[1]
+        # feed_dict[t[0]] = t[1]
+        feed_dict[t[0][gpu_id]] = t[1]
     # print(feed_dict)
     return sess.run(output, feed_dict=feed_dict)
 

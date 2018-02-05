@@ -1,7 +1,7 @@
 import numpy as np
 from card import Card, Category
 from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
-    get_mask, action_space_single, action_space_pair, get_category_idx, fix_remain_cards, normalize
+    get_mask, action_space_single, action_space_pair, get_category_idx, normalize
 import sys
 import copy
 import time
@@ -63,7 +63,7 @@ class Pyenv:
         total = np.ones([54])
         extra_cards = Card.char2onehot(self.extra_cards)
         remains = total - selfcards - histories[0] - histories[1] - histories[2]
-
+        normalize(remains, 0, 52)
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
     @staticmethod
@@ -84,7 +84,7 @@ class Pyenv:
         self.extra_cards = cards[51:]
         vals = [CEnv.get_cards_value(Card.char2color(self.player_cards[i]))[0] for i in range(3)]
         self.lord_idx = np.argmax(vals)
-        print('lord idx', self.lord_idx)
+        # print('lord idx', self.lord_idx)
         # distribute extra cards
         self.player_cards[self.lord_idx] = np.concatenate([self.player_cards[self.lord_idx], self.extra_cards])
         # for i in range(3):

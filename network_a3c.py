@@ -42,6 +42,7 @@ class CardNetwork:
             self.passive_bomb_input = []
             self.active_decision_input = []
             self.active_response_input = []
+            self.minor_response_input = []
             self.seq_length_input = []
             self.value_input = []
             self.mode = []
@@ -56,6 +57,8 @@ class CardNetwork:
             self.fc_response_active_output = []
             self.fc_sequence_length_output = []
             self.fc_value_output = []
+            self.fc_response_minor_output = []
+            self.advantages_input = []
             acc_update_ops = 0
             for i in range(gpus):
                 with tf.device('/gpu:%d' % i):
@@ -349,23 +352,23 @@ class CardNetwork:
                         with tf.variable_scope("conv_single"):
                             self.single_conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=self.input_single_conv, num_outputs=16,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.single_bn1a_branch1a = tf.layers.batch_normalization(self.single_conv1a_branch1a, training=self.training)
+                            self.single_bn1a_branch1a = tf.layers.batch_normalization(self.single_conv1a_branch1a, training=self.training[i])
                             self.single_nonlinear1a_branch1a = tf.nn.relu(self.single_bn1a_branch1a)
 
                             self.single_conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=self.single_nonlinear1a_branch1a, num_outputs=16,
                                                  kernel_size=[1, 3], stride=[1, 1], padding='SAME')
-                            self.single_bn1a_branch1b = tf.layers.batch_normalization(self.single_conv1a_branch1b, training=self.training)
+                            self.single_bn1a_branch1b = tf.layers.batch_normalization(self.single_conv1a_branch1b, training=self.training[i])
                             self.single_nonlinear1a_branch1b = tf.nn.relu(self.single_bn1a_branch1b)
 
                             self.single_conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=self.single_nonlinear1a_branch1b, num_outputs=64,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.single_bn1a_branch1c = tf.layers.batch_normalization(self.single_conv1a_branch1c, training=self.training)
+                            self.single_bn1a_branch1c = tf.layers.batch_normalization(self.single_conv1a_branch1c, training=self.training[i])
 
                             ######
 
                             self.single_conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=self.input_single_conv, num_outputs=64,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.single_bn1a_branch2 = tf.layers.batch_normalization(self.single_conv1a_branch2, training=self.training)
+                            self.single_bn1a_branch2 = tf.layers.batch_normalization(self.single_conv1a_branch2, training=self.training[i])
 
                             self.single1a = self.single_bn1a_branch1c + self.single_bn1a_branch2
                             self.single_output = slim.flatten(tf.nn.relu(self.single1a))
@@ -374,23 +377,23 @@ class CardNetwork:
                         with tf.variable_scope("conv_pair"):
                             self.pair_conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=self.input_pair_conv, num_outputs=16,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.pair_bn1a_branch1a = tf.layers.batch_normalization(self.pair_conv1a_branch1a, training=self.training)
+                            self.pair_bn1a_branch1a = tf.layers.batch_normalization(self.pair_conv1a_branch1a, training=self.training[i])
                             self.pair_nonlinear1a_branch1a = tf.nn.relu(self.pair_bn1a_branch1a)
 
                             self.pair_conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=self.pair_nonlinear1a_branch1a, num_outputs=16,
                                                  kernel_size=[1, 3], stride=[1, 1], padding='SAME')
-                            self.pair_bn1a_branch1b = tf.layers.batch_normalization(self.pair_conv1a_branch1b, training=self.training)
+                            self.pair_bn1a_branch1b = tf.layers.batch_normalization(self.pair_conv1a_branch1b, training=self.training[i])
                             self.pair_nonlinear1a_branch1b = tf.nn.relu(self.pair_bn1a_branch1b)
 
                             self.pair_conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=self.pair_nonlinear1a_branch1b, num_outputs=64,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.pair_bn1a_branch1c = tf.layers.batch_normalization(self.pair_conv1a_branch1c, training=self.training)
+                            self.pair_bn1a_branch1c = tf.layers.batch_normalization(self.pair_conv1a_branch1c, training=self.training[i])
 
                             ######
 
                             self.pair_conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=self.input_pair_conv, num_outputs=64,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.pair_bn1a_branch2 = tf.layers.batch_normalization(self.pair_conv1a_branch2, training=self.training)
+                            self.pair_bn1a_branch2 = tf.layers.batch_normalization(self.pair_conv1a_branch2, training=self.training[i])
 
                             self.pair1a = self.pair_bn1a_branch1c + self.pair_bn1a_branch2
                             self.pair_output = slim.flatten(tf.nn.relu(self.pair1a))
@@ -399,23 +402,23 @@ class CardNetwork:
                         with tf.variable_scope("conv_triple"):
                             self.triple_conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=self.input_triple_conv, num_outputs=16,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.triple_bn1a_branch1a = tf.layers.batch_normalization(self.triple_conv1a_branch1a, training=self.training)
+                            self.triple_bn1a_branch1a = tf.layers.batch_normalization(self.triple_conv1a_branch1a, training=self.training[i])
                             self.triple_nonlinear1a_branch1a = tf.nn.relu(self.triple_bn1a_branch1a)
 
                             self.triple_conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=self.triple_nonlinear1a_branch1a, num_outputs=16,
                                                  kernel_size=[1, 3], stride=[1, 1], padding='SAME')
-                            self.triple_bn1a_branch1b = tf.layers.batch_normalization(self.triple_conv1a_branch1b, training=self.training)
+                            self.triple_bn1a_branch1b = tf.layers.batch_normalization(self.triple_conv1a_branch1b, training=self.training[i])
                             self.triple_nonlinear1a_branch1b = tf.nn.relu(self.triple_bn1a_branch1b)
 
                             self.triple_conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=self.triple_nonlinear1a_branch1b, num_outputs=64,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.triple_bn1a_branch1c = tf.layers.batch_normalization(self.triple_conv1a_branch1c, training=self.training)
+                            self.triple_bn1a_branch1c = tf.layers.batch_normalization(self.triple_conv1a_branch1c, training=self.training[i])
 
                             ######
 
                             self.triple_conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=self.input_triple_conv, num_outputs=64,
                                                      kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.triple_bn1a_branch2 = tf.layers.batch_normalization(self.triple_conv1a_branch2, training=self.training)
+                            self.triple_bn1a_branch2 = tf.layers.batch_normalization(self.triple_conv1a_branch2, training=self.training[i])
 
                             self.triple1a = self.triple_bn1a_branch1c + self.triple_bn1a_branch2
                             self.triple_output = slim.flatten(tf.nn.relu(self.triple1a))
@@ -424,23 +427,23 @@ class CardNetwork:
                         with tf.variable_scope("conv_quadric"):
                             self.quadric_conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=self.input_quadric_conv, num_outputs=16,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.quadric_bn1a_branch1a = tf.layers.batch_normalization(self.quadric_conv1a_branch1a, training=self.training)
+                            self.quadric_bn1a_branch1a = tf.layers.batch_normalization(self.quadric_conv1a_branch1a, training=self.training[i])
                             self.quadric_nonlinear1a_branch1a = tf.nn.relu(self.quadric_bn1a_branch1a)
 
                             self.quadric_conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=self.quadric_nonlinear1a_branch1a, num_outputs=16,
                                                  kernel_size=[1, 3], stride=[1, 1], padding='SAME')
-                            self.quadric_bn1a_branch1b = tf.layers.batch_normalization(self.quadric_conv1a_branch1b, training=self.training)
+                            self.quadric_bn1a_branch1b = tf.layers.batch_normalization(self.quadric_conv1a_branch1b, training=self.training[i])
                             self.quadric_nonlinear1a_branch1b = tf.nn.relu(self.quadric_bn1a_branch1b)
 
                             self.quadric_conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=self.quadric_nonlinear1a_branch1b, num_outputs=64,
                                              kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.quadric_bn1a_branch1c = tf.layers.batch_normalization(self.quadric_conv1a_branch1c, training=self.training)
+                            self.quadric_bn1a_branch1c = tf.layers.batch_normalization(self.quadric_conv1a_branch1c, training=self.training[i])
 
                             ######
 
                             self.quadric_conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=self.input_quadric_conv, num_outputs=64,
                                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                            self.quadric_bn1a_branch2 = tf.layers.batch_normalization(self.quadric_conv1a_branch2, training=self.training)
+                            self.quadric_bn1a_branch2 = tf.layers.batch_normalization(self.quadric_conv1a_branch2, training=self.training[i])
 
                             self.quadric1a = self.quadric_bn1a_branch1c + self.quadric_bn1a_branch2
                             self.quadric_output = slim.flatten(tf.nn.relu(self.quadric1a))
@@ -493,6 +496,13 @@ class CardNetwork:
                             self.fc_response_active = slim.stack(self.fc_response_active, slim.fully_connected, [1024, 256, 64])
                         self.fc_response_active_output.append(slim.fully_connected(self.fc_response_active, 15, tf.nn.softmax))
 
+                    # minor response
+                    with tf.variable_scope("minor_response"):
+                        self.fc_response_minor = self.fc_flattened
+                        with slim.arg_scope([slim.fully_connected], activation_fn=tf.nn.relu):
+                            self.fc_response_minor = slim.stack(self.fc_response_minor, slim.fully_connected, [1024, 256, 64])
+                        self.fc_response_minor_output.append(slim.fully_connected(self.fc_response_active, 15, tf.nn.softmax))
+
                     # card length output
                     with tf.variable_scope("fc_sequence_length_output"):
                         self.fc_seq_length = self.fc_flattened
@@ -509,41 +519,47 @@ class CardNetwork:
                         self.fc_value_output.append(tf.squeeze(slim.fully_connected(self.fc_value, 1, None), [1]))
 
                     with tf.variable_scope("advantages"):
-                        self.advantages_input = tf.placeholder(tf.float32, [None], name='advantages_in')
+                        self.advantages_input.append(tf.placeholder(tf.float32, [None], name='advantages_in'))
 
                     # passive mode
                     with tf.variable_scope("passive_mode_loss"):
                         self.passive_decision_input.append(tf.placeholder(tf.int32, [None], name='passive_decision_in'))
                         self.passive_decision_target = tf.one_hot(self.passive_decision_input[i], 4)
                         self.passive_decision_loss = -tf.reduce_sum(self.passive_decision_target * tf.log(
-                            tf.clip_by_value(self.fc_decision_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input
+                            tf.clip_by_value(self.fc_decision_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
 
-                        self.passive_response_input.append(tf.placeholder(tf.float32, [None], name='passive_response_in'))
+                        self.passive_response_input.append(tf.placeholder(tf.int32, [None], name='passive_response_in'))
                         self.passive_response_target = tf.one_hot(self.passive_response_input[i], 15)
                         self.passive_response_loss = -tf.reduce_sum(self.passive_response_target * tf.log(
-                            tf.clip_by_value(self.fc_response_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input
+                            tf.clip_by_value(self.fc_response_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
 
-                        self.passive_bomb_input.append(tf.placeholder(tf.float32, [None], name='passive_bomb_in'))
+                        self.passive_bomb_input.append(tf.placeholder(tf.int32, [None], name='passive_bomb_in'))
                         self.passive_bomb_target = tf.one_hot(self.passive_bomb_input[i], 13)
                         self.passive_bomb_loss = -tf.reduce_sum(self.passive_bomb_target * tf.log(
-                            tf.clip_by_value(self.fc_bomb_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input
+                            tf.clip_by_value(self.fc_bomb_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
 
                     # active mode
                     with tf.variable_scope("active_mode_loss"):
-                        self.active_decision_input.append(tf.placeholder(tf.float32, [None], name='active_decision_in'))
+                        self.active_decision_input.append(tf.placeholder(tf.int32, [None], name='active_decision_in'))
                         self.active_decision_target = tf.one_hot(self.active_decision_input[i], 13)
                         self.active_decision_loss = -tf.reduce_sum(self.active_decision_target * tf.log(
-                            tf.clip_by_value(self.fc_decision_active_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input
+                            tf.clip_by_value(self.fc_decision_active_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
 
-                        self.active_response_input.append(tf.placeholder(tf.float32, [None], name='active_response_in'))
+                        self.active_response_input.append(tf.placeholder(tf.int32, [None], name='active_response_in'))
                         self.active_response_target = tf.one_hot(self.active_response_input[i], 15)
                         self.active_response_loss = -tf.reduce_sum(self.active_response_target * tf.log(
-                            tf.clip_by_value(self.fc_response_active_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input
+                            tf.clip_by_value(self.fc_response_active_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
 
-                        self.seq_length_input.append(tf.placeholder(tf.float32, [None], name='sequence_length_in'))
+                        self.seq_length_input.append(tf.placeholder(tf.int32, [None], name='sequence_length_in'))
                         self.seq_length_target = tf.one_hot(self.seq_length_input[i], 12)
                         self.seq_length_loss = -tf.reduce_sum(self.seq_length_target * tf.log(
-                                tf.clip_by_value(self.fc_sequence_length_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input
+                                tf.clip_by_value(self.fc_sequence_length_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
+
+                    with tf.variable_scope("minor_mode_loss"):
+                        self.minor_response_input.append(tf.placeholder(tf.int32, [None], name='minor_response_in'))
+                        self.minor_response_target = tf.one_hot(self.minor_response_input[i], 15)
+                        self.minor_response_loss = -tf.reduce_sum(self.minor_response_target * tf.log(
+                            tf.clip_by_value(self.fc_response_minor_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
 
                     with tf.variable_scope("value_loss"):
                         self.value_input.append(tf.placeholder(tf.float32, [None], name='value_in'))
@@ -555,21 +571,21 @@ class CardNetwork:
                     # 2: passive decision + passive response + value loss
                     # 3: active decision + active response + value loss
                     # 4: active decision + active response + sequence length + value loss
-                    # 5: active response (do not add value loss since for minor cards, state won't change)
+                    # 5: minor response (do not add value loss since for minor cards, state won't change)
                     self.mode.append(tf.placeholder(tf.int32, [None], name='mode'))
                     self.losses = tf.stack([self.passive_decision_loss + self.value_loss,
                                             self.passive_decision_loss + self.passive_bomb_loss + self.value_loss,
                                             self.passive_decision_loss + self.passive_response_loss + self.value_loss,
                                             self.active_decision_loss + self.active_response_loss + self.value_loss,
                                             self.active_decision_loss + self.active_response_loss + self.seq_length_loss + self.value_loss,
-                                            self.active_response_loss])
+                                            self.minor_response_loss])
                     self.mask = tf.transpose(tf.one_hot(self.mode[i], depth=6, dtype=tf.bool, on_value=True, off_value=False))
                     self.loss.append(tf.reduce_sum(tf.boolean_mask(self.losses, self.mask)))
 
                     local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
                     self.var_norms.append(tf.global_norm(local_vars))
                     gradients = tf.gradients(self.loss[i], local_vars)
-                    cliped_grads, grad_norms = tf.clip_by_global_norm(gradients, 40.0)
+                    cliped_grads, grad_norms = tf.clip_by_global_norm(gradients, 4000.0)
                     self.grad_norms.append(grad_norms)
 
                     # update moving avg/var in batch normalization!

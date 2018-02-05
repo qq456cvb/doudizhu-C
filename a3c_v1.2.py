@@ -151,7 +151,7 @@ class CardAgent:
 
     def inference_once(self, s, sess):
         is_active = s['control_idx'] == s['idx']
-        last_category_idx = s['last_category_idx'] if is_active else -1
+        last_category_idx = s['last_category_idx'] if not is_active else -1
         last_cards_char = s['last_cards'] if not is_active else np.array([])
         last_cards_value = np.array(to_value(last_cards_char)) if not is_active else np.array([])
         curr_cards_char = s['player_cards'][s['idx']]
@@ -228,7 +228,7 @@ class CardAgent:
                 intention = np.concatenate([intention, to_value(
                     inference_minor_cards(active_category_idx, state,
                                           list(curr_cards_char.copy()), sess, self.main_network, seq_length,
-                                          dup_mask))])
+                                          dup_mask, to_char(intention))[0])])
         else:
             is_bomb = False
             if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
@@ -281,13 +281,18 @@ class CardAgent:
                         last_category_idx == Category.THREE_TWO_LINE.value or \
                         last_category_idx == Category.FOUR_TWO.value:
                     dup_mask = np.ones([15])
-                    dup_mask[intention[0] - 3] = 0
+                    seq_length = get_seq_length(last_category_idx, intention)
+                    if seq_length:
+                        for i in range(seq_length):
+                            dup_mask[intention[0] - 3 + i] = 0
+                    else:
+                        dup_mask[intention[0] - 3] = 0
                     intention = np.concatenate(
                         [intention, to_value(inference_minor_cards(last_category_idx, state,
                                                                    list(curr_cards_char.copy()),
                                                                    sess, self.main_network,
                                                                    get_seq_length(last_category_idx, last_cards_value),
-                                                                   dup_mask))])
+                                                                   dup_mask, to_char(intention))[0])])
         return intention
 
     def get_benchmark(self, sess):

@@ -6,6 +6,7 @@ from card import Category, Card
 from utils import get_mask_alter, get_masks, to_char, to_value, get_seq_length, give_cards_without_minor
 sys.path.insert(0, './build/Release')
 import env
+from pyenv import Pyenv
 from utils import inference_minor_cards
 
 
@@ -23,14 +24,17 @@ if __name__ == '__main__':
     saver = tf.train.Saver()
 
     e = env.Env()
+    pyenv = Pyenv()
     player_id = 2
-    with tf.Session() as sess:
-        saver.restore(sess, './Model/accuracy_fake_minor/model-9999')
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        saver.restore(sess, './Model/accuracy_fake_minor/model-9500')
         num_episodes = 100
         n_wins = 0
         for i in range(num_episodes):
+            pyenv.reset()
+            init_cards = pyenv.prepare()
             e.reset()
-            e.prepare()
+            e.prepare_manual(Card.char2color(init_cards))
         
             r = 0
             done = False
@@ -41,6 +45,7 @@ if __name__ == '__main__':
                     intention = env.Env.step_auto_static(Card.char2color(to_char(e.get_curr_handcards())),
                                              np.array(e.get_last_outcards()))
                     r, done, category_idx = e.step_manual(intention)
+                    pyenv.step(np.array(to_char(intention)))
                     # print("current handcards: ", to_char(e.get_curr_handcards()))
                     # intention = read_cards_input()
                 else:
@@ -53,11 +58,27 @@ if __name__ == '__main__':
                     last_cards_char = to_char(last_cards_value)
                     # mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
+                    print(curr_cards_char)
+                    print(sorted(pyenv.get_handcards(), key=lambda k: -Card.cards_to_value[k]))
                     input_single, input_pair, input_triple, input_quadric = get_masks(curr_cards_char, last_cards_char if last_cards_value.size > 0 else None)
+                    input_single2, input_pair2, input_triple2, input_quadric2 = get_masks(pyenv.get_handcards(), pyenv.get_last_outcards())
                     input_single_last, input_pair_last, input_triple_last, input_quadric_last = get_masks(last_cards_char, None)
+                    input_single_last2, input_pair_last2, input_triple_last2, input_quadric_last2 = get_masks(
+                        pyenv.get_last_outcards(), None)
+                    print(input_single.astype(np.int) - input_single2.astype(np.int))
+                    print(input_pair.astype(np.int) - input_pair2.astype(np.int))
+                    print(input_triple.astype(np.int) - input_triple2.astype(np.int))
+                    print(input_quadric.astype(np.int) - input_quadric2.astype(np.int))
+                    print(input_single_last - input_single_last2)
+                    print(input_pair_last - input_pair_last2)
+                    print(input_triple_last - input_triple_last2)
+                    print(input_quadric_last - input_quadric_last2)
 
                     s = e.get_state()
                     s = np.reshape(s, [1, -1]).astype(np.float32)
+                    s2 = pyenv.get_state().reshape([1, -1])
+                    # print(s - s2)
+                    print(np.count_nonzero(s - s2))
 
                     is_active = (last_cards_value.size == 0)
                     if is_active:
@@ -132,7 +153,7 @@ if __name__ == '__main__':
                                     dup_mask[intention[0] - 3 + i] = 0
                             else:
                                 dup_mask[intention[0] - 3] = 0
-                            intention = np.concatenate([intention, to_value(inference_minor_cards(active_category_idx, s, curr_cards_char.copy(), sess, network, seq_length, dup_mask))])
+                            intention = np.concatenate([intention, to_value(inference_minor_cards(active_category_idx, s, curr_cards_char.copy(), sess, network, seq_length, dup_mask, to_char(intention))[0])])
                     else:
                         is_bomb = False
                         if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
@@ -193,14 +214,20 @@ if __name__ == '__main__':
                                     last_category_idx == Category.THREE_TWO_LINE.value or \
                                     last_category_idx == Category.FOUR_TWO.value:
                                 dup_mask = np.ones([15])
-                                dup_mask[intention[0] - 3] = 0
+                                seq_length = get_seq_length(last_category_idx, intention)
+                                if seq_length:
+                                    for j in range(seq_length):
+                                        dup_mask[intention[0] - 3 + j] = 0
+                                else:
+                                    dup_mask[intention[0] - 3] = 0
                                 intention = np.concatenate([intention, to_value(inference_minor_cards(last_category_idx, s, curr_cards_char.copy(), 
-                                    sess, network, get_seq_length(last_category_idx, last_cards_value), dup_mask))])
+                                    sess, network, get_seq_length(last_category_idx, last_cards_value), dup_mask, to_char(intention))[0])])
                     
                 # print("idx %d intention is " % idx, end='')
-                # print(to_char(intention))
-                # r, done, category_idx = e.step_manual(intention)
-                intention, r, category_idx = e.step_auto()
+                print(to_char(intention))
+                r, done, category_idx = e.step_manual(intention)
+                pyenv.step(np.array(to_char(intention)))
+                # intention, r, category_idx = e.step_auto()
                 # print("auto intention is ", intention)
             if idx == player_id:
                 n_wins += 1
