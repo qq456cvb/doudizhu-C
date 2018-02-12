@@ -24,7 +24,7 @@ if __name__ == '__main__':
     epoches_train = args.epoches_train
     epoches_test = args.epoches_test
 
-    SLNetwork = CardNetwork(60 * 6, tf.train.AdamOptimizer(learning_rate=1e-3), "SLNetwork")
+    SLNetwork = CardNetwork(60 * 6, tf.train.AdamOptimizer(learning_rate=1e-4), "SLNetwork")
     empty_thresh = 0.2
 
     env = Env()
@@ -74,10 +74,18 @@ if __name__ == '__main__':
 
                 n_cards = len(intention)
                 if n_cards == 0:
-                    logger.updateAcc('acc', 1 if policy_out[0][policy_out[0] > empty_thresh].size == 0 else 0)
+                    logger.updateAcc('active_acc' if is_active else 'passive_acc', 1 if policy_out[0][policy_out[0] > empty_thresh].size == 0 else 0)
                 else:
                     max_ind = np.argpartition(policy_out[0], -n_cards)[-n_cards:]
                     pred_intention = np.array(Card.onehot2val(max_ind))
-                    logger.updateAcc('acc', 1 if np.array_equal(np.sort(intention), np.sort(pred_intention)) else 0)
+                    logger.updateAcc('active_acc' if is_active else 'passive_acc', 1 if np.array_equal(np.sort(intention), np.sort(pred_intention)) else 0)
+
+            if i % 100 == 0:
+                print("train  ", i, " ing...")
+                print("passive accuracy = ", logger["passive_acc"])
+                print("active accuracy = ", logger["active_acc"])
+
+            if i % 500 == 0 and i > 0:
+                saver.save(sess, "./Model/SL_lite/model", global_step=i)
 
 

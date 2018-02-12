@@ -479,6 +479,8 @@ public:
     py::array_t<int> getStatePadded() {
         std::vector<int> state;
         std::vector<int> total(60, 1);
+        total[53] = total[54] = total[55] = 0;
+        total[57] = total[58] = total[59] = 0;
         auto self_cards = toOneHot60(arrHandCardData[indexID].color_nHandCardList);
 
         std::vector<int> remains = total - self_cards;
