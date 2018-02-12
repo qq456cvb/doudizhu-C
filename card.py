@@ -156,6 +156,17 @@ class Card:
         chars = [Card.cards[i - 3] for i in cards]
         return Card.char2onehot(chars)
 
+    @staticmethod
+    def val2onehot60(cards):
+        counts = Counter(cards)
+        onehot = np.zeros(60)
+        for x in cards:
+            idx = (x - 3) * 4
+            subvec = np.zeros(4)
+            subvec[:counts[x]] = 1
+            onehot[idx:idx+4] = subvec
+        return onehot
+
     # convert char to 0-56 color cards
     @staticmethod
     def char2color(cards):
@@ -192,6 +203,18 @@ class Card:
                 result.append(Card.cards[14])
             else:
                 result.append(Card.cards[math.floor(i / 4)])
+        return result
+
+    @staticmethod
+    def onehot2val(cards):
+        result = []
+        for i in range(len(cards)):
+            if cards[i] == 0:
+                continue
+            if i == 53:
+                result.append(17)
+            else:
+                result.append(i // 4 + 3)
         return result
 
     @staticmethod
@@ -457,9 +480,10 @@ action_space_category = [action_space[:1], action_space[1:16], action_space[16:2
 
 if __name__ == '__main__':
     pass
+    print(Card.val2onehot60([3, 3, 16, 17]))
     # print(action_space_category[Category.SINGLE_LINE.value])
     # print(action_space_category[Category.DOUBLE_LINE.value])
-    print(action_space_category[Category.THREE_ONE.value])
+    # print(action_space_category[Category.THREE_ONE.value])
     # CardGroup.to_cardgroup(['6', '6', 'Q', 'Q', 'Q'])
     # actions = get_action_space()
     # for i in range(1, len(actions)):

@@ -407,6 +407,17 @@ public:
         return result;
     }
 
+    std::vector<int> toOneHot60(const std::vector<int>& v) {
+        std::vector<int> result(60, 0);
+        for (auto color : v) {
+            if (color > 52) color = (color - 52) * 4 + 52;
+            int unordered_color = color / 4 * 4;
+            while (result[unordered_color++] > 0);
+            result[unordered_color - 1]++;
+        }
+        return result;
+    }
+
     void normalize(std::vector<int>& v, int l, int h) {
         for (int i = l; i < h; i += 4) {
             int cnt = 0;
@@ -465,61 +476,44 @@ public:
         return result;
     }
 
-    // 0-14 presentation
-    // py::array_t<int> getState() {
-    //     std::vector<int> state;
-    //     std::vector<int> total(54, 1);
-    //     auto self_cards = toOneHot(arrHandCardData[indexID].color_nHandCardList);
+    py::array_t<int> getStatePadded() {
+        std::vector<int> state;
+        std::vector<int> total(60, 1);
+        auto self_cards = toOneHot60(arrHandCardData[indexID].color_nHandCardList);
 
-    //     std::vector<int> remains = total - self_cards;
-    //     vector<int> history[3] = {
-    //         toOneHot(clsGameSituation->color_aUnitOutCardList[0]),
-    //         toOneHot(clsGameSituation->color_aUnitOutCardList[1]),
-    //         toOneHot(clsGameSituation->color_aUnitOutCardList[2])
-    //     };
-    //     for (int i = 0; i < 3; i++) {
-    //         remains = remains - history[i];
-    //     }
+        std::vector<int> remains = total - self_cards;
 
-    //     vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
-    //     extra_cards = toOneHot(extra_cards);
-    //     for (int i = 0; i < 54; i++) {
-    //         if (remains[i] > 0) {
-    //             if (i == 53) state.push_back(14);
-    //             else state.push_back(i / 4);
-    //         }
-    //     }
-    //     for (int i = 0; i < 54; i++) {
-    //         if (self_cards[i] > 0) {
-    //             if (i == 53) state.push_back(14);
-    //             else state.push_back(i / 4);
-    //         }
-    //     }
-    //     for (int j = 0; j < 3; j++) {
-    //         for (int i = 0; i < 54; i++) {
-    //             if (history[j][i] > 0) {
-    //                 if (i == 53) state.push_back(14);
-    //                 else state.push_back(i / 4);
-    //             }
-    //         }
-    //     }
-    //     for (int i = 0; i < 54; i++) {
-    //         if (extra_cards[i] > 0) {
-    //             if (i == 53) state.push_back(14);
-    //             else state.push_back(i / 4);
-    //         }
-    //     }
+        // normalize history order
+        vector<int> history[3] = {
+            toOneHot60(clsGameSituation->color_aUnitOutCardList[indexID]),
+            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
+            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
+        };
+        for (int i = 0; i < 3; i++) {
+            remains = remains - history[i];
+        }
+        normalize(remains, 0, 52);
 
-    //     auto result = py::array_t<int>(state.size());
-    //     auto buf = result.request();
-    //     int *ptr = (int*)buf.ptr;
-        
-    //     for (int i = 0; i < state.size(); ++i)
-    //     {
-    //         ptr[i] = state[i];
-    //     }
-    //     return result;
-    // }
+        vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
+        extra_cards = toOneHot60(extra_cards);
+        state += self_cards;
+        state += remains;
+        state += history[0];
+        state += history[1];
+        state += history[2];
+        state += extra_cards;
+
+
+        auto result = py::array_t<int>(state.size());
+        auto buf = result.request();
+        int *ptr = (int*)buf.ptr;
+
+        for (int i = 0; i < state.size(); ++i)
+        {
+            ptr[i] = state[i];
+        }
+        return result;
+    }
 
     // (0-56 color cards 转 3-17 value cards)
     vector<int> toValue(const vector<int>& cards) {
@@ -1034,6 +1028,7 @@ PYBIND11_MODULE(env, m) {
         .def("prepare2", &Env::prepare2)
         .def("prepare2_manual", &Env::prepare2_manual)
         .def("get_state", &Env::getState)
+        .def("get_state_padded", &Env::getStatePadded)
         .def("get_state2", &Env::getState2)
         .def("step", &Env::step, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
         .def("step_manual", &Env::step_manual, py::arg("cards") = py::array_t<int>())

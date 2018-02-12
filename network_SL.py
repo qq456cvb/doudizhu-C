@@ -483,5 +483,4 @@ class CardNetwork:
 
                 local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
                 self.gradients = tf.gradients(self.loss, local_vars)
-
             # self.val_pred = tf.reshape(self.fc4, [-1])
