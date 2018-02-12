@@ -526,40 +526,47 @@ class CardNetwork:
                         self.passive_decision_input.append(tf.placeholder(tf.int32, [None], name='passive_decision_in'))
                         self.passive_decision_target = tf.one_hot(self.passive_decision_input[i], 4)
                         self.passive_decision_loss = -tf.reduce_sum(self.passive_decision_target * tf.log(
-                            tf.clip_by_value(self.fc_decision_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
+                            tf.clip_by_value(self.fc_decision_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i] + 0.01 *\
+                            tf.reduce_sum(self.fc_decision_passive_output[i] * tf.log(self.fc_decision_passive_output[i]))
 
                         self.passive_response_input.append(tf.placeholder(tf.int32, [None], name='passive_response_in'))
                         self.passive_response_target = tf.one_hot(self.passive_response_input[i], 15)
                         self.passive_response_loss = -tf.reduce_sum(self.passive_response_target * tf.log(
-                            tf.clip_by_value(self.fc_response_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
+                            tf.clip_by_value(self.fc_response_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i] + 0.01 *\
+                            tf.reduce_sum(self.fc_response_passive_output[i] * tf.log(self.fc_response_passive_output[i]))
 
                         self.passive_bomb_input.append(tf.placeholder(tf.int32, [None], name='passive_bomb_in'))
                         self.passive_bomb_target = tf.one_hot(self.passive_bomb_input[i], 13)
                         self.passive_bomb_loss = -tf.reduce_sum(self.passive_bomb_target * tf.log(
-                            tf.clip_by_value(self.fc_bomb_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
+                            tf.clip_by_value(self.fc_bomb_passive_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i] + 0.01 *\
+                            tf.reduce_sum(self.fc_bomb_passive_output[i] * tf.log(self.fc_bomb_passive_output[i]))
 
                     # active mode
                     with tf.variable_scope("active_mode_loss"):
                         self.active_decision_input.append(tf.placeholder(tf.int32, [None], name='active_decision_in'))
                         self.active_decision_target = tf.one_hot(self.active_decision_input[i], 13)
                         self.active_decision_loss = -tf.reduce_sum(self.active_decision_target * tf.log(
-                            tf.clip_by_value(self.fc_decision_active_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
+                            tf.clip_by_value(self.fc_decision_active_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i] + 0.01 *\
+                            tf.reduce_sum(self.fc_decision_active_output[i] * tf.log(self.fc_decision_active_output[i]))
 
                         self.active_response_input.append(tf.placeholder(tf.int32, [None], name='active_response_in'))
                         self.active_response_target = tf.one_hot(self.active_response_input[i], 15)
                         self.active_response_loss = -tf.reduce_sum(self.active_response_target * tf.log(
-                            tf.clip_by_value(self.fc_response_active_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
+                            tf.clip_by_value(self.fc_response_active_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i] + 0.01 *\
+                            tf.reduce_sum(self.fc_response_active_output[i] * tf.log(self.fc_response_active_output[i]))
 
                         self.seq_length_input.append(tf.placeholder(tf.int32, [None], name='sequence_length_in'))
                         self.seq_length_target = tf.one_hot(self.seq_length_input[i], 12)
                         self.seq_length_loss = -tf.reduce_sum(self.seq_length_target * tf.log(
-                                tf.clip_by_value(self.fc_sequence_length_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
+                                tf.clip_by_value(self.fc_sequence_length_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i] + 0.01 *\
+                            tf.reduce_sum(self.fc_sequence_length_output[i] * tf.log(self.fc_sequence_length_output[i]))
 
                     with tf.variable_scope("minor_mode_loss"):
                         self.minor_response_input.append(tf.placeholder(tf.int32, [None], name='minor_response_in'))
                         self.minor_response_target = tf.one_hot(self.minor_response_input[i], 15)
                         self.minor_response_loss = -tf.reduce_sum(self.minor_response_target * tf.log(
-                            tf.clip_by_value(self.fc_response_minor_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i]
+                            tf.clip_by_value(self.fc_response_minor_output[i], 1e-10, 1 - (1e-10))), 1) * self.advantages_input[i] + 0.01 *\
+                            tf.reduce_sum(self.fc_response_minor_output[i] * tf.log(self.fc_response_minor_output[i]))
 
                     with tf.variable_scope("value_loss"):
                         self.value_input.append(tf.placeholder(tf.float32, [None], name='value_in'))

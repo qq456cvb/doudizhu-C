@@ -609,7 +609,7 @@ class CardMaster:
                             intention = np.concatenate([intention, minor_cards_val])
 
                     # print(train_id, 'single step')
-                    print(self.env.idx, ": ", to_char(intention))
+                    # print(self.env.idx, ": ", to_char(intention))
                     r, done = self.env.step(np.array(to_char(intention)))
 
 
@@ -661,11 +661,11 @@ class CardMaster:
                         summary.value.add(tag='Performance/rewards', simple_value=float(mean_reward))
                         summary.value.add(tag='Performance/length', simple_value=float(mean_length))
                         # summary.value.add(tag='Performance/values', simple_value=float(mean_value))
-                        summary.value.add(tag='Losses/Loss', simple_value=float(logs[i][0]))
+                        # summary.value.add(tag='Losses/Loss', simple_value=float(logs[i][0]))
                         # summary.value.add(tag='Losses/Prob pred', simple_value=float(pred_prob))
                         # summary.value.add(tag='Losses/Policy Loss', simple_value=float(policy_loss))
-                        summary.value.add(tag='Losses/Var Norm', simple_value=float(logs[i][1]))
-                        summary.value.add(tag='Losses/Grad Norm', simple_value=float(logs[i][2]))
+                        # summary.value.add(tag='Losses/Var Norm', simple_value=float(logs[i][1]))
+                        # summary.value.add(tag='Losses/Grad Norm', simple_value=float(logs[i][2]))
                         # summary.value.add(tag='Losses/Policy Norm', simple_value=float(p_norm))
                         # summary.value.add(tag='Losses/a0', simple_value=float(a0))
                         self.summary_writers[i].add_summary(summary, episodes)
@@ -673,9 +673,10 @@ class CardMaster:
 
                 global_episodes += 1
                 sess.run(self.increment)
-                if global_episodes % 100 == 0:
-                    saver.save(sess, './model' + '/model-' + str(global_episodes) + '.cptk')
-                    print("Saved Model")
+                if global_episodes % 500 == 0:
+                    # saver.save(sess, './model' + '/model-' + str(global_episodes) + '.cptk')
+                    # print("Saved Model")
+                    self.print_benchmarks(sess)
 
                 # self.env.end()
 
@@ -731,6 +732,7 @@ if __name__ == '__main__':
         sess.run(tf.global_variables_initializer())
         saver.restore(sess, "./Model/accuracy_fake_minor/model-9500")
         master.update_params_from_agent0(sess)
+        master.print_benchmarks(sess)
         master.run(sess, saver, 300)
         # master.print_benchmarks(sess)
         # print v
