@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow.contrib.slim as slim
 
 
-def resblock(input, first_channel, last_channel, kernel_size, training):
+def res_block(input, first_channel, last_channel, kernel_size, training):
     conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=input, num_outputs=first_channel,
                                             kernel_size=[1, 1], stride=[1, 1], padding='SAME')
     bn1a_branch1a = tf.layers.batch_normalization(conv1a_branch1a, training=training)
@@ -30,27 +30,27 @@ def resblock(input, first_channel, last_channel, kernel_size, training):
     return output
 
 
-def conv_block(input, input_dim, res_params, training, scope):
+def conv_block(input, conv_dim, input_dim, res_params, training, scope):
     conv_out = []
     with tf.variable_scope(scope):
         input_conv = tf.reshape(input, [-1, 1, input_dim, 1])
-        single_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=64,
+        single_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
                                   kernel_size=[1, 1], stride=[1, 4], padding='VALID')
 
-        pair_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=64,
+        pair_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
                                 kernel_size=[1, 2], stride=[1, 4], padding='VALID')
 
-        triple_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=64,
+        triple_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
                                   kernel_size=[1, 3], stride=[1, 4], padding='VALID')
 
-        quadric_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=64,
+        quadric_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
                                    kernel_size=[1, 4], stride=[1, 4], padding='VALID')
 
         conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
 
         for conv in conv_list:
             for param in res_params:
-                conv = resblock(conv, param[0], param[1], param[2], training)
+                conv = res_block(conv, param[0], param[1], param[2], training)
             conv_out.append(slim.flatten(conv))
 
     flattened = tf.concat(conv_out, 1)
@@ -68,7 +68,7 @@ class CardNetwork:
                         self.target_policy = tf.placeholder(tf.float32, [None, 54], 'target_policy_input')
 
                     with slim.arg_scope([slim.fully_connected, slim.conv2d], weights_regularizer=slim.l2_regularizer(1e-3)):
-                        flattened = conv_block(self.input_state, s_dim, [[64, 128, 5], [128, 256, 5], [256, 512, 5]], self.training, 'active_conv')
+                        flattened = conv_block(self.input_state, 32, s_dim, [[64, 128, 5], [128, 256, 5], [256, 512, 5]], self.training, 'active_conv')
 
                         with tf.variable_scope('active_branch'):
                             active_fc = slim.fully_connected(inputs=flattened, num_outputs=1024, activation_fn=tf.nn.relu)
@@ -77,20 +77,20 @@ class CardNetwork:
 
                         with tf.variable_scope('passive_branch'):
                             passive_fc = slim.fully_connected(inputs=flattened, num_outputs=1024, activation_fn=tf.nn.relu)
-                            attention = conv_block(self.last_outcards, 60, [[64, 128, 5], [128, 256, 5], [256, 512, 5]], self.training, 'passive_conv')
+                            attention = conv_block(self.last_outcards, 32, 60, [[64, 128, 5], [128, 256, 5], [256, 512, 5]], self.training, 'passive_conv')
                             attention = slim.fully_connected(inputs=attention, num_outputs=1024, activation_fn=tf.nn.sigmoid)
                             passive_fc = attention * passive_fc
                             passive_fc = slim.fully_connected(inputs=passive_fc, num_outputs=256, activation_fn=tf.nn.relu)
                             self.passive_policy_out = slim.fully_connected(passive_fc, 54, tf.nn.sigmoid)
 
                     with tf.variable_scope('policy_loss'):
-                        self.pasive_policy_loss = -tf.reduce_sum(tf.log(tf.clip_by_value(self.passive_policy_out, 1e-8, 1.)) * (self.target_policy - 0.5) * 2)
+                        self.passive_policy_loss = -tf.reduce_sum(tf.log(tf.clip_by_value(self.passive_policy_out, 1e-8, 1.)) * (self.target_policy - 0.5) * 2)
                         self.active_policy_loss = -tf.reduce_sum(tf.log(tf.clip_by_value(self.active_policy_out, 1e-8, 1.)) * (self.target_policy - 0.5) * 2)
 
                     l2_loss = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope=scope)
                     l2_passive_loss = [l for l in l2_loss if 'active_branch' not in l.name]
                     l2_active_loss = [l for l in l2_loss if 'passive_branch' not in l.name]
-                    self.passive_loss = self.pasive_policy_loss + l2_passive_loss
+                    self.passive_loss = self.passive_policy_loss + l2_passive_loss
                     self.active_loss = self.active_policy_loss + l2_active_loss
 
                     local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)

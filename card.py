@@ -152,6 +152,16 @@ class Card:
         return onehot
 
     @staticmethod
+    def char2onehot60(cards):
+        counts = Counter(cards)
+        onehot = np.zeros(60, dtype=np.int32)
+        for x in cards:
+            subvec = np.zeros(4)
+            subvec[:counts[x]] = 1
+            onehot[Card.cards.index(x) * 4:Card.cards.index(x) * 4 + 4] = subvec
+        return onehot
+
+    @staticmethod
     def val2onehot(cards):
         chars = [Card.cards[i - 3] for i in cards]
         return Card.char2onehot(chars)

@@ -290,6 +290,59 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx, main_c
     return acc
 
 
+def discard_onehot_from_s_60(s, cards_onehot):
+    s[:60] -= cards_onehot
+    normalize(s, 0, 60)
+    s[2 * 60:3 * 60] += cards_onehot
+    normalize(s, 2 * 60, 2 * 60 + 60)
+
+
+# receive targets and handcards as chars
+def train_fake_action_60(targets, handcards, s, sess, network, category_idx, main_cards_char):
+    for main_card in main_cards_char:
+        handcards.remove(main_card)
+    cards_onehot = card.Card.char2onehot60(main_cards_char)
+    # we must make the order in each 4 batch correct...
+    discard_onehot_from_s_60(s, cards_onehot)
+
+    is_pair = False
+    minor_type = 0
+    if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
+        is_pair = True
+        minor_type = 1
+    acc = []
+    for target in targets:
+        target_val = card.Card.char2value_3_17(target) - 3
+        _, fc_minor_response_output = sess.run([network.optimize[-1],
+                                                network.fc_minor_response_output], feed_dict={
+                            network.input_state: s.reshape(1, -1),
+                            network.training: True,
+                            network.minor_type: np.array([minor_type]),
+                            network.minor_response_input: np.array([target_val])
+                        })
+        cards = [target]
+        handcards.remove(target)
+        if is_pair:
+            if target not in handcards:
+                print('something wrong...')
+                print('minor', target)
+                print('main_cards', main_cards_char)
+                print('handcards', handcards)
+            else:
+                handcards.remove(target)
+                cards.append(target)
+
+        # correct for one-hot state
+        cards_onehot = card.Card.char2onehot60(cards)
+
+        # print(s.shape)
+        # print(cards_onehot.shape)
+        discard_onehot_from_s_60(s, cards_onehot)
+
+        acc.append(1 if np.argmax(fc_minor_response_output[0]) == target_val else 0)
+    return acc
+
+
 def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mask, main_cards_char):
     for main_card in main_cards_char:
         handcards.remove(main_card)

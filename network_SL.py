@@ -121,7 +121,7 @@ class CardNetwork:
 
                         self.pair_conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=self.input_pair_conv, num_outputs=64,
                                              kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-                        self.pair_bn1a_branch2 = tf.layers.batch_normalization(self.pair_conv1a_branch2, training=self.training)
+                        self.pair_bn1a_branch2 = tf.layers.batch_normalization(self.pair_conv1a_branch2, training=self.training )
 
                         self.pair1a = self.pair_bn1a_branch1c + self.pair_bn1a_branch2
                         self.pair_output = slim.flatten(tf.nn.relu(self.pair1a))
