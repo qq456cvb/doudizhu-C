@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='fight the lord feature vector')
     # parser.add_argument('--b', type=int, help='batch size', default=32)
-    parser.add_argument('--epoches_train', type=int, help='num of epochs to train', default=10000)
+    parser.add_argument('--epoches_train', type=int, help='num of epochs to train', default=20000)
     parser.add_argument('--epoches_test', type=int, help='num of epochs to test', default=1000)
     parser.add_argument('--train', dest='train', action='store_true')
     parser.add_argument('--test', dest='train', action='store_false')
@@ -33,13 +33,24 @@ if __name__ == '__main__':
     sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
     saver = tf.train.Saver(max_to_keep=50)
 
-    file_writer = tf.summary.FileWriter('accuracy_fake_minor', sess.graph)
+    # file_writer = tf.summary.FileWriter('accuracy_fake_minor', sess.graph)
+    tf.logging.set_verbosity(tf.logging.INFO)
 
     logger = Logger(moving_avg=True if TRAIN else False)
+    global_step = tf.get_variable('global_step', initializer=tf.constant(0), trainable=False, dtype=tf.int32)
+    global_step_add = global_step.assign_add(1)
     if TRAIN:
         sess.run(tf.global_variables_initializer())
-        for i in range(epoches_train):
-            # print('episode: ', i)
+        # saver.restore(sess, tf.train.latest_checkpoint('./Model/SL_lite/'))
+        # saver.restore(sess, './Model/SL_lite/model-9500')
+        vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        for v in vars:
+            print(v.name)
+        # lstm_norm = sess.run(network.lstm_norm)
+        # tf.logging.info('lstm weight norm: {} '.format(lstm_norm))
+        i = sess.run(global_step)
+        while i < epoches_train:
+            print('episode: ', i)
             env.reset()
             env.prepare()
 
@@ -96,10 +107,11 @@ if __name__ == '__main__':
                                 if passive_response_input < 0:
                                     print("something bad happens")
                                     passive_response_input = 0
-                                _, _, decision_passive_output, response_passive_output = sess.run([network.optimize[0],
+                                _, _, decision_passive_output, response_passive_output, grad_norm = sess.run([network.optimize[0],
                                                                                                 network.optimize[2],
                                                                                                 network.fc_passive_decision_output,
-                                                                                                network.fc_passive_response_output], feed_dict={
+                                                                                                network.fc_passive_response_output,
+                                                                                                network.gradient_norms[0]], feed_dict={
                                     network.input_state: s.reshape(1, -1),
                                     network.training: True,
                                     network.last_outcards: last_out_cards.reshape(1, -1),
@@ -108,6 +120,8 @@ if __name__ == '__main__':
                                 })
                                 passive_response_acc_temp = 1 if np.argmax(response_passive_output[0]) == \
                                                                  passive_response_input else 0
+                                if i % 100 == 0:
+                                    tf.logging.info('decision passive gradient norm: {}'.format(grad_norm))
                                 logger.updateAcc("passive_response", passive_response_acc_temp)
                             else:
                                 passive_decision_input = 0
@@ -127,15 +141,18 @@ if __name__ == '__main__':
                     # ACTIVE OFFSET ONE!
                     active_decision_input = category_idx - 1
                     active_response_input = intention[0] - 3
-                    _, _, decision_active_output, response_active_output = sess.run([network.optimize[3],
+                    _, _, decision_active_output, response_active_output, grad_norm = sess.run([network.optimize[3],
                                                              network.optimize[4],
                                                              network.fc_active_decision_output,
-                                                             network.fc_active_response_output], feed_dict={
+                                                             network.fc_active_response_output,
+                                                             network.gradient_norms[3]], feed_dict={
                         network.input_state: s.reshape(1, -1),
                         network.training: True,
                         network.active_decision_input: np.array([active_decision_input]),
                         network.active_response_input: np.array([active_response_input])
                     })
+                    if i % 100 == 0:
+                        tf.logging.info('decision active gradient norm: {}'.format(grad_norm))
 
                     active_decision_acc_temp = 1 if np.argmax(decision_active_output[0]) == active_decision_input else 0
                     logger.updateAcc("active_decision", active_decision_acc_temp)
@@ -170,8 +187,15 @@ if __name__ == '__main__':
                 print("train active response accuracy = ", logger["active_response"])
                 print("train sequence length accuracy = ", logger["seq_length"])
                 print("train minor cards accuracy = ", logger["minor_cards"])
+                weight_norm = sess.run(network.weight_norm)
+                tf.logging.info('weight norm: {} '.format(weight_norm))
+                lstm_norm = sess.run(network.lstm_norm)
+                tf.logging.info('lstm weight norm: {} '.format(lstm_norm))
 
-            if i % 500 == 0 and i > 0:
+            if i % 200 == 0 and i > 0:
                 saver.save(sess, "./Model/SL_lite/model", global_step=i)
+
+            sess.run(global_step_add)
+            i = sess.run(global_step)
 
 

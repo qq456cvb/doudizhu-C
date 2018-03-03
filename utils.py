@@ -630,7 +630,7 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, ma
         inter_states.append(s.copy())
         inter_masks.append([input_single, input_pair, input_triple, input_quadric])
 
-        response_minor_output = scheduled_run(sess, network.fc_response_minor_output,
+        response_minor_output = scheduled_run(sess, network.fc_minor_response_output,
                                                (
                                                    (network.training, True),
                                                    (network.input_state, s),
@@ -693,6 +693,73 @@ def inference_minor_cards(category, s, handcards, sess, network, seq_length, dup
         return inference_minor_util(s, handcards, sess, network, seq_length, True, dup_mask, main_cards_char)
     if category == Category.FOUR_TWO.value:
         return inference_minor_util(s, handcards, sess, network, 2, False, dup_mask, main_cards_char)
+
+
+# return char minor cards output
+def inference_minor_util60(s, handcards, sess, network, num, is_pair, dup_mask, main_cards_char):
+    for main_card in main_cards_char:
+        handcards.remove(main_card)
+    cards_onehot = card.Card.char2onehot60(main_cards_char)
+    discard_onehot_from_s_60(s[0], cards_onehot)
+
+    outputs = []
+    inter_states = []
+    inter_outputs = []
+    minor_type = 1 if is_pair else 0
+    for i in range(num):
+        inter_states.append(s.copy())
+        input_single, input_pair, _, _ = get_masks(handcards, None)
+        response_minor_output = scheduled_run(sess, network.fc_minor_response_output,
+                                               (
+                                                   (network.training, True),
+                                                   (network.input_state, s),
+                                                   (network.minor_type, np.array([minor_type]))
+                                               ))
+
+        # give minor cards
+        response_minor_output = response_minor_output[0]
+        response_minor_output[dup_mask == 0] = -1
+        # print(handcards)
+        if is_pair:
+            input_pair = np.concatenate([input_pair, [0, 0]])
+            response_minor_output[input_pair == 0] = -1
+        else:
+            response_minor_output[input_single == 0] = -1
+
+        response_minor = np.argmax(response_minor_output)
+        inter_outputs.append(response_minor)
+        dup_mask[response_minor] = 0
+
+        # convert network output to char cards
+        cards = [to_char(response_minor + 3)]
+        handcards.remove(to_char(response_minor + 3))
+        if is_pair:
+            handcards.remove(to_char(response_minor + 3))
+            cards.append(to_char(response_minor + 3))
+
+        # correct for one-hot state
+        cards_onehot = card.Card.char2onehot60(cards)
+
+        discard_onehot_from_s_60(s[0], cards_onehot)
+
+        # save to output
+        outputs.append(to_char(response_minor + 3))
+        if is_pair:
+            outputs.append(to_char(response_minor + 3))
+    return outputs, inter_states, inter_outputs
+
+
+def inference_minor_cards60(category, s, handcards, sess, network, seq_length, dup_mask, main_cards_char):
+    if category == Category.THREE_ONE.value:
+        return inference_minor_util60(s, handcards, sess, network, 1, False, dup_mask, main_cards_char)
+    if category == Category.THREE_TWO.value:
+        return inference_minor_util60(s, handcards, sess, network, 1, True, dup_mask, main_cards_char)
+    if category == Category.THREE_ONE_LINE.value:
+        return inference_minor_util60(s, handcards, sess, network, seq_length, False, dup_mask, main_cards_char)
+    if category == Category.THREE_TWO_LINE.value:
+        return inference_minor_util60(s, handcards, sess, network, seq_length, True, dup_mask, main_cards_char)
+    if category == Category.FOUR_TWO.value:
+        return inference_minor_util60(s, handcards, sess, network, 2, False, dup_mask, main_cards_char)
 
 
 class GPUTime:

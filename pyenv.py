@@ -76,6 +76,16 @@ class Pyenv:
         normalize(remains, 0, 52)
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
+    @staticmethod
+    def get_state_static60(s):
+        selfcards = Card.char2onehot60(s['player_cards'][s['idx']])
+        histories = [Card.char2onehot60(s['histories'][(s['idx'] + i) % 3]) for i in range(3)]
+        total = np.ones([60])
+        extra_cards = Card.char2onehot60(s['extra_cards'])
+        remains = total - selfcards - histories[0] - histories[1] - histories[2]
+        normalize(remains, 0, 52)
+        return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
+
     def prepare(self, seed=int(time.time())):
         cards = np.array(Pyenv.total_cards.copy())
         np.random.shuffle(cards)

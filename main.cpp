@@ -410,7 +410,7 @@ public:
     std::vector<int> toOneHot60(const std::vector<int>& v) {
         std::vector<int> result(60, 0);
         for (auto color : v) {
-            if (color > 52) color = (color - 52) * 4 + 52;
+            if (color > 52) color = 56;
             int unordered_color = color / 4 * 4;
             while (result[unordered_color++] > 0);
             result[unordered_color - 1]++;
@@ -494,7 +494,7 @@ public:
         for (int i = 0; i < 3; i++) {
             remains = remains - history[i];
         }
-        normalize(remains, 0, 52);
+        normalize(remains, 0, 60);
 
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot60(extra_cards);
