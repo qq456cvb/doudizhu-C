@@ -66,6 +66,15 @@ class Pyenv:
         normalize(remains, 0, 52)
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
+    def get_state60(self):
+        selfcards = Card.char2onehot60(self.player_cards[self.idx])
+        histories = [Card.char2onehot60(self.histories[(self.idx + i) % 3]) for i in range(3)]
+        total = np.ones([60])
+        extra_cards = Card.char2onehot60(self.extra_cards)
+        remains = total - selfcards - histories[0] - histories[1] - histories[2]
+        normalize(remains, 0, 52)
+        return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
+
     @staticmethod
     def get_state_static(s):
         selfcards = Card.char2onehot(s['player_cards'][s['idx']])

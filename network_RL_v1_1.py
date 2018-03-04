@@ -100,8 +100,15 @@ class CardNetwork:
             self.active_response_input = []
             self.seq_length_input = []
             self.minor_response_input = []
-            self.optimize = [None for _ in range(ngpus)]
-            self.gradient_norms = [None for _ in range(ngpus)]
+            self.fc_value_output = []
+            self.optimize = []
+            self.gradient_norms = []
+            self.advantages_input = []
+            self.value_input = []
+            self.mode = []
+            self.policy_loss = []
+            self.value_loss = []
+            self.l2_loss = []
             for i in range(ngpus):
                 with tf.device('/gpu:%d' % i):
                     with tf.variable_scope(scope, reuse=None if i == 0 else True):
@@ -110,6 +117,8 @@ class CardNetwork:
                             self.training.append(tf.placeholder(tf.bool, None, name='training'))
                             self.last_outcards.append(tf.placeholder(tf.float32, [None, 60], name='last_cards'))
                             self.minor_type.append(tf.placeholder(tf.int64, [None], name='minor_type'))
+                            self.advantages_input.append(tf.placeholder(tf.float32, [None], name='advantages_in'))
+                            self.mode.append(tf.placeholder(tf.int32, [None], name='mode'))
 
                         with slim.arg_scope([slim.fully_connected, slim.conv2d], weights_regularizer=slim.l2_regularizer(1e-3)):
                             with tf.variable_scope('branch_main'):
@@ -199,47 +208,58 @@ class CardNetwork:
                                 fc_minor = slim.fully_connected(inputs=fc_minor, num_outputs=64, activation_fn=tf.nn.relu)
                                 self.fc_minor_response_output.append(slim.fully_connected(inputs=fc_minor, num_outputs=15, activation_fn=tf.nn.softmax))
 
+                            with tf.variable_scope('branch_value'):
+                                fc_value = slim.fully_connected(inputs=flattened, num_outputs=256,
+                                                                activation_fn=tf.nn.relu)
+                                fc_value = slim.fully_connected(inputs=fc_value, num_outputs=64, activation_fn=tf.nn.relu)
+                                self.fc_value_output.append(slim.fully_connected(inputs=fc_value, num_outputs=1, activation_fn=None))
+
                             # passive mode
                             with tf.variable_scope("passive_mode_loss"):
-                                self.passive_decision_input.append(tf.placeholder(tf.int64, [None],
-                                                                             name='passive_decision_in'))
-                                self.passive_decision_target = tf.one_hot(self.passive_decision_input[i], 4)
-                                self.passive_decision_loss = -tf.reduce_sum(self.passive_decision_target * tf.log(
-                                    tf.clip_by_value(self.fc_passive_decision_output, 1e-10, 1 - (1e-10))), 1)
+                                self.passive_decision_input.append(tf.placeholder(tf.int64, [None], name='passive_decision_in'))
+                                passive_decision_target = tf.one_hot(self.passive_decision_input[i], 4)
+                                passive_decision_loss = -tf.reduce_sum(passive_decision_target * tf.log(
+                                    tf.clip_by_value(self.fc_passive_decision_output[i], 1e-10, 1 - 1e-10)), 1) * self.advantages_input[i]
 
-                                self.passive_response_input = tf.placeholder(tf.int64, [None],
-                                                                             name='passive_response_in')
-                                self.passive_response_target = tf.one_hot(self.passive_response_input, 15)
-                                self.passive_response_loss = -tf.reduce_sum(self.passive_response_target * tf.log(
-                                    tf.clip_by_value(self.fc_passive_response_output, 1e-10, 1 - (1e-10))), 1)
+                                self.passive_response_input.append(tf.placeholder(tf.int64, [None], name='passive_response_in'))
+                                passive_response_target = tf.one_hot(self.passive_response_input[i], 15)
+                                passive_response_loss = -tf.reduce_sum(passive_response_target * tf.log(
+                                    tf.clip_by_value(self.fc_passive_response_output[i], 1e-10, 1 - 1e-10)), 1) * self.advantages_input[i]
 
-                                self.passive_bomb_input = tf.placeholder(tf.int64, [None], name='passive_bomb_in')
-                                self.passive_bomb_target = tf.one_hot(self.passive_bomb_input, 13)
-                                self.passive_bomb_loss = -tf.reduce_sum(self.passive_bomb_target * tf.log(
-                                    tf.clip_by_value(self.fc_passive_bomb_output, 1e-10, 1 - (1e-10))), 1)
+                                self.passive_bomb_input.append(tf.placeholder(tf.int64, [None], name='passive_bomb_in'))
+                                passive_bomb_target = tf.one_hot(self.passive_bomb_input[i], 13)
+                                passive_bomb_loss = -tf.reduce_sum(passive_bomb_target * tf.log(
+                                    tf.clip_by_value(self.fc_passive_bomb_output[i], 1e-10, 1 - 1e-10)), 1) * self.advantages_input[i]
 
                             # active mode
                             with tf.variable_scope("active_mode_loss"):
-                                self.active_decision_input = tf.placeholder(tf.int64, [None], name='active_decision_in')
-                                self.active_decision_target = tf.one_hot(self.active_decision_input, 13)
-                                self.active_decision_loss = -tf.reduce_sum(self.active_decision_target * tf.log(
-                                    tf.clip_by_value(self.fc_active_decision_output, 1e-10, 1 - (1e-10))), 1)
+                                self.active_decision_input.append(tf.placeholder(tf.int64, [None], name='active_decision_in'))
+                                active_decision_target = tf.one_hot(self.active_decision_input[i], 13)
+                                active_decision_loss = -tf.reduce_sum(active_decision_target * tf.log(
+                                    tf.clip_by_value(self.fc_active_decision_output[i], 1e-10, 1 - 1e-10)), 1) * self.advantages_input[i]
 
-                                self.active_response_input = tf.placeholder(tf.int64, [None], name='active_response_in')
-                                self.active_response_target = tf.one_hot(self.active_response_input, 15)
-                                self.active_response_loss = -tf.reduce_sum(self.active_response_target * tf.log(
-                                    tf.clip_by_value(self.fc_active_response_output, 1e-10, 1 - (1e-10))), 1)
+                                self.active_response_input.append(tf.placeholder(tf.int64, [None], name='active_response_in'))
+                                active_response_target = tf.one_hot(self.active_response_input[i], 15)
+                                active_response_loss = -tf.reduce_sum(active_response_target * tf.log(
+                                    tf.clip_by_value(self.fc_active_response_output[i], 1e-10, 1 - 1e-10)), 1) * self.advantages_input[i]
 
-                                self.seq_length_input = tf.placeholder(tf.int64, [None], name='sequence_length_in')
-                                self.seq_length_target = tf.one_hot(self.seq_length_input, 12)
-                                self.seq_length_loss = -tf.reduce_sum(self.seq_length_target * tf.log(
-                                    tf.clip_by_value(self.fc_active_seq_output, 1e-10, 1 - (1e-10))), 1)
+                                self.seq_length_input.append(tf.placeholder(tf.int64, [None], name='sequence_length_in'))
+                                seq_length_target = tf.one_hot(self.seq_length_input[i], 12)
+                                seq_length_loss = -tf.reduce_sum(seq_length_target * tf.log(
+                                    tf.clip_by_value(self.fc_active_seq_output[i], 1e-10, 1 - 1e-10)), 1) * self.advantages_input[i]
 
                             with tf.variable_scope("minor_mode_loss"):
-                                self.minor_response_input = tf.placeholder(tf.int64, [None], name='minor_response_in')
-                                self.minor_response_target = tf.one_hot(self.minor_response_input, 15)
-                                self.minor_response_loss = -tf.reduce_sum(self.minor_response_target * tf.log(
-                                    tf.clip_by_value(self.fc_minor_response_output, 1e-10, 1 - (1e-10))), 1)
+                                self.minor_response_input.append(tf.placeholder(tf.int64, [None], name='minor_response_in'))
+                                minor_response_target = tf.one_hot(self.minor_response_input[i], 15)
+                                # [B]
+                                minor_response_loss = -tf.reduce_sum(minor_response_target * tf.log(
+                                    tf.clip_by_value(self.fc_minor_response_output[i], 1e-10, 1 - 1e-10)), 1) * self.advantages_input[i]
+
+                            with tf.variable_scope('value_loss'):
+                                self.value_input.append(tf.placeholder(tf.float32, [None], name='value_in'))
+                                # [B]
+                                value_loss = tf.square(self.value_input[i] - tf.squeeze(self.fc_value_output[i], axis=1))
+                                print(value_loss.shape)
 
                         if scope != 'global':
                             l2_loss = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope=scope)
@@ -255,56 +275,64 @@ class CardNetwork:
                             print('l2 active fc loss', len(l2_active_fc_loss))
 
                             name_scopes = ['branch_passive/decision', 'branch_passive/bomb', 'branch_passive/response',
-                                           'branch_active/decision', 'branch_active/response', 'branch_active/seq_length', 'branch_minor']
+                                           'branch_active/decision', 'branch_active/response', 'branch_active/seq_length', 'branch_minor', 'branch_value']
 
-                            self.losses = [self.passive_decision_loss, self.passive_bomb_loss, self.passive_response_loss,
-                                           self.active_decision_loss, self.active_response_loss, self.seq_length_loss, self.minor_response_loss]
-                            self.optimize[i] = []
+                            losses = [passive_decision_loss, passive_bomb_loss, passive_response_loss,
+                                           active_decision_loss, active_response_loss, seq_length_loss, minor_response_loss, value_loss]
 
-                            # update ops for batch normalization
+                            # update ops for batch normalization -- not used in RL
                             main_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope=scope + 'branch_main')
                             passive_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope=scope + 'branch_passive')
-                            self.gradient_norms[i] = []
+
                             global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='global')
                             local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
                             print('global var cnt', len(global_vars))
                             print('local var cnt', len(local_vars))
 
-                            for j, name in enumerate(name_scopes):
-                                l2_branch_loss = l2_main_loss.copy()
-                                if 'passive' in name:
-                                    if 'bomb' in name:
-                                        l2_branch_loss += [l for l in l2_loss if name in l.name]
-                                    else:
-                                        l2_branch_loss += l2_passive_fc_loss + [l for l in l2_loss if name in l.name]
-                                else:
-                                    if 'minor' in name:
-                                        # do not include lstm regularization in minor loss
-                                        l2_branch_loss += l2_active_fc_loss[:-1] + [l for l in l2_loss if name in l.name]
-                                    else:
-                                        l2_branch_loss += l2_active_fc_loss + [l for l in l2_loss if name in l.name]
+                            mask = tf.one_hot(self.mode[i], depth=6, dtype=tf.bool, on_value=True, off_value=False)
 
-                                print('l2 branch loss for %s ' % name, len(l2_branch_loss))
+                            # [B * 6]
+                            combined_policy_losses = tf.transpose(tf.stack([passive_decision_loss,
+                                            passive_decision_loss + passive_bomb_loss,
+                                            passive_decision_loss + passive_response_loss,
+                                            active_decision_loss + active_response_loss,
+                                            active_decision_loss + active_response_loss + seq_length_loss,
+                                            minor_response_loss]))
+                            self.policy_loss.append(tf.reduce_sum(tf.boolean_mask(combined_policy_losses, mask)))
+                            print(combined_policy_losses.shape)
 
-                                g = tf.gradients(self.losses[j] + tf.add_n(l2_branch_loss), local_vars)
-                                gvs = zip(g, local_vars)
-                                gvs = [(idx, gv[0], gv[1]) for (idx, gv) in enumerate(gvs) if gv[0] is not None]
-                                valid_idx, g, _ = zip(*gvs)
-                                valid_global_vars = [global_vars[idx] for idx in valid_idx]
+                            combined_value_losses = tf.transpose(tf.stack([value_loss,
+                                                                           value_loss,
+                                                                           value_loss,
+                                                                           value_loss,
+                                                                           value_loss,
+                                                                           tf.zeros_like(value_loss)]))
+                            print(combined_value_losses.shape)
+                            self.value_loss.append(tf.reduce_sum(tf.boolean_mask(combined_value_losses, mask)))
 
-                                g, global_norm = tf.clip_by_global_norm(g, 5.0)
-                                self.gradient_norms[i].append(global_norm)
-                                if 'passive' in name:
-                                    with tf.control_dependencies(main_update_ops + passive_update_ops):
-                                        update = trainer.apply_gradients(zip(g, valid_global_vars))
-                                else:
-                                    with tf.control_dependencies(main_update_ops):
-                                        update = trainer.apply_gradients(zip(g, valid_global_vars))
-                                self.optimize[i].append(update)
+                            combined_l2_losses = tf.stack([tf.add_n(l2_main_loss + l2_passive_fc_loss + [l for l in l2_loss if 'branch_passive/decision' in l.name or 'branch_value' in l.name]),
+                                                  tf.add_n(l2_main_loss + l2_passive_fc_loss + [l for l in l2_loss if 'branch_passive/decision' in l.name or 'branch_passive/bomb' in l.name or 'branch_value' in l.name]),
+                                                  tf.add_n(l2_main_loss + l2_passive_fc_loss + [l for l in l2_loss if 'branch_passive/decision' in l.name or 'branch_passive/response' in l.name or 'branch_value' in l.name]),
+                                                  tf.add_n(l2_main_loss + l2_active_fc_loss + [l for l in l2_loss if 'branch_active/decision' in l.name or 'branch_active/response' in l.name or 'branch_value' in l.name]),
+                                                  tf.add_n(l2_main_loss + l2_active_fc_loss + [l for l in l2_loss if 'branch_active/decision' in l.name or 'branch_active/response' in l.name or 'branch_active/seq_length' in l.name or 'branch_value' in l.name]),
+                                                  tf.add_n(l2_main_loss + [l for l in l2_loss if 'branch_minor' in l.name])])
+                            combined_l2_losses = tf.transpose(tf.tile(tf.expand_dims(combined_l2_losses, axis=1), [1, tf.shape(self.input_state[i])[0]]))
+                            print(combined_l2_losses.shape)
+                            self.l2_loss.append(tf.reduce_sum(tf.boolean_mask(combined_l2_losses, mask)))
 
-            if scope != 'global':
-                self.gradient_norms = list(zip(*self.gradient_norms))
-                self.optimize = list(zip(*self.optimize))
-                        # self.weight_norm = tf.global_norm([v for v in tf.trainable_variables(scope=scope) if v.name.endswith('weights:0')])
-                        # self.lstm_norm = tf.global_norm([v for v in tf.trainable_variables(scope=scope) if v.name.endswith('kernel:0')])
+                            # [B * 6]
+                            final_loss = self.policy_loss[i] + self.value_loss[i] + self.l2_loss[i]
+
+                            g = tf.gradients(final_loss, local_vars)
+                            gvs = zip(g, local_vars)
+                            gvs = [(idx, gv[0], gv[1]) for (idx, gv) in enumerate(gvs) if gv[0] is not None]
+                            valid_idx, g, _ = zip(*gvs)
+                            valid_global_vars = [global_vars[idx] for idx in valid_idx]
+
+                            g, global_norm = tf.clip_by_global_norm(g, tf.cast(tf.shape(self.input_state[i])[0], tf.float32) * tf.constant(5.0))
+                            self.gradient_norms.append(global_norm)
+                            update = trainer.apply_gradients(zip(g, valid_global_vars))
+                            self.optimize.append(update)
+                        self.non_lstm_weight_norms = tf.global_norm([v for v in tf.trainable_variables(scope=scope) if v.name.endswith('weights:0')])
+                        self.lstm_weight_norms = tf.global_norm([v for v in tf.trainable_variables(scope=scope) if v.name.endswith('kernel:0')])
 

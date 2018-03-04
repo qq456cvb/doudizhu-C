@@ -184,41 +184,41 @@ class CardNetwork:
                                                                          name='passive_decision_in')
                             self.passive_decision_target = tf.one_hot(self.passive_decision_input, 4)
                             self.passive_decision_loss = -tf.reduce_sum(self.passive_decision_target * tf.log(
-                                tf.clip_by_value(self.fc_passive_decision_output, 1e-10, 1 - (1e-10))), 1)
+                                tf.clip_by_value(self.fc_passive_decision_output, 1e-10, 1 - (1e-10))))
 
                             self.passive_response_input = tf.placeholder(tf.int64, [None],
                                                                          name='passive_response_in')
                             self.passive_response_target = tf.one_hot(self.passive_response_input, 15)
                             self.passive_response_loss = -tf.reduce_sum(self.passive_response_target * tf.log(
-                                tf.clip_by_value(self.fc_passive_response_output, 1e-10, 1 - (1e-10))), 1)
+                                tf.clip_by_value(self.fc_passive_response_output, 1e-10, 1 - (1e-10))))
 
                             self.passive_bomb_input = tf.placeholder(tf.int64, [None], name='passive_bomb_in')
                             self.passive_bomb_target = tf.one_hot(self.passive_bomb_input, 13)
                             self.passive_bomb_loss = -tf.reduce_sum(self.passive_bomb_target * tf.log(
-                                tf.clip_by_value(self.fc_passive_bomb_output, 1e-10, 1 - (1e-10))), 1)
+                                tf.clip_by_value(self.fc_passive_bomb_output, 1e-10, 1 - (1e-10))))
 
                         # active mode
                         with tf.variable_scope("active_mode_loss"):
                             self.active_decision_input = tf.placeholder(tf.int64, [None], name='active_decision_in')
                             self.active_decision_target = tf.one_hot(self.active_decision_input, 13)
                             self.active_decision_loss = -tf.reduce_sum(self.active_decision_target * tf.log(
-                                tf.clip_by_value(self.fc_active_decision_output, 1e-10, 1 - (1e-10))), 1)
+                                tf.clip_by_value(self.fc_active_decision_output, 1e-10, 1 - (1e-10))))
 
                             self.active_response_input = tf.placeholder(tf.int64, [None], name='active_response_in')
                             self.active_response_target = tf.one_hot(self.active_response_input, 15)
                             self.active_response_loss = -tf.reduce_sum(self.active_response_target * tf.log(
-                                tf.clip_by_value(self.fc_active_response_output, 1e-10, 1 - (1e-10))), 1)
+                                tf.clip_by_value(self.fc_active_response_output, 1e-10, 1 - (1e-10))))
 
                             self.seq_length_input = tf.placeholder(tf.int64, [None], name='sequence_length_in')
                             self.seq_length_target = tf.one_hot(self.seq_length_input, 12)
                             self.seq_length_loss = -tf.reduce_sum(self.seq_length_target * tf.log(
-                                tf.clip_by_value(self.fc_active_seq_output, 1e-10, 1 - (1e-10))), 1)
+                                tf.clip_by_value(self.fc_active_seq_output, 1e-10, 1 - (1e-10))))
 
                         with tf.variable_scope("minor_mode_loss"):
                             self.minor_response_input = tf.placeholder(tf.int64, [None], name='minor_response_in')
                             self.minor_response_target = tf.one_hot(self.minor_response_input, 15)
                             self.minor_response_loss = -tf.reduce_sum(self.minor_response_target * tf.log(
-                                tf.clip_by_value(self.fc_minor_response_output, 1e-10, 1 - (1e-10))), 1)
+                                tf.clip_by_value(self.fc_minor_response_output, 1e-10, 1 - (1e-10))))
 
                     l2_loss = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope=scope)
                     l2_main_loss = [l for l in l2_loss if 'branch_main' in l.name]
