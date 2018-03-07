@@ -4,51 +4,51 @@ import tensorflow.contrib.slim as slim
 import tensorflow.contrib.rnn as rnn
 
 
-def identity_block(input, first_channel, last_channel, kernel_size, training):
+def identity_block(input, first_channel, last_channel, kernel_size):
     conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=input, num_outputs=first_channel,
                                             kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch1a = tf.layers.batch_normalization(conv1a_branch1a, training=training)
+    bn1a_branch1a = tf.layers.batch_normalization(conv1a_branch1a, training=False, scale=False, center=True, epsilon=0)
     nonlinear1a_branch1a = tf.nn.relu(bn1a_branch1a)
 
     conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=nonlinear1a_branch1a, num_outputs=first_channel,
                                             kernel_size=[1, kernel_size], stride=[1, 1], padding='SAME')
-    bn1a_branch1b = tf.layers.batch_normalization(conv1a_branch1b, training=training)
+    bn1a_branch1b = tf.layers.batch_normalization(conv1a_branch1b, training=False, scale=False, center=True, epsilon=0)
     nonlinear1a_branch1b = tf.nn.relu(bn1a_branch1b)
 
     conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=nonlinear1a_branch1b, num_outputs=last_channel,
                                             kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch1c = tf.layers.batch_normalization(conv1a_branch1c, training=training)
+    bn1a_branch1c = tf.layers.batch_normalization(conv1a_branch1c, training=False, scale=False, center=True, epsilon=0)
 
     return tf.nn.relu(bn1a_branch1c)
 
 
-def upsample_block(input, first_channel, last_channel, kernel_size, training):
+def upsample_block(input, first_channel, last_channel, kernel_size):
     conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=input, num_outputs=first_channel,
                                   kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch1a = tf.layers.batch_normalization(conv1a_branch1a, training=training)
+    bn1a_branch1a = tf.layers.batch_normalization(conv1a_branch1a, training=False, scale=False, center=True, epsilon=0)
     nonlinear1a_branch1a = tf.nn.relu(bn1a_branch1a)
 
     conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=nonlinear1a_branch1a, num_outputs=first_channel,
                                   kernel_size=[1, kernel_size], stride=[1, 1], padding='SAME')
-    bn1a_branch1b = tf.layers.batch_normalization(conv1a_branch1b, training=training)
+    bn1a_branch1b = tf.layers.batch_normalization(conv1a_branch1b, training=False, scale=False, center=True, epsilon=0)
     nonlinear1a_branch1b = tf.nn.relu(bn1a_branch1b)
 
     conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=nonlinear1a_branch1b, num_outputs=last_channel,
                                   kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch1c = tf.layers.batch_normalization(conv1a_branch1c, training=training)
+    bn1a_branch1c = tf.layers.batch_normalization(conv1a_branch1c, training=False, scale=False, center=True, epsilon=0)
 
     ######
 
     conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=input, num_outputs=last_channel,
                                  kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch2 = tf.layers.batch_normalization(conv1a_branch2, training=training)
+    bn1a_branch2 = tf.layers.batch_normalization(conv1a_branch2, training=False, scale=False, center=True, epsilon=0)
 
     plus = bn1a_branch1c + bn1a_branch2
 
     return tf.nn.relu(slim.avg_pool2d(plus, kernel_size=[1, 3]))
 
 
-def conv_block(input, conv_dim, input_dim, res_params, training, scope):
+def conv_block(input, conv_dim, input_dim, res_params, scope):
     conv_out = []
     with tf.variable_scope(scope):
         input_conv = tf.reshape(input, [-1, 1, input_dim, 1])
@@ -69,9 +69,9 @@ def conv_block(input, conv_dim, input_dim, res_params, training, scope):
         for conv in conv_list:
             for param in res_params:
                 if param[-1] == 'identity':
-                    conv = identity_block(conv, param[0], param[1], param[2], training)
+                    conv = identity_block(conv, param[0], param[1], param[2])
                 elif param[-1] == 'upsampling':
-                    conv = upsample_block(conv, param[0], param[1], param[2], training)
+                    conv = upsample_block(conv, param[0], param[1], param[2])
                 else:
                     raise Exception('unsupported layer type')
             conv_out.append(slim.flatten(conv))
@@ -83,7 +83,6 @@ def conv_block(input, conv_dim, input_dim, res_params, training, scope):
 class CardNetwork:
         def __init__(self, trainer, scope, ngpus=2):
             self.input_state = []
-            self.training = []
             self.last_outcards = []
             self.minor_type = []
             self.fc_active_decision_output = []
@@ -114,7 +113,6 @@ class CardNetwork:
                     with tf.variable_scope(scope, reuse=None if i == 0 else True):
                         with tf.variable_scope('inputs'):
                             self.input_state.append(tf.placeholder(tf.float32, [None, 6 * 60], name="input"))
-                            self.training.append(tf.placeholder(tf.bool, None, name='training'))
                             self.last_outcards.append(tf.placeholder(tf.float32, [None, 60], name='last_cards'))
                             self.minor_type.append(tf.placeholder(tf.int64, [None], name='minor_type'))
                             self.advantages_input.append(tf.placeholder(tf.float32, [None], name='advantages_in'))
@@ -122,10 +120,10 @@ class CardNetwork:
 
                         with slim.arg_scope([slim.fully_connected, slim.conv2d], weights_regularizer=slim.l2_regularizer(1e-3)):
                             with tf.variable_scope('branch_main'):
-                                flattened = conv_block(self.input_state[i], 32, 6 * 60, [[16, 64, 3, 'identity'], [16, 64, 3, 'identity'], [32, 128, 3, 'upsampling']], self.training[i], 'branch_main')
+                                flattened = conv_block(self.input_state[i], 32, 6 * 60, [[16, 64, 3, 'identity'], [16, 64, 3, 'identity'], [32, 128, 3, 'upsampling']], 'branch_main')
 
                             with tf.variable_scope('branch_passive'):
-                                flattened_last = conv_block(self.last_outcards[i], 32, 60, [[16, 64, 3, 'identity'], [16, 64, 3, 'identity'], [32, 128, 3, 'upsampling']], self.training[i], 'last_cards')
+                                flattened_last = conv_block(self.last_outcards[i], 32, 60, [[16, 64, 3, 'identity'], [16, 64, 3, 'identity'], [32, 128, 3, 'upsampling']], 'last_cards')
 
                                 self.hidden_size = 256
                                 self.lstm_passive = rnn.BasicLSTMCell(num_units=self.hidden_size, state_is_tuple=True)
@@ -321,7 +319,7 @@ class CardNetwork:
                             self.l2_loss.append(tf.reduce_sum(tf.boolean_mask(combined_l2_losses, mask)))
 
                             # [B * 6]
-                            final_loss = self.policy_loss[i] + self.value_loss[i] + self.l2_loss[i]
+                            final_loss = self.policy_loss[i] + 0.3 * self.value_loss[i] + self.l2_loss[i]
 
                             g = tf.gradients(final_loss, local_vars)
                             gvs = zip(g, local_vars)

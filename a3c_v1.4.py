@@ -58,7 +58,6 @@ class CardAgent:
 
         state = Pyenv.get_state_static60(s).reshape(1, -1)
         feeddict = (
-            (self.main_network.training, True),
             (self.main_network.input_state, state),
             (self.main_network.last_outcards, last_cards_onehot.reshape(1, -1)),
         )
@@ -237,7 +236,6 @@ class CardAgent:
                                                        for k in ['decision_passive', 'bomb_passive', 'response_passive',
                                                                  'decision_active', 'response_active', 'seq_length']]
             feed_dict = (
-                (self.main_network.training, True),
                 (self.main_network.mode, modes),
                 (self.main_network.input_state, input_states),
                 (self.main_network.input_single, input_singles),
@@ -283,7 +281,6 @@ class CardAgent:
         td0 = rewards + gamma * val_pred_plus[1:] - val_pred_plus[:-1]
         advantages = discounted_return(td0, gamma)
         feed_dict = (
-            (self.main_network.training, True),
             (self.main_network.input_state, s),
             (self.main_network.last_outcards, s_last_outcards),
             (self.main_network.minor_type, np.zeros([buf.shape[0]])),
@@ -307,7 +304,6 @@ class CardAgent:
             s_minor = np.vstack(s_minor)
             rows = minor_buf.shape[0]
             feed_dict = (
-                (self.main_network.training, True),
                 (self.main_network.mode, np.ones([rows]) * 5),
                 (self.main_network.input_state, s_minor),
                 (self.main_network.last_outcards, np.zeros([rows, 60])),
@@ -362,8 +358,8 @@ class CardMaster:
     def train_batch(self, buf, minor_buf, sess):
         return self.agent.train_batch(np.array(buf), np.array(minor_buf), sess, self.gamma)
 
-    def print_benchmarks(self, sess):
-        tf.logging.info("%s: %f" % (self.agent.name, self.agent.get_benchmark(sess)))
+    def print_benchmarks(self, sess, num_tests=100):
+        tf.logging.info("BENCHMARK %s: %f" % (self.agent.name, self.agent.get_benchmark(sess, num_tests)))
         # print("%s: %f" % (self.agents[1].name, self.agents[1].get_benchmark(sess)))
 
     # train three agents simultaneously
@@ -376,7 +372,7 @@ class CardMaster:
             while not coord.should_stop():
                 if episode_count >= total_episodes:
                     break
-                episode_count += 1
+
                 sess.run(self.update_local_from_global_ops)
                 self.env.reset()
                 self.env.prepare()
@@ -400,7 +396,6 @@ class CardMaster:
                     last_cards_onehot = card.Card.val2onehot60(last_cards_value).reshape(1, -1)
 
                     feed_dict = (
-                        (self.agent.main_network.training, False),
                         (self.agent.main_network.input_state, s),
                         (self.agent.main_network.last_outcards, last_cards_onehot)
                     )
@@ -565,11 +560,11 @@ class CardMaster:
                     # print(self.env.idx, ": ", to_char(intention))
                     r, done = self.env.step(np.array(to_char(intention)))
 
-                    episode_reward += r
+                    episode_reward = r
                     episode_steps += 1
-                    episode_values += val_output[0]
+                    episode_values.append(val_output[0][0])
                     episode_buffer.append(
-                        [s[0], last_cards_onehot[0], r, val_output[0], seq_length_input, passive_decision_input, passive_response_input,
+                        [s[0], last_cards_onehot[0], r, val_output[0][0], seq_length_input, passive_decision_input, passive_response_input,
                          passive_bomb_input, active_decision_input, active_response_input, mode])
                     # self.train_batch_sampled([episode_buffer[train_id]], 8)
 
@@ -591,7 +586,7 @@ class CardMaster:
                                                          np.array(to_value(self.env.last_cards if self.env.control_idx != self.env.idx else [])))))
                         r, done = self.env.step(intention)
                         if done:
-                            episode_reward -= r
+                            episode_reward = -r
                             episode_buffer[-1][2] = -r
                             logs = self.train_batch(episode_buffer, episode_minor_buffer, sess)
                             self.episode_policy_loss.append(logs[0])
@@ -605,7 +600,7 @@ class CardMaster:
                 # self.episode_mean_values[i].append(np.mean(episode_values[i]))
                 self.episode_length.append(episode_steps)
                 self.episode_rewards.append(episode_reward)
-                self.episode_mean_values.append(episode_values)
+                self.episode_mean_values.append(np.mean(episode_values))
 
                 update_rate = 5
                 if episode_count % update_rate == 0 and episode_count > 0:
@@ -616,7 +611,6 @@ class CardMaster:
                     mean_value_loss = np.mean(self.episode_value_loss[-update_rate:])
                     mean_grad_norms = np.mean(self.episode_gradient_norms[-update_rate:])
 
-                    non_lstm_weight_norm, lstm_weight_norm = sess.run([global_network.non_lstm_weight_norms, global_network.lstm_weight_norms])
                     summary = tf.Summary()
                     # TODO: add more summary with value loss
                     summary.value.add(tag='Performance/rewards', simple_value=float(mean_reward))
@@ -625,8 +619,7 @@ class CardMaster:
                     summary.value.add(tag='Losses/policy loss', simple_value=float(mean_policy_loss))
                     summary.value.add(tag='Losses/value loss', simple_value=float(mean_value_loss))
                     summary.value.add(tag='Losses/grad norm', simple_value=float(mean_grad_norms))
-                    summary.value.add(tag='Norm/weight norm', simple_value=float(non_lstm_weight_norm))
-                    summary.value.add(tag='Norm/lstm weight norm', simple_value=float(lstm_weight_norm))
+
                     # summary.value.add(tag='Losses/Policy Norm', simple_value=float(p_norm))
                     # summary.value.add(tag='Losses/a0', simple_value=float(a0))
                     self.summary_writer.add_summary(summary, episode_count)
@@ -634,14 +627,19 @@ class CardMaster:
 
                 if self.name == 'agent_0':
                     sess.run(self.increment)
-                    if episode_count % 500 == 0 and episode_count > 0:
-                        saver.save(sess, "./Model/a3c_1.4/model", global_step=i)
+                    if episode_count % 100 == 0:
+                        summary = tf.Summary()
+                        non_lstm_weight_norm, lstm_weight_norm = sess.run(
+                            [global_network.non_lstm_weight_norms, global_network.lstm_weight_norms])
+                        summary.value.add(tag='Norm/weight norm', simple_value=float(non_lstm_weight_norm))
+                        summary.value.add(tag='Norm/lstm weight norm', simple_value=float(lstm_weight_norm))
+                        self.summary_writer.add_summary(summary, episode_count)
+                        self.summary_writer.flush()
+                    if episode_count % 300 == 0 and episode_count > 0:
+                        saver.save(sess, "./Model/a3c_1.4/model", global_step=episode_count)
                         tf.logging.info('saved model')
-                        self.print_benchmarks(sess)
-
-
-def name_in_checkpoint(var):
-    return var.op.name.replace("agent0", "SLNetwork")
+                        self.print_benchmarks(sess, 100)
+                episode_count += 1
 
 
 def get_available_gpus():
@@ -663,31 +661,37 @@ if __name__ == '__main__':
     f.close()
     '''
 
-    network = CardNetwork(None, 'global', 1)
+    tf.logging.set_verbosity(tf.logging.INFO)
+    global_agent = CardAgent('global', 1)
 
-    variables_to_restore = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='global')
-    variables_to_restore = {v.op.name.replace('global', 'network'): v for v in variables_to_restore if 'branch_value' not in v.name}
-    saver = tf.train.Saver(variables_to_restore, max_to_keep=100)
+    variables_to_save = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='global')
+    saver = tf.train.Saver(variables_to_save, max_to_keep=100)
+    variables_to_restore = {v.op.name.replace('global', 'network'): v for v in variables_to_save if 'branch_value' not in v.name}
+    restorer = tf.train.Saver(variables_to_restore)
 
     global_episode = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
 
-    num_agents = 2
+    num_agents = multiprocessing.cpu_count()
+    # num_agents = 1
+    print('num of cpus ', num_agents)
     agents = []
     for ag in range(num_agents):
-        agents.append(CardMaster('agent_%d' % ag, 1, global_episode))
+        agents.append(CardMaster('agent_%d' % ag, len(get_available_gpus()), global_episode))
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         coord = tf.train.Coordinator()
         sess.run(tf.global_variables_initializer())
         tf.logging.info('loading pretrained SL model....')
-        # saver.restore(sess, "./Model/SL_lite/model-19800")
+        restorer.restore(sess, "./Model/SL_lite/model-19800")
+        tf.logging.info('loaded pretrained SL model.')
+        # print(global_agent.get_benchmark(sess))
 
         threads = []
         for agent in agents:
-            agent_run = lambda: agent.run(sess, saver, coord, 1e4, network)
+            agent_run = lambda: agent.run(sess, saver, coord, 1e4, global_agent.main_network)
             t = threading.Thread(target=(agent_run))
             t.start()
-            time.sleep(0.5)
+            # time.sleep(0.5)
             threads.append(t)
         coord.join(threads)
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:

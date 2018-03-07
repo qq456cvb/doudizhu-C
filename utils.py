@@ -255,7 +255,6 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx, main_c
             network.fc_response_minor_output,
             network.minor_response_loss],
                 feed_dict = {
-                    network.training: True,
                     network.input_state: s,
                     network.input_single: np.reshape(input_single, [1, -1]),
                     network.input_pair: np.reshape(input_pair, [1, -1]),
@@ -316,7 +315,6 @@ def train_fake_action_60(targets, handcards, s, sess, network, category_idx, mai
         _, fc_minor_response_output = sess.run([network.optimize[-1],
                                                 network.fc_minor_response_output], feed_dict={
                             network.input_state: s.reshape(1, -1),
-                            network.training: True,
                             network.minor_type: np.array([minor_type]),
                             network.minor_response_input: np.array([target_val])
                         })
@@ -358,7 +356,6 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
         input_single, input_pair, input_triple, input_quadric = get_masks(handcards, None)
         response_minor_output = sess.run(network.fc_response_minor_output,
                 feed_dict = {
-                    network.training: True,
                     network.input_state: s,
                     network.input_single: np.reshape(input_single, [1, -1]),
                     network.input_pair: np.reshape(input_pair, [1, -1]),
@@ -632,7 +629,6 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, ma
 
         response_minor_output = scheduled_run(sess, network.fc_minor_response_output,
                                                (
-                                                   (network.training, True),
                                                    (network.input_state, s),
                                                    (network.input_single, np.reshape(input_single, [1, -1])),
                                                    (network.input_pair, np.reshape(input_pair, [1, -1])),
@@ -641,7 +637,6 @@ def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, ma
                                                ))
         # response_active_output = sess.run(network.fc_response_active_output,
         #                                   feed_dict={
-        #                                       network.training: True,
         #                                       network.input_state: s,
         #                                       network.input_single: np.reshape(input_single, [1, -1]),
         #                                       network.input_pair: np.reshape(input_pair, [1, -1]),
@@ -711,7 +706,6 @@ def inference_minor_util60(s, handcards, sess, network, num, is_pair, dup_mask, 
         input_single, input_pair, _, _ = get_masks(handcards, None)
         response_minor_output = scheduled_run(sess, network.fc_minor_response_output,
                                                (
-                                                   (network.training, True),
                                                    (network.input_state, s),
                                                    (network.minor_type, np.array([minor_type]))
                                                ))

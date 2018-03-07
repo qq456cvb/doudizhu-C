@@ -46,6 +46,7 @@ if __name__ == '__main__':
         vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         for v in vars:
             print(v.name)
+            print(v.shape)
         # lstm_norm = sess.run(network.lstm_norm)
         # tf.logging.info('lstm weight norm: {} '.format(lstm_norm))
         i = sess.run(global_step)
@@ -80,7 +81,6 @@ if __name__ == '__main__':
                                                                                        network.fc_passive_decision_output,
                                                                                        network.fc_passive_bomb_output], feed_dict={
                             network.input_state: s.reshape(1, -1),
-                            network.training: True,
                             network.last_outcards: last_out_cards.reshape(1, -1),
                             network.passive_decision_input: np.array([passive_decision_input]),
                             network.passive_bomb_input: np.array([passive_bomb_input])
@@ -94,7 +94,6 @@ if __name__ == '__main__':
                             _, decision_passive_output = sess.run([network.optimize[0],
                                           network.fc_passive_decision_output], feed_dict={
                                 network.input_state: s.reshape(1, -1),
-                                network.training: True,
                                 network.last_outcards: last_out_cards.reshape(1, -1),
                                 network.passive_decision_input: np.array([passive_decision_input])
                             })
@@ -113,7 +112,6 @@ if __name__ == '__main__':
                                                                                                 network.fc_passive_response_output,
                                                                                                 network.gradient_norms[0]], feed_dict={
                                     network.input_state: s.reshape(1, -1),
-                                    network.training: True,
                                     network.last_outcards: last_out_cards.reshape(1, -1),
                                     network.passive_decision_input: np.array([passive_decision_input]),
                                     network.passive_response_input: np.array([passive_response_input])
@@ -128,7 +126,6 @@ if __name__ == '__main__':
                                 _, decision_passive_output = sess.run([network.optimize[0],
                                                                       network.fc_passive_decision_output], feed_dict={
                                     network.input_state: s.reshape(1, -1),
-                                    network.training: True,
                                     network.last_outcards: last_out_cards.reshape(1, -1),
                                     network.passive_decision_input: np.array([passive_decision_input])
                                 })
@@ -147,7 +144,6 @@ if __name__ == '__main__':
                                                              network.fc_active_response_output,
                                                              network.gradient_norms[3]], feed_dict={
                         network.input_state: s.reshape(1, -1),
-                        network.training: True,
                         network.active_decision_input: np.array([active_decision_input]),
                         network.active_response_input: np.array([active_response_input])
                     })
@@ -166,7 +162,6 @@ if __name__ == '__main__':
                         _, seq_length_output = sess.run([network.optimize[5],
                                                         network.fc_active_seq_output], feed_dict={
                             network.input_state: s.reshape(1, -1),
-                            network.training: True,
                             network.seq_length_input: np.array([seq_length_input])
                         })
                         seq_acc_temp = 1 if np.argmax(seq_length_output[0]) == seq_length_input else 0
