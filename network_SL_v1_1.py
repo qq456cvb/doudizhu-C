@@ -60,9 +60,7 @@ def upsample_block(input, first_channel, last_channel, kernel_size):
     conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=bn1a_branch2, num_outputs=last_channel,
                                  kernel_size=[1, kernel_size], stride=[1, 2], padding='SAME')
 
-    plus = conv1a_branch1c + conv1a_branch2
-
-    return tf.nn.relu(slim.avg_pool2d(plus, kernel_size=[1, 3]))
+    return conv1a_branch1c + conv1a_branch2
 
 
 def conv_block(input, conv_dim, input_dim, res_params, scope):

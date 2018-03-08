@@ -635,16 +635,30 @@ class CardMaster:
                         summary.value.add(tag='Norm/lstm weight norm', simple_value=float(lstm_weight_norm))
                         self.summary_writer.add_summary(summary, episode_count)
                         self.summary_writer.flush()
-                    if episode_count % 300 == 0 and episode_count > 0:
-                        saver.save(sess, "./Model/a3c_1.4/model", global_step=episode_count)
-                        tf.logging.info('saved model')
-                        self.print_benchmarks(sess, 100)
+                    if episode_count % 300 == 0:
+                        if episode_count > 0:
+                            saver.save(sess, "./Model/a3c_1.4/model", global_step=episode_count)
+                            tf.logging.info('saved model')
+                            self.print_benchmarks(sess, 100)
                 episode_count += 1
 
 
 def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
+
+
+def name_in_checkpoint(v):
+    name = v.name.replace('global', 'network')
+    if 'beta' in v.name:
+        suffix = v.name.split('/')[-1].split(':')[0].split('_', 1)[1]
+        if '_' in suffix:
+            new_suffix = suffix.split('_')[-1] + '_' + suffix.split('_')[0]
+        else:
+            new_suffix = suffix
+        # print(name.replace(name.split('/')[-1], new_suffix + ':0'))
+        return name.replace(name.split('/')[-1], new_suffix)
+    return name.replace(':0', '')
 
 
 if __name__ == '__main__':
@@ -660,31 +674,30 @@ if __name__ == '__main__':
     collect_data()
     f.close()
     '''
-
     tf.logging.set_verbosity(tf.logging.INFO)
     global_agent = CardAgent('global', 1)
 
     variables_to_save = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='global')
     saver = tf.train.Saver(variables_to_save, max_to_keep=100)
-    variables_to_restore = {v.op.name.replace('global', 'network'): v for v in variables_to_save if 'branch_value' not in v.name}
+    variables_to_restore = {name_in_checkpoint(v): v for v in variables_to_save if 'branch_value' not in v.name}
     restorer = tf.train.Saver(variables_to_restore)
 
     global_episode = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
 
     num_agents = multiprocessing.cpu_count()
-    # num_agents = 1
+    num_agents = 1
     print('num of cpus ', num_agents)
     agents = []
     for ag in range(num_agents):
         agents.append(CardMaster('agent_%d' % ag, len(get_available_gpus()), global_episode))
 
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=False)) as sess:
         coord = tf.train.Coordinator()
         sess.run(tf.global_variables_initializer())
         tf.logging.info('loading pretrained SL model....')
-        restorer.restore(sess, "./Model/SL_lite/model-19800")
+        restorer.restore(sess, "./Model/SL_lite/model-13800")
         tf.logging.info('loaded pretrained SL model.')
-        # print(global_agent.get_benchmark(sess))
+        # tf.logging.info('BENCHMARK(PRETRAINED): {}'.format(global_agent.get_benchmark(sess)))
 
         threads = []
         for agent in agents:
