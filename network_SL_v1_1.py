@@ -4,51 +4,66 @@ import tensorflow.contrib.slim as slim
 import tensorflow.contrib.rnn as rnn
 
 
-def identity_block(input, first_channel, last_channel, kernel_size, training):
-    conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=input, num_outputs=first_channel,
-                                            kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch1a = tf.layers.batch_normalization(conv1a_branch1a, training=training)
-    nonlinear1a_branch1a = tf.nn.relu(bn1a_branch1a)
+def img_normalization(inputs, scale=False, center=True, epsilon=1e-4):
+    mean, variance = tf.nn.moments(inputs, axes=[1, 2], keep_dims=True)
+    offset = None
+    mult = None
+    if center:
+        offset = tf.Variable(tf.zeros([1, 1, 1, inputs.shape[-1]]), name='beta')
+    if scale:
+        mult = tf.Variable(tf.ones([1, 1, 1, inputs.shape[-1]]), name='gamma')
+    return tf.nn.batch_normalization(inputs, mean, variance, offset, mult, epsilon)
 
-    conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=nonlinear1a_branch1a, num_outputs=first_channel,
+
+# adopt the idea to put batch normalization behind relu and full pre-activation
+def identity_block(input, first_channel, last_channel, kernel_size):
+    nonlinear1a_branch1a = tf.nn.relu(input)
+    bn1a_branch1a = img_normalization(nonlinear1a_branch1a)
+    conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=bn1a_branch1a, num_outputs=first_channel,
+                                            kernel_size=[1, 1], stride=[1, 1], padding='SAME')
+
+    nonlinear1a_branch1b = tf.nn.relu(conv1a_branch1a)
+    bn1a_branch1b = img_normalization(nonlinear1a_branch1b)
+    conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=bn1a_branch1b, num_outputs=first_channel,
                                             kernel_size=[1, kernel_size], stride=[1, 1], padding='SAME')
-    bn1a_branch1b = tf.layers.batch_normalization(conv1a_branch1b, training=training)
-    nonlinear1a_branch1b = tf.nn.relu(bn1a_branch1b)
 
-    conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=nonlinear1a_branch1b, num_outputs=last_channel,
+    nonlinear1a_branch1c = tf.nn.relu(conv1a_branch1b)
+    bn1a_branch1c = img_normalization(nonlinear1a_branch1c)
+    conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=bn1a_branch1c, num_outputs=last_channel,
                                             kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch1c = tf.layers.batch_normalization(conv1a_branch1c, training=training)
 
-    return tf.nn.relu(bn1a_branch1c)
+    #####
+
+    return conv1a_branch1c + input
 
 
-def upsample_block(input, first_channel, last_channel, kernel_size, training):
-    conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=input, num_outputs=first_channel,
+def upsample_block(input, first_channel, last_channel, kernel_size):
+    nonlinear1a_branch1a = tf.nn.relu(input)
+    bn1a_branch1a = img_normalization(nonlinear1a_branch1a)
+    conv1a_branch1a = slim.conv2d(activation_fn=None, inputs=bn1a_branch1a, num_outputs=first_channel,
                                   kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch1a = tf.layers.batch_normalization(conv1a_branch1a, training=training)
-    nonlinear1a_branch1a = tf.nn.relu(bn1a_branch1a)
 
-    conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=nonlinear1a_branch1a, num_outputs=first_channel,
-                                  kernel_size=[1, kernel_size], stride=[1, 1], padding='SAME')
-    bn1a_branch1b = tf.layers.batch_normalization(conv1a_branch1b, training=training)
-    nonlinear1a_branch1b = tf.nn.relu(bn1a_branch1b)
+    nonlinear1a_branch1b = tf.nn.relu(conv1a_branch1a)
+    bn1a_branch1b = img_normalization(nonlinear1a_branch1b)
+    conv1a_branch1b = slim.conv2d(activation_fn=None, inputs=bn1a_branch1b, num_outputs=first_channel,
+                                  kernel_size=[1, kernel_size], stride=[1, 2], padding='SAME')
 
-    conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=nonlinear1a_branch1b, num_outputs=last_channel,
+    nonlinear1a_branch1c = tf.nn.relu(conv1a_branch1b)
+    bn1a_branch1c = img_normalization(nonlinear1a_branch1c)
+    conv1a_branch1c = slim.conv2d(activation_fn=None, inputs=bn1a_branch1c, num_outputs=last_channel,
                                   kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch1c = tf.layers.batch_normalization(conv1a_branch1c, training=training)
 
     ######
 
-    conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=input, num_outputs=last_channel,
-                                 kernel_size=[1, 1], stride=[1, 1], padding='SAME')
-    bn1a_branch2 = tf.layers.batch_normalization(conv1a_branch2, training=training)
+    nonlinear1a_branch2 = tf.nn.relu(input)
+    bn1a_branch2 = img_normalization(nonlinear1a_branch2)
+    conv1a_branch2 = slim.conv2d(activation_fn=None, inputs=bn1a_branch2, num_outputs=last_channel,
+                                 kernel_size=[1, kernel_size], stride=[1, 2], padding='SAME')
 
-    plus = bn1a_branch1c + bn1a_branch2
-
-    return tf.nn.relu(slim.avg_pool2d(plus, kernel_size=[1, 3]))
+    return conv1a_branch1c + conv1a_branch2
 
 
-def conv_block(input, conv_dim, input_dim, res_params, training, scope):
+def conv_block(input, conv_dim, input_dim, res_params, scope):
     conv_out = []
     with tf.variable_scope(scope):
         input_conv = tf.reshape(input, [-1, 1, input_dim, 1])
@@ -69,9 +84,9 @@ def conv_block(input, conv_dim, input_dim, res_params, training, scope):
         for conv in conv_list:
             for param in res_params:
                 if param[-1] == 'identity':
-                    conv = identity_block(conv, param[0], param[1], param[2], training)
+                    conv = identity_block(conv, param[0], param[1], param[2])
                 elif param[-1] == 'upsampling':
-                    conv = upsample_block(conv, param[0], param[1], param[2], training)
+                    conv = upsample_block(conv, param[0], param[1], param[2])
                 else:
                     raise Exception('unsupported layer type')
             conv_out.append(slim.flatten(conv))
@@ -86,16 +101,15 @@ class CardNetwork:
                 with tf.variable_scope(scope):
                     with tf.variable_scope('inputs'):
                         self.input_state = tf.placeholder(tf.float32, [None, 6 * 60], name="input")
-                        self.training = tf.placeholder(tf.bool, None, name='training')
                         self.last_outcards = tf.placeholder(tf.float32, [None, 60], name='last_cards')
                         self.minor_type = tf.placeholder(tf.int64, [None], name='minor_type')
 
                     with slim.arg_scope([slim.fully_connected, slim.conv2d], weights_regularizer=slim.l2_regularizer(1e-3), weights_initializer=tf.truncated_normal_initializer(stddev=0.1)):
                         with tf.variable_scope('branch_main'):
-                            flattened = conv_block(self.input_state, 32, 6 * 60, [[16, 64, 3, 'identity'], [16, 64, 3, 'identity'], [32, 128, 3, 'upsampling']], self.training, 'branch_main')
+                            flattened = conv_block(self.input_state, 32, 6 * 60, [[16, 32, 3, 'identity'], [16, 32, 3, 'identity'], [32, 128, 3, 'upsampling']], 'branch_main')
 
                         with tf.variable_scope('branch_passive'):
-                            flattened_last = conv_block(self.last_outcards, 32, 60, [[16, 64, 3, 'identity'], [16, 64, 3, 'identity'], [32, 128, 3, 'upsampling']], self.training, 'last_cards')
+                            flattened_last = conv_block(self.last_outcards, 32, 60, [[16, 32, 3, 'identity'], [16, 32, 3, 'identity'], [32, 128, 3, 'upsampling']], 'last_cards')
 
                             self.hidden_size = 256
                             self.lstm_passive = rnn.BasicLSTMCell(num_units=self.hidden_size, state_is_tuple=True)

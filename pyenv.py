@@ -96,8 +96,10 @@ class Pyenv:
         return np.concatenate([selfcards, remains, histories[0], histories[1], histories[2], extra_cards])
 
     def prepare(self, seed=int(time.time())):
+        # np.random.seed(0)
         cards = np.array(Pyenv.total_cards.copy())
         np.random.shuffle(cards)
+        # np.random.seed()
         for i in range(3):
             self.player_cards[i] = cards[i*17:(i+1)*17]
         self.extra_cards = cards[51:]
@@ -156,7 +158,7 @@ class Pyenv:
 
         if self.player_cards[idx].size == 0:
             self.idx = idx
-            return self.land_score, True
+            return 1, True
         return 0, False
 
     def dump_state(self):
