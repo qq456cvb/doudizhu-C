@@ -90,7 +90,7 @@ class CardNetwork:
                         self.last_outcards = tf.placeholder(tf.float32, [None, 60], name='last_cards')
                         self.minor_type = tf.placeholder(tf.int64, [None], name='minor_type')
 
-                    with slim.arg_scope([slim.fully_connected, slim.conv2d], weights_regularizer=slim.l2_regularizer(1e-3)):
+                    with slim.arg_scope([slim.fully_connected, slim.conv2d], weights_regularizer=slim.l2_regularizer(1e-3), weights_initializer=tf.truncated_normal_initializer(stddev=0.1)):
                         with tf.variable_scope('branch_main'):
                             flattened = conv_block(self.input_state, 32, 6 * 60, [[16, 64, 3, 'identity'], [16, 64, 3, 'identity'], [32, 128, 3, 'upsampling']], self.training, 'branch_main')
 
@@ -271,6 +271,6 @@ class CardNetwork:
                             with tf.control_dependencies(main_update_ops):
                                 update = trainer.apply_gradients(zip(g, v))
                         self.optimize.append(update)
-                    self.weight_norm = tf.global_norm([v for v in tf.trainable_variables(scope=scope) if v.name.endswith('weights:0')])
+                    self.weight_norm = tf.norm([v for v in tf.trainable_variables(scope=scope) if v.name.endswith('weights:0')][0])
                     self.lstm_norm = tf.global_norm([v for v in tf.trainable_variables(scope=scope) if v.name.endswith('kernel:0')])
 
