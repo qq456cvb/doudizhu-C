@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <vector>
 #include "card.hpp"
+#include <random>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
