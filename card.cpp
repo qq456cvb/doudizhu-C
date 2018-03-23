@@ -70,6 +70,7 @@ void Put_All_SurCards(GameSituation &clsGameSituation, HandCardData &clsHandCard
     for (int i = 0; i < 18; i++)
         for (int j = 0; j< clsHandCardData.value_aHandCardList[i]; j++)
             clsHandCardData.value_nPutCardList.push_back(i);
+
     /**********/
     clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = SurCardGroupData;
     return;

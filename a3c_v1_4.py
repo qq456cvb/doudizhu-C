@@ -1,7 +1,7 @@
 # from env import Env
 import sys
 
-sys.path.insert(0, './build/Release')
+sys.path.insert(0, './build.linux')
 from env import Env
 # from env_test import Env
 import card
@@ -42,7 +42,7 @@ def discounted_return(r, gamma):
 
 class CardAgent:
     def __init__(self, name, ngpus):
-        self.trainer = tf.train.AdamOptimizer(learning_rate=1e-4)
+        self.trainer = tf.train.AdamOptimizer(learning_rate=1e-4, use_locking=True)
         self.name = name
         self.episodes = tf.Variable(0, dtype=tf.int32, name='episodes_' + name, trainable=False)
         self.increment = self.episodes.assign_add(1)
@@ -333,7 +333,7 @@ class CardMaster:
         self.temp = 1
         self.start_temp = 1
         self.end_temp = 0.2
-        self.gamma = 0.99
+        self.gamma = 1.0
         self.name = name
         self.env = Pyenv()
         self.sess = None
@@ -627,7 +627,7 @@ class CardMaster:
 
                 if self.name == 'agent_0':
                     sess.run(self.increment)
-                    if episode_count % 100 == 0:
+                    if episode_count % 100 == 0 and episode_count > 0:
                         summary = tf.Summary()
                         non_lstm_weight_norm, lstm_weight_norm = sess.run(
                             [global_network.non_lstm_weight_norms, global_network.lstm_weight_norms])
@@ -649,16 +649,16 @@ def get_available_gpus():
 
 
 def name_in_checkpoint(v):
-    name = v.name.replace('global', 'network')
-    if 'beta' in v.name:
-        suffix = v.name.split('/')[-1].split(':')[0].split('_', 1)[1]
-        if '_' in suffix:
-            new_suffix = suffix.split('_')[-1] + '_' + suffix.split('_')[0]
-        else:
-            new_suffix = suffix
-        # print(name.replace(name.split('/')[-1], new_suffix + ':0'))
-        return name.replace(name.split('/')[-1], new_suffix)
-    return name.replace(':0', '')
+    # name = v.name.replace('global', 'network')
+    # if 'beta' in v.name:
+    #     suffix = v.name.split('/')[-1].split(':')[0].split('_', 1)[1]
+    #     if '_' in suffix:
+    #         new_suffix = suffix.split('_')[-1] + '_' + suffix.split('_')[0]
+    #     else:
+    #         new_suffix = suffix
+    #     # print(name.replace(name.split('/')[-1], new_suffix + ':0'))
+    #     return name.replace(name.split('/')[-1], new_suffix)
+    return v.name.replace(':0', '')
 
 
 if __name__ == '__main__':
@@ -679,29 +679,31 @@ if __name__ == '__main__':
 
     variables_to_save = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='global')
     saver = tf.train.Saver(variables_to_save, max_to_keep=100)
-    variables_to_restore = {name_in_checkpoint(v): v for v in variables_to_save if 'branch_value' not in v.name}
+    variables_to_restore = {name_in_checkpoint(v): v for v in variables_to_save}
     restorer = tf.train.Saver(variables_to_restore)
 
-    global_episode = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
+    global_episode = tf.Variable(10000, dtype=tf.int32, name='global_episodes', trainable=False)
+    variables_to_save.append(global_episode)
+    # variables_to_restore['global_episodes'] = global_episode
 
     num_agents = multiprocessing.cpu_count()
-    num_agents = 1
+    num_agents = 12
     print('num of cpus ', num_agents)
     agents = []
     for ag in range(num_agents):
         agents.append(CardMaster('agent_%d' % ag, len(get_available_gpus()), global_episode))
 
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=False)) as sess:
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         coord = tf.train.Coordinator()
         sess.run(tf.global_variables_initializer())
-        tf.logging.info('loading pretrained SL model....')
-        restorer.restore(sess, "./Model/SL_lite/model-13800")
-        tf.logging.info('loaded pretrained SL model.')
+        tf.logging.info('loading pretrained RL model....')
+        restorer.restore(sess, "./Model/a3c_1.4/model-9900")
+        tf.logging.info('loaded pretrained RL model.')
         # tf.logging.info('BENCHMARK(PRETRAINED): {}'.format(global_agent.get_benchmark(sess)))
 
         threads = []
         for agent in agents:
-            agent_run = lambda: agent.run(sess, saver, coord, 1e4, global_agent.main_network)
+            agent_run = lambda: agent.run(sess, saver, coord, 1e5, global_agent.main_network)
             t = threading.Thread(target=(agent_run))
             t.start()
             # time.sleep(0.5)

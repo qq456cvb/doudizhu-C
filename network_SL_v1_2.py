@@ -58,7 +58,7 @@ class CardNetwork:
 
                             # TODO: add or multiply?
                             # TODO: embedding layer shallow or deep?
-                            x_response = tf.concat([x_active, slim.stack(decision_onehot, slim.fully_connected, [256] * 4)], axis=0)
+                            x_response = tf.concat([x_active, slim.stack(decision_onehot, slim.fully_connected, [256] * 4)], axis=1)
                             x_response = slim.stack(x_response, slim.fully_connected, [256] * n_layers_branch)
                             active_response_logits = slim.fully_connected(x_response, 15, None)
                             self.active_response_probs = tf.nn.softmax(active_response_logits)
@@ -67,7 +67,7 @@ class CardNetwork:
                             response_onehot = tf.one_hot(tf.argmax(active_response_logits, axis=-1), 15)
                             response_onehot = tf.stop_gradient(response_onehot)
 
-                            x_seq = tf.concat([x_active, slim.stack(decision_onehot, slim.fully_connected, [256] * 4), slim.stack(response_onehot, slim.fully_connected, [256] * 4)], axis=0)
+                            x_seq = tf.concat([x_active, slim.stack(decision_onehot, slim.fully_connected, [256] * 4), slim.stack(response_onehot, slim.fully_connected, [256] * 4)], axis=1)
                             x_seq = slim.stack(x_seq, slim.fully_connected, [256] * n_layers_branch)
                             seq_length_logits = slim.fully_connected(x_seq, 12, None)
                             self.seq_length_probs = tf.nn.softmax(seq_length_logits)

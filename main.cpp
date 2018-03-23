@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#include <random>
 #include "game.hpp"
 #include "mctree.h"
 #include <pybind11/pybind11.h>
@@ -54,8 +55,16 @@ auto vector2numpy(const vector<int>& v) {
 class Env
 {
 public:
-    Env() {
+    Env(long long int seed = -1) {
         this->reset();
+        if (seed == -1) {
+            std::cout << "seeding with " << std::random_device{}() << std::endl;
+            this->g = std::mt19937(std::random_device{}());
+        }
+        else {
+            std::cout << "seeding with " << seed << std::endl;
+            this->g = std::mt19937(seed);
+        }
     };
     Env(const Env& e) {
         indexID = e.indexID;
@@ -79,14 +88,80 @@ public:
     HandCardData arrHandCardData[3];
     std::vector<int> value_lastCards;
     int last_category_idx = -1;
+    std::mt19937 g;
 
     void reset() {
         clsGameSituation.reset(new GameSituation());
         uctALLCardsList.reset(new ALLCardsList());
         memset(arrHandCardData, 0, sizeof(HandCardData) * 3);
         value_lastCards.clear();
-        srand(unsigned(time(NULL)));
     }
+
+    static void reorder_cards(vector<int>& cards, CardGroupType category) {
+        switch(category) {
+            case cgTHREE_TAKE_ONE: {
+                if (cards[0] != cards[1]) {
+                    std::swap(cards[0], cards[3]);
+                }
+                break;
+            }
+            case cgTHREE_TAKE_TWO: {
+                int i;
+                for (i = 0; i < 4; i++) {
+                    if (cards[i] == cards[i + 1] && cards[i + 1] == cards[i + 2]) break;
+                }
+                if (i == 2) {
+                    std::swap(cards[0], cards[3]);
+                    std::swap(cards[1], cards[4]);
+                }
+                break;
+            }
+            case cgTHREE_TAKE_ONE_LINE: {
+                int i;
+                for (i = 0; i < cards.size() - 1; i++) {
+                    if (cards[i] == cards[i + 1]) break;
+                }
+                int seq_length = cards.size() / 4 * 3;
+                vector<int> tmp = cards;
+                if (i > 0) { // need swap
+                    std::copy(cards.begin() + i, cards.begin() + i + seq_length, tmp.begin());
+                    std::copy(cards.begin(), cards.begin() + i, tmp.begin() + seq_length);
+                }
+                cards = tmp;
+                break;
+            }
+            case cgTHREE_TAKE_TWO_LINE: {
+                int i;
+                for (i = 0; i < cards.size() - 2; i++) {
+                    if (cards[i] == cards[i + 1] && cards[i + 1] == cards[i + 2]) break;
+                }
+                int seq_length = cards.size() / 5 * 3;
+                vector<int> tmp = cards;
+                if (i > 0) { // need swap
+                    std::copy(cards.begin() + i, cards.begin() + i + seq_length, tmp.begin());
+                    std::copy(cards.begin(), cards.begin() + i, tmp.begin() + seq_length);
+                }
+                cards = tmp;
+                break;
+            }
+            case cgFOUR_TAKE_ONE: {
+                int i;
+                for (i = 0; i < 5; i++) {
+                    if (cards[i] == cards[i + 1]) break;
+                }
+                if (i == 1) {
+                    std::swap(cards[0], cards[4]);
+                } else if (i == 2) {
+                    std::swap(cards[0], cards[4]);
+                    std::swap(cards[1], cards[5]);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    } 
+
 
     auto getCurrID() {
         return indexID;
@@ -182,7 +257,7 @@ public:
         get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         arrHandCardData[indexID].PutCards();
         auto put_list = arrHandCardData[indexID].value_nPutCardList;
-        std::sort(put_list.begin(), put_list.end());
+//        std::sort(put_list.begin(), put_list.end());
         // printf("type: %d\n", (int)arrHandCardData[indexID].uctPutCardType.cgType);
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
 
@@ -270,7 +345,7 @@ public:
 
     void prepare() {
 
-        SendCards(*clsGameSituation, *uctALLCardsList);
+        SendCards(*clsGameSituation, *uctALLCardsList, this->g);
         
         arrHandCardData[0].color_nHandCardList = (*uctALLCardsList).arrCardsList[0];
         arrHandCardData[1].color_nHandCardList = (*uctALLCardsList).arrCardsList[1];
@@ -505,6 +580,62 @@ public:
         state += history[2];
         state += extra_cards;
 
+
+        auto result = py::array_t<int>(state.size());
+        auto buf = result.request();
+        int *ptr = (int*)buf.ptr;
+
+        for (int i = 0; i < state.size(); ++i)
+        {
+            ptr[i] = state[i];
+        }
+        return result;
+    }
+
+    // 输出自己的手牌和另外两个人手牌的概率
+    py::array_t<int> getStateProb() {
+        std::vector<int> state;
+        std::vector<int> total(60, 1);
+        total[53] = total[54] = total[55] = 0;
+        total[57] = total[58] = total[59] = 0;
+        auto self_cards = toOneHot60(arrHandCardData[indexID].color_nHandCardList);
+
+        std::vector<int> remains = total - self_cards;
+
+        // normalize history order
+        vector<int> history[3] = {
+            toOneHot60(clsGameSituation->color_aUnitOutCardList[indexID]),
+            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
+            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
+        };
+        for (int i = 0; i < 3; i++) {
+            remains = remains - history[i];
+        }
+        normalize(remains, 0, 60);
+
+        vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
+        extra_cards = toOneHot60(extra_cards);
+
+        vector<int> prob1 = remains;
+        vector<int> prob2 = remains;
+
+        // divide by the other two
+        // for simplicity, scale by two
+        for (int i = 0; i < remains.size(); i++) {
+            if (indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
+                if (indexID + 1 == clsGameSituation->nDiZhuID) {
+                    prob1[i] = 2;
+                    prob2[i] = 0;
+                } else {
+                    prob1[i] = 0;
+                    prob2[i] = 2;
+                }
+            }
+        }
+
+        state += self_cards;
+        state += prob1;
+        state += prob2;
 
         auto result = py::array_t<int>(state.size());
         auto buf = result.request();
@@ -916,7 +1047,9 @@ public:
             sit.uctNowCardGroup = ins_SurCardsType(cards);
             get_PutCardList_2_limit(sit, data);
         }
+        auto category = data.uctPutCardType.cgType;
         auto intention = data.value_nPutCardList;
+        reorder_cards(intention, category);
         return vector2numpy(intention);
     }
 
@@ -931,6 +1064,7 @@ public:
         
         // get group category
         auto category = arrHandCardData[indexID].uctPutCardType.cgType;
+        reorder_cards(intention, category);
         int category_idx = 0;
         switch(category) {
             case cgZERO:
@@ -984,14 +1118,15 @@ public:
         if (intention.size() == 4) {
             if (intention[0] == intention[3]) bomb = true;
         } else if (intention.size() == 2) {
-            if (intention[0] == 16 && intention[1] == 17) bomb = true;
+            if ((intention[0] == 16 && intention[1] == 17) || (intention[0] == 17 && intention[1] == 16)) bomb = true;
         }
 
         if (bomb)
         {
             clsGameSituation->nMultiple *= 2;
         }
-        
+
+        // note: returned cards may not in the order we want
         
         
         if (arrHandCardData[indexID].nHandCardCount == 0)
@@ -1023,7 +1158,7 @@ public:
 
 PYBIND11_MODULE(env, m) {
     py::class_<Env>(m, "Env")
-        .def(py::init<>())
+        .def(py::init<long long int>(), py::arg("seed") = -1)
         .def("reset", &Env::reset)
         .def("prepare", &Env::prepare)
         .def("prepare_manual", &Env::prepare_manual)
@@ -1031,6 +1166,7 @@ PYBIND11_MODULE(env, m) {
         .def("prepare2_manual", &Env::prepare2_manual)
         .def("get_state", &Env::getState)
         .def("get_state_padded", &Env::getStatePadded)
+        .def("get_state_prob", &Env::getStateProb)
         .def("get_state2", &Env::getState2)
         .def("step", &Env::step, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
         .def("step_manual", &Env::step_manual, py::arg("cards") = py::array_t<int>())

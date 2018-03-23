@@ -51,9 +51,9 @@ public:
     //
     int DiPai[3] = { 0 };
     //index0~4
-    int value_aAllOutCardList[18] = { 0 };
+    int value_aAllOutCardList[18] = { {0} };
     //
-    int value_aUnitOutCardList[3][18] = { 0 };
+    int value_aUnitOutCardList[3][18] = { {0} };
     //
     int value_aUnitHandCardCount[3] = { 0 };
     //
@@ -69,10 +69,10 @@ public:
 };
 
 int LandScore(GameSituation &clsGameSituation, HandCardData &clsHandCardData, int &);
-void InitCards(vector <int> &Cards);
+void InitCards(vector <int> &Cards, std::mt19937& g);
 void InitCards2(const py::array_t<int>& pycards, vector <int> &Cards);
 void InitCards_Appoint(vector <int> &Cards);
-void SendCards(GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList);
+void SendCards(GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList, std::mt19937& g);
 void SendCards_manual(const py::array_t<int>& pycards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList);
 void SendCards2(const py::array_t<int>& init_cards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList);
 void SendCards2_manual(const py::array_t<int>& pycards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList);

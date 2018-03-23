@@ -7,6 +7,7 @@
 //
 
 #include "game.hpp"
+#include <random>
 
 /*
  
@@ -66,29 +67,30 @@ void InitCards2(const py::array_t<int> &pycards, vector<int> &cards)
     }
 }
 
-void InitCards(vector <int> &Cards)
+void InitCards(vector <int> &Cards, std::mt19937& g)
 {
     //Cards
-    Cards.clear();
-
-    vector <int> tmpCards;
-    int i;
+//    Cards.clear();
+//
+//    vector <int> tmpCards;
+//    int i;
 //
 //    //5652535455
     for (int i = 0; i < 53; i++) {
-        tmpCards.push_back(i);
+        Cards.push_back(i);
     }
-    tmpCards.push_back(56);
-
-
-    //
-    for (i = tmpCards.size(); i>0; i--) {
-
-        //
-        int index = rand() % i;
-        Cards.push_back(tmpCards[index]);
-        tmpCards.erase(tmpCards.begin() + index);
-    }
+    Cards.push_back(56);
+    std::shuffle(Cards.begin(), Cards.end(), g);
+//
+//
+//    //
+//    for (i = tmpCards.size(); i>0; i--) {
+//
+//        //
+//        int index = rand() % i;
+//        Cards.push_back(tmpCards[index]);
+//        tmpCards.erase(tmpCards.begin() + index);
+//    }
     
 }
 
@@ -125,11 +127,11 @@ void InitCards_Appoint(vector <int> &Cards)
 
 //
 
-void SendCards(GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList)
+void SendCards(GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList, std::mt19937& g)
 {
     //
     vector <int> Cards;
-    InitCards(Cards);
+    InitCards(Cards, g);
     //InitCards_Appoint(Cards);
     int i, j, k;
     j = 0;
