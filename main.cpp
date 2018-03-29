@@ -592,6 +592,22 @@ public:
         return result;
     }
 
+    // since it's a global state, we need to keep card states in order: lord, farmer next to lord, farmer before lord
+    py::array_t<int> getStateAllCards() {
+        auto state = toOneHot60(arrHandCardData[clsGameSituation->nDiZhuID].color_nHandCardList);
+        state += toOneHot60(arrHandCardData[(clsGameSituation->nDiZhuID + 1) % 3].color_nHandCardList);
+        state += toOneHot60(arrHandCardData[(clsGameSituation->nDiZhuID + 2) % 3].color_nHandCardList);
+        auto result = py::array_t<int>(state.size());
+        auto buf = result.request();
+        int *ptr = (int*)buf.ptr;
+
+        for (int i = 0; i < state.size(); ++i)
+        {
+            ptr[i] = state[i];
+        }
+        return result;
+    }
+
     // 输出自己的手牌和另外两个人手牌的概率
     py::array_t<int> getStateProb() {
         std::vector<int> state;
@@ -1125,8 +1141,6 @@ public:
         {
             clsGameSituation->nMultiple *= 2;
         }
-
-        // note: returned cards may not in the order we want
         
         
         if (arrHandCardData[indexID].nHandCardCount == 0)
@@ -1167,6 +1181,7 @@ PYBIND11_MODULE(env, m) {
         .def("get_state", &Env::getState)
         .def("get_state_padded", &Env::getStatePadded)
         .def("get_state_prob", &Env::getStateProb)
+        .def("get_state_all_cards", &Env::getStateAllCards)
         .def("get_state2", &Env::getState2)
         .def("step", &Env::step, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
         .def("step_manual", &Env::step_manual, py::arg("cards") = py::array_t<int>())
