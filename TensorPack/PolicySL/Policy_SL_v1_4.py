@@ -19,7 +19,7 @@ from TensorPack.PolicySL.evaluator import Evaluator
 from utils import get_seq_length, pick_minor_targets, to_char, discard_onehot_from_s_60
 from utils import pick_main_cards
 import multiprocessing
-from TensorPack.ResNetBlock import conv_block, identity_block, upsample_block
+from TensorPack.ResNetBlock import identity_block, upsample_block
 
 INPUT_DIM = 60 * 3
 LAST_INPUT_DIM = 60
@@ -29,6 +29,38 @@ SCOPE = 'SL_policy_network'
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
 STEPS_PER_EPOCH = 1000
 BATCH_SIZE = 1024
+
+
+def conv_block(input, conv_dim, input_dim, res_params, scope):
+    conv_out = []
+    with tf.variable_scope(scope):
+        input_conv = tf.reshape(input, [-1, 1, input_dim, 1])
+        single_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
+                                  kernel_size=[1, 1], stride=[1, 4], padding='VALID')
+
+        pair_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
+                                kernel_size=[1, 2], stride=[1, 4], padding='VALID')
+
+        triple_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
+                                  kernel_size=[1, 3], stride=[1, 4], padding='VALID')
+
+        quadric_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
+                                   kernel_size=[1, 4], stride=[1, 4], padding='VALID')
+
+        conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
+
+        for conv in conv_list:
+            for param in res_params:
+                if param[-1] == 'identity':
+                    conv = identity_block(conv, param[0], param[1], param[2])
+                elif param[-1] == 'upsampling':
+                    conv = upsample_block(conv, param[0], param[1], param[2])
+                else:
+                    raise Exception('unsupported layer type')
+            conv_out.append(slim.flatten(conv))
+
+    flattened = tf.concat(conv_out, 1)
+    return flattened
 
 
 def get_player():
@@ -320,8 +352,8 @@ class Model(ModelDesc):
         return [tf.placeholder(tf.float32, [None, INPUT_DIM], 'state_in'),
                 tf.placeholder(tf.float32, [None, LAST_INPUT_DIM], 'last_cards_in'),
                 tf.placeholder(tf.int32, [None], 'passive_decision_in'),
-                tf.placeholder(tf.int32, [None], 'passive_response_in'),
                 tf.placeholder(tf.int32, [None], 'passive_bomb_in'),
+                tf.placeholder(tf.int32, [None], 'passive_response_in'),
                 tf.placeholder(tf.int32, [None], 'active_decision_in'),
                 tf.placeholder(tf.int32, [None], 'active_response_in'),
                 tf.placeholder(tf.int32, [None], 'sequence_length_in'),

@@ -48,35 +48,3 @@ def upsample_block(input, first_channel, last_channel, kernel_size):
                                  kernel_size=[1, kernel_size], stride=[1, 2], padding='SAME')
 
     return conv1a_branch1c + conv1a_branch2
-
-
-def conv_block(input, conv_dim, input_dim, res_params, scope):
-    conv_out = []
-    with tf.variable_scope(scope):
-        input_conv = tf.reshape(input, [-1, 1, input_dim, 1])
-        single_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                  kernel_size=[1, 1], stride=[1, 4], padding='VALID')
-
-        pair_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                kernel_size=[1, 2], stride=[1, 4], padding='VALID')
-
-        triple_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                  kernel_size=[1, 3], stride=[1, 4], padding='VALID')
-
-        quadric_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                   kernel_size=[1, 4], stride=[1, 4], padding='VALID')
-
-        conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
-
-        for conv in conv_list:
-            for param in res_params:
-                if param[-1] == 'identity':
-                    conv = identity_block(conv, param[0], param[1], param[2])
-                elif param[-1] == 'upsampling':
-                    conv = upsample_block(conv, param[0], param[1], param[2])
-                else:
-                    raise Exception('unsupported layer type')
-            conv_out.append(slim.flatten(conv))
-
-    flattened = tf.concat(conv_out, 1)
-    return flattened
