@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 sys.path.insert(0, './build/Release')
 from env import print_state
-from env import  Env as CEnv
+from env import Env as CEnv
 from env import MCTree
 
 

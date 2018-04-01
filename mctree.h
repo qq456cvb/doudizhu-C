@@ -101,7 +101,7 @@ void print_state(py::dict dict) {
             for (auto l : histories) {
                 py::list vec = l.cast<py::list>();
                 if (vec.size() > 0)
-                    printf("vec %s\n", std::string(py::str(vec[0])));
+                    std::cout << std::string(py::str(vec[0])) << std::endl;
             }
                 // py::print("list item {}: {}"_s.format(index++, l));
             // printf("history size %d\n", histories.size());
