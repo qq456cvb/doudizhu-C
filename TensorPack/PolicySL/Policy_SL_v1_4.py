@@ -20,6 +20,7 @@ from utils import get_seq_length, pick_minor_targets, to_char, discard_onehot_fr
 from utils import pick_main_cards
 import multiprocessing
 from TensorPack.ResNetBlock import identity_block, upsample_block
+import tensorflow as tf
 
 INPUT_DIM = 60 * 3
 LAST_INPUT_DIM = 60

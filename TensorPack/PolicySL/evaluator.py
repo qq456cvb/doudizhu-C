@@ -23,7 +23,7 @@ from card import Card, action_space, Category
 import numpy as np
 from utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
 from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter, discard_onehot_from_s_60
-from utils import inference_minor_cards, gputimeblock, scheduled_run, give_cards_without_minor, pick_main_cards
+from utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
 
 
 def play_one_episode(env, func):

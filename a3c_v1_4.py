@@ -424,7 +424,7 @@ class CardMaster:
                         if len(last_cards_value) == 4 and len(set(last_cards_value)) == 1:
                             is_bomb = True
                         decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, last_cards_char,
-                                                                                    is_bomb, last_category_idx)
+                                                                                    last_category_idx)
                         decision_passive_output = (decision_passive_output[0] + precision_eps) * decision_mask
                         decision_passive = np.random.choice(4, 1, p=decision_passive_output / decision_passive_output.sum())[0]
 
@@ -484,8 +484,7 @@ class CardMaster:
                                 intention = np.concatenate([intention, minor_cards_val])
                     else:
                         mode = 3
-                        decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], False,
-                                                                                      last_category_idx)
+                        decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], last_category_idx)
                         # first the decision with argmax applied
                         decision_active_output = (decision_active_output[0] + precision_eps) * decision_mask
 

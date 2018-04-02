@@ -6,7 +6,6 @@ import tensorflow as tf
 import argparse
 import time
 from contextlib import contextmanager
-from scheduler import scheduled_run
 
 action_space_single = action_space[1:16]
 action_space_pair = action_space[16:29]
@@ -424,9 +423,10 @@ def pick_main_cards(category, cards_char):
     return None
     
 
-def get_mask_alter(cards, last_cards, is_bomb, last_cards_category):
+def get_mask_alter(cards, last_cards, last_cards_category):
     decision_mask = None
     response_mask = None
+    is_bomb = (last_cards_category == Category.QUADRIC.value)
     bomb_mask = np.zeros([13])
     length_mask = np.zeros([13, 15, 12])
     if len(last_cards) == 0:

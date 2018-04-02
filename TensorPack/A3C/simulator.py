@@ -14,22 +14,183 @@ from collections import defaultdict
 import six
 from six.moves import queue
 import zmq
+import numpy as np
 
 from tensorpack.utils import logger
 from tensorpack.utils.serialize import loads, dumps
 from tensorpack.utils.concurrency import LoopThread, ensure_proc_terminate
+from utils import give_cards_without_minor, get_seq_length, get_mask_alter, to_char, get_masks, discard_onehot_from_s_60
+from card import Card
+from card import Category
 
 __all__ = ['SimulatorProcess', 'SimulatorMaster',
            'SimulatorProcessStateExchange',
            'TransitionExperience']
 
 
+class MODE:
+    PASSIVE_DECISION = 0
+    PASSIVE_BOMB = 1
+    PASSIVE_RESPONSE = 2
+    ACTIVE_DECISION = 3
+    ACTIVE_RESPONSE = 4
+    ACTIVE_SEQ = 5
+    MINOR_RESPONSE = 6
+
+
+class ACT_TYPE:
+    PASSIVE = 0
+    ACTIVE = 1
+
+
+class SubState:
+    def __init__(self, act, prob_state, all_state, curr_handcards_char, last_cards_value, last_category):
+        self.act = act
+        self.prob_state = prob_state
+        self.all_state = all_state
+        self.finished = False
+        self.mode = MODE.PASSIVE_DECISION if self.act == ACT_TYPE.PASSIVE else MODE.ACTIVE_DECISION
+        self.intention = np.array([])
+        self.last_cards_value = last_cards_value
+        self.minor_type = 0
+        self.category = last_category
+        self.minor_length = 0
+        self.curr_handcards_char = curr_handcards_char
+
+    def get_mask(self):
+        if self.act == ACT_TYPE.PASSIVE:
+            decision_mask, response_mask, bomb_mask, _ = get_mask_alter(self.curr_handcards_char, to_char(self.last_cards_value), self.category)
+            if self.mode == MODE.PASSIVE_DECISION:
+                return decision_mask
+            elif self.mode == MODE.PASSIVE_RESPONSE:
+                return response_mask
+            elif self.mode == MODE.PASSIVE_BOMB:
+                return bomb_mask
+            elif self.mode == MODE.MINOR_RESPONSE:
+                input_single, input_pair, _, _ = get_masks(self.curr_handcards_char, None)
+                if self.minor_type == 1:
+                    mask = np.append(input_pair, [0, 0])
+                else:
+                    mask = input_single
+                for v in set(self.intention):
+                    mask[v - 3] = 0
+                return mask
+        elif self.act == ACT_TYPE.ACTIVE:
+            decision_mask, response_mask, _, length_mask = get_mask_alter(self.curr_handcards_char, [], self.category)
+            if self.mode == MODE.ACTIVE_DECISION:
+                return decision_mask
+            elif self.mode == MODE.ACTIVE_RESPONSE:
+                return response_mask
+            elif self.mode == MODE.ACTIVE_SEQ:
+                return length_mask
+            elif self.mode == MODE.MINOR_RESPONSE:
+                input_single, input_pair, _, _ = get_masks(self.curr_handcards_char, None)
+                if self.minor_type == 1:
+                    mask = np.append(input_pair, [0, 0])
+                else:
+                    mask = input_single
+                for v in set(self.intention):
+                    mask[v - 3] = 0
+                return mask
+
+    def step(self, action):
+        if self.act == ACT_TYPE.PASSIVE:
+            if self.mode == MODE.PASSIVE_DECISION:
+                if action == 0 or action == 2:
+                    self.finished = True
+                    if action == 2:
+                        self.intention = np.array([16, 17])
+                    return
+                elif action == 1:
+                    self.mode = MODE.PASSIVE_BOMB
+                    return
+                elif action == 3:
+                    self.mode = MODE.PASSIVE_RESPONSE
+                    return
+                else:
+                    raise Exception('unexpected action')
+            elif self.mode == MODE.PASSIVE_BOMB:
+                # convert to value input
+                self.intention = np.array([action + 3] * 4)
+                self.finished = True
+                return
+            elif self.mode == MODE.PASSIVE_RESPONSE:
+                self.intention = give_cards_without_minor(action, self.last_cards_value, self.category, None)
+                if self.category == Category.THREE_ONE.value or \
+                        self.category == Category.THREE_TWO.value or \
+                        self.category == Category.THREE_ONE_LINE.value or \
+                        self.category == Category.THREE_TWO_LINE.value or \
+                        self.category == Category.FOUR_TWO.value:
+                    if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
+                        self.minor_type = 1
+                    self.mode = MODE.MINOR_RESPONSE
+                    # modify the state for minor cards
+                    discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
+                    self.minor_length = get_seq_length(self.category, self.last_cards_value)
+                    return
+                else:
+                    self.finished = True
+                    return
+        elif self.act == ACT_TYPE.ACTIVE:
+            if self.mode == MODE.ACTIVE_DECISION:
+                self.category = action + 1
+                self.mode = MODE.ACTIVE_RESPONSE
+                return
+            elif self.mode == MODE.ACTIVE_RESPONSE:
+                if self.category == Category.SINGLE_LINE.value or \
+                        self.category == Category.DOUBLE_LINE.value or \
+                        self.category == Category.TRIPLE_LINE.value or \
+                        self.category == Category.THREE_ONE_LINE.value or \
+                        self.category == Category.THREE_TWO_LINE.value:
+                    self.mode = MODE.ACTIVE_SEQ
+                    return
+                elif self.category == Category.THREE_ONE.value or \
+                        self.category == Category.THREE_TWO.value or \
+                        self.category == Category.FOUR_TWO.value:
+                    if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
+                        self.minor_type = 1
+                    self.mode = MODE.MINOR_RESPONSE
+                    self.intention = give_cards_without_minor(action, np.array([]), self.category, None)
+                    # modify the state for minor cards
+                    discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
+                    self.minor_length = 2 if self.category == Category.FOUR_TWO.value else 1
+                    return
+                else:
+                    self.intention = give_cards_without_minor(action, np.array([]), self.category, None)
+                    self.finished = True
+                    return
+            elif self.mode == MODE.ACTIVE_SEQ:
+                self.intention = give_cards_without_minor(action, np.array([]), self.category, action + 1)
+                if self.category == Category.THREE_ONE_LINE.value or \
+                        self.category == Category.THREE_TWO_LINE.value:
+                    if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
+                        self.minor_type = 1
+                    self.mode = MODE.MINOR_RESPONSE
+                    # modify the state for minor cards
+                    discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
+                else:
+                    self.finished = True
+                return
+        elif self.mode == MODE.MINOR_RESPONSE:
+            minor_value_cards = [action + 3] * (1 if self.minor_type == 0 else 2)
+            # modify the state for minor cards
+            discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(minor_value_cards))
+            self.intention = np.append(self.intention, minor_value_cards)
+            self.minor_length -= 1
+            if self.minor_length == 0:
+                self.finished = True
+                return
+            else:
+                return
+
+
 class TransitionExperience(object):
     """ A transition of state, or experience"""
 
-    def __init__(self, state, action, reward, **kwargs):
+    def __init__(self, prob_state, all_state, action, reward, **kwargs):
         """ kwargs: whatever other attribute you want to save"""
-        self.state = state
+        self.prob_state = prob_state
+        self.all_state = all_state
         self.action = action
         self.reward = reward
         for k, v in six.iteritems(kwargs):
@@ -77,20 +238,31 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
         s2c_socket.setsockopt(zmq.IDENTITY, self.identity)
         s2c_socket.connect(self.s2c)
 
-        state = player.reset()
-        reward, isOver = 0, False
+        player.reset()
+        player.prepare()
+        r, is_over = 0, False
         while True:
+            prob_state, all_state, role_id, curr_handcards_value, last_cards_value, last_category = \
+                player.get_state_prob(), player.get_state_all_cards(), player.get_role_ID(), player.get_curr_handcards(), player.get_last_outcards(), player.get_last_outcategory_idx()
             # after taking the last action, get to this state and get this reward/isOver.
             # If isOver, get to the next-episode state immediately.
             # This tuple is not the same as the one put into the memory buffer
-            c2s_socket.send(dumps(
-                (self.identity, state, reward, isOver)),
-                copy=False)
-            action = loads(s2c_socket.recv(copy=False).bytes)
-            # print('get action: ', action)
-            state, reward, isOver, _ = player.step(action)
-            if isOver:
-                state = player.reset()
+            st = SubState(ACT_TYPE.PASSIVE if last_cards_value.size > 0 else ACT_TYPE.ACTIVE, prob_state, all_state,
+                          to_char(curr_handcards_value), last_cards_value, last_category)
+            first_st = True
+            while not st.finished:
+                c2s_socket.send(dumps(
+                    (self.identity, role_id, st.prob_state, st.all_state, Card.val2onehot60(last_cards_value), first_st, st.get_mask(), st.minor_type, st.mode, r, is_over)),
+                    copy=False)
+                first_st = False
+                action = loads(s2c_socket.recv(copy=False).bytes)
+                st.step(action)
+
+            r, is_over, _ = player.step_manual(st.intention)
+            if is_over:
+                player.reset()
+                player.prepare()
+
 
 
 # compatibility
@@ -104,7 +276,7 @@ class SimulatorMaster(threading.Thread):
     """
     class ClientState(object):
         def __init__(self):
-            self.memory = []    # list of Experience
+            self.memory = [[] for _ in range(3)]    # list of Experience
             self.ident = None
 
     def __init__(self, pipe_c2s, pipe_s2c):
@@ -145,18 +317,18 @@ class SimulatorMaster(threading.Thread):
         try:
             while True:
                 msg = loads(self.c2s_socket.recv(copy=False).bytes)
-                ident, state, reward, isOver = msg
+                ident, role_id, prob_state, all_state, last_cards, first_st, mask, minor_type, mode, reward, isOver = msg
                 client = self.clients[ident]
                 if client.ident is None:
                     client.ident = ident
                 # maybe check history and warn about dead client?
-                self._process_msg(client, state, reward, isOver)
+                self._process_msg(client, role_id, prob_state, all_state, last_cards, first_st, mask, minor_type, mode, reward, isOver)
         except zmq.ContextTerminated:
             logger.info("[Simulator] Context was terminated.")
 
-    @abstractmethod
-    def _process_msg(self, client, state, reward, isOver):
-        pass
+    # @abstractmethod
+    # def _process_msg(self, client, state, reward, isOver):
+    #     pass
 
     def __del__(self):
         self.context.destroy(linger=0)
