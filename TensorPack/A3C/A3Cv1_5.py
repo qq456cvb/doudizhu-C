@@ -51,7 +51,7 @@ SIMULATOR_PROC = 1
 
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
 STEPS_PER_EPOCH = 1000
-BATCH_SIZE = 1024
+BATCH_SIZE = 128
 PREDICT_BATCH_SIZE = 128
 PREDICTOR_THREAD_PER_GPU = 1
 PREDICTOR_THREAD = None
@@ -465,6 +465,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
                 if mem[j].first_st:
                     i += 1
                 target = [0 for _ in range(7)]
+                k = mem[j]
                 target[k.mode] = k.action
                 self.queue.put([role_id, k.prob_state, k.all_state, k.last_cards_onehot, *target, k.minor_type, k.mode, k.prob, dr[i]])
                 j += 1
