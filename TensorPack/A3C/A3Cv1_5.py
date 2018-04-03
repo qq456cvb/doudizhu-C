@@ -262,7 +262,7 @@ class Model(ModelDesc):
 
             with tf.variable_scope('value_fc'):
                 value = slim.fully_connected(flattened, num_outputs=1, activation_fn=None)
-        indicator = tf.cast(tf.cast(tf.equal(role_id, LORD_ID), tf.int32), tf.float32) * 2 - 1
+        indicator = tf.cast(tf.equal(role_id, LORD_ID), tf.float32) * 2 - 1
         return -value * indicator
 
     def inputs(self):
@@ -356,19 +356,29 @@ class Model(ModelDesc):
         # advantage
         advantage = tf.subtract(discounted_return, tf.stop_gradient(value), name='advantage')
 
-        policy_loss = tf.reduce_sum(-logpa * advantage * importance, name='policy_loss')
-        entropy_loss = tf.reduce_sum(pa * logpa, name='entropy_loss')
-        value_loss = tf.nn.l2_loss(value - discounted_return, name='value_loss')
+        policy_loss_b = -logpa * advantage * importance
+        entropy_loss_b = pa * logpa
+        value_loss_b = tf.square(value - discounted_return)
 
-        pred_reward = tf.reduce_mean(value, name='predict_reward')
-        advantage = tf.sqrt(tf.reduce_mean(tf.square(advantage)), name='rms_advantage')
-        entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.01), trainable=False)
+        entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.01),
+                                       trainable=False)
 
-        cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, value_loss])
-        cost = tf.truediv(cost, tf.cast(tf.shape(discounted_return)[0], tf.float32), name='cost')
+        costs = []
+        for i in range(1, 4):
+            mask = tf.equal(role_id, i)
+            pred_reward = tf.reduce_mean(tf.boolean_mask(value, mask), name='predict_reward_%d' % i)
+            advantage = tf.sqrt(tf.reduce_mean(tf.square(tf.boolean_mask(advantage, mask))), name='rms_advantage_%d' % i)
 
-        add_moving_summary(policy_loss, entropy_loss, value_loss, pred_reward, advantage, cost, tf.reduce_mean(importance, name='importance'), decay=0.1)
-        return cost
+            policy_loss = tf.boolean_mask(policy_loss_b, mask, name='policy_loss_%d' % i)
+            entropy_loss = tf.boolean_mask(entropy_loss_b, mask, name='entropy_loss_%d' % i)
+            value_loss = tf.boolean_mask(value_loss_b, mask, name='value_loss_%d' % i)
+            cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, value_loss])
+            cost = tf.truediv(cost, tf.reduce_sum(tf.cast(mask, tf.float32)), name='cost_%d' % i)
+            costs.append(cost)
+
+            add_moving_summary(policy_loss, entropy_loss, value_loss, pred_reward, advantage, cost, tf.reduce_mean(tf.boolean_mask(importance, mask), name='importance_%d' % i), decay=0.1)
+
+        return tf.add_n(costs)
 
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-4, trainable=False)
@@ -437,9 +447,11 @@ class MySimulatorMaster(SimulatorMaster, Callback):
             assert reward != 0
             for i in range(3):
                 j = -1
-                while client.memory[i][j].reward is None:
+                while client.memory[i][j].reward == 0:
                     # notice that C++ returns the reward for farmer, transform to the reward in each agent's perspective
                     client.memory[i][j].reward = reward if i != 1 else -reward
+                    if client.memory[i][j].first_st:
+                        break
                     j -= 1
             self._parse_memory(0, client)
         # feed state and return action

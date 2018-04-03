@@ -23,6 +23,13 @@ from utils import give_cards_without_minor, get_seq_length, get_mask_alter, to_c
 from card import Card
 from card import Category
 
+import sys
+if os.name == 'nt':
+    sys.path.insert(0, '../../build/Release')
+else:
+    sys.path.insert(0, '../../build.linux')
+from env import Env as CEnv
+
 __all__ = ['SimulatorProcess', 'SimulatorMaster',
            'SimulatorProcessStateExchange',
            'TransitionExperience']
@@ -56,6 +63,8 @@ class SubState:
         self.category = last_category
         self.minor_length = 0
         self.curr_handcards_char = curr_handcards_char
+        self.active_decision = 0
+        self.active_response = 0
 
     def get_mask(self):
         if self.act == ACT_TYPE.PASSIVE:
@@ -80,9 +89,9 @@ class SubState:
             if self.mode == MODE.ACTIVE_DECISION:
                 return decision_mask
             elif self.mode == MODE.ACTIVE_RESPONSE:
-                return response_mask
+                return response_mask[self.active_decision]
             elif self.mode == MODE.ACTIVE_SEQ:
-                return length_mask
+                return length_mask[self.active_decision][self.active_response]
             elif self.mode == MODE.MINOR_RESPONSE:
                 input_single, input_pair, _, _ = get_masks(self.curr_handcards_char, None)
                 if self.minor_type == 1:
@@ -134,6 +143,7 @@ class SubState:
         elif self.act == ACT_TYPE.ACTIVE:
             if self.mode == MODE.ACTIVE_DECISION:
                 self.category = action + 1
+                self.active_decision = action
                 self.mode = MODE.ACTIVE_RESPONSE
                 return
             elif self.mode == MODE.ACTIVE_RESPONSE:
@@ -142,6 +152,7 @@ class SubState:
                         self.category == Category.TRIPLE_LINE.value or \
                         self.category == Category.THREE_ONE_LINE.value or \
                         self.category == Category.THREE_TWO_LINE.value:
+                    self.active_response = action
                     self.mode = MODE.ACTIVE_SEQ
                     return
                 elif self.category == Category.THREE_ONE.value or \
@@ -160,7 +171,7 @@ class SubState:
                     self.finished = True
                     return
             elif self.mode == MODE.ACTIVE_SEQ:
-                self.intention = give_cards_without_minor(action, np.array([]), self.category, action + 1)
+                self.intention = give_cards_without_minor(self.active_response, np.array([]), self.category, action + 1)
                 if self.category == Category.THREE_ONE_LINE.value or \
                         self.category == Category.THREE_TWO_LINE.value:
                     if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
@@ -256,10 +267,13 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
                     copy=False)
                 first_st = False
                 action = loads(s2c_socket.recv(copy=False).bytes)
+                # print(action)
                 st.step(action)
 
+            print(st.intention)
             r, is_over, _ = player.step_manual(st.intention)
             if is_over:
+                print('over with reward %d' % r)
                 player.reset()
                 player.prepare()
 
@@ -335,20 +349,71 @@ class SimulatorMaster(threading.Thread):
 
 
 if __name__ == '__main__':
-    import random
-    import gym
 
     class NaiveSimulator(SimulatorProcess):
         def _build_player(self):
-            return gym.make('Breakout-v0')
+            return CEnv()
 
     class NaiveActioner(SimulatorMaster):
-        def _process_msg(self, client, state, reward, isOver):
-            self.send_queue.put([client.ident, dumps(self._get_action(state))])
+        def _process_msg(self, client, role_id, prob_state, all_state, last_cards_onehot, first_st, mask, minor_type,
+                         mode, reward, isOver):
+            """
+            Process a message sent from some client.
+            """
+            # in the first message, only state is valid,
+            # reward&isOver should be discarde
+            # print('received msg')
+            if isOver and first_st:
+                # should clear client's memory and put to queue
+                assert reward != 0
+                for i in range(3):
+                    j = -1
+                    while client.memory[i][j].reward == 0:
+                        # notice that C++ returns the reward for farmer, transform to the reward in each agent's perspective
+                        client.memory[i][j].reward = reward if i != 1 else -reward
+                        if client.memory[i][j].first_st:
+                            break
+                        j -= 1
+                self._parse_memory(0, client)
+            # feed state and return action
+            sent = 0
+            for a in range(len(mask)):
+                if mask[a] > 0:
+                    sent = a
+                    break
+            self.send_queue.put([client.ident, dumps(sent)])
+            client.memory[role_id - 1].append(TransitionExperience(
+                prob_state, all_state, sent, reward=0, first_st=first_st, mode=mode))
 
-        def _get_action(self, state):
-            time.sleep(1)
-            return random.randint(1, 3)
+        def _parse_memory(self, init_r, client):
+            # for each agent's memory
+            for role_id in range(1, 4):
+                mem = client.memory[role_id - 1]
+
+                mem.reverse()
+                R = float(init_r)
+                mem_valid = [m for m in mem if m.first_st]
+                dr = []
+                for idx, k in enumerate(mem_valid):
+                    R = np.clip(k.reward, -1, 1) + 0.99 * R
+                    dr.append(R)
+                dr.reverse()
+                print(dr)
+                mem.reverse()
+                i = -1
+                j = 0
+                while j < len(mem):
+                    if mem[j].first_st:
+                        i += 1
+                    target = [0 for _ in range(7)]
+                    k = mem[j]
+                    target[k.mode] = k.action
+                    # self.queue.put(
+                    #     [role_id, k.prob_state, k.all_state, k.last_cards_onehot, *target, k.minor_type, k.mode, k.prob,
+                    #      dr[i]])
+                    j += 1
+
+                client.memory[role_id - 1] = []
 
         def _on_episode_over(self, client):
             # print("Over: ", client.memory)
@@ -357,7 +422,7 @@ if __name__ == '__main__':
 
     name = 'ipc://c2s'
     name2 = 'ipc://s2c'
-    procs = [NaiveSimulator(k, name, name2) for k in range(10)]
+    procs = [NaiveSimulator(k, name, name2) for k in range(2)]
     [k.start() for k in procs]
 
     th = NaiveActioner(name, name2)
