@@ -242,7 +242,7 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
         context = zmq.Context()
         c2s_socket = context.socket(zmq.PUSH)
         c2s_socket.setsockopt(zmq.IDENTITY, self.identity)
-        c2s_socket.set_hwm(2)
+        c2s_socket.set_hwm(10)
         c2s_socket.connect(self.c2s)
 
         s2c_socket = context.socket(zmq.DEALER)
@@ -270,10 +270,11 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
                 # print(action)
                 st.step(action)
 
-            print(st.intention)
+            # print(st.intention)
             r, is_over, _ = player.step_manual(st.intention)
             if is_over:
-                print('over with reward %d' % r)
+                print('%s over with reward %d' % (self.identity, r))
+                sys.stdout.flush()
                 player.reset()
                 player.prepare()
 
@@ -303,13 +304,13 @@ class SimulatorMaster(threading.Thread):
 
         self.c2s_socket = self.context.socket(zmq.PULL)
         self.c2s_socket.bind(pipe_c2s)
-        self.c2s_socket.set_hwm(10)
+        self.c2s_socket.set_hwm(20)
         self.s2c_socket = self.context.socket(zmq.ROUTER)
         self.s2c_socket.bind(pipe_s2c)
-        self.s2c_socket.set_hwm(10)
+        self.s2c_socket.set_hwm(20)
 
         # queueing messages to client
-        self.send_queue = queue.Queue(maxsize=100)
+        self.send_queue = queue.Queue(maxsize=1000)
 
         def f():
             msg = self.send_queue.get()
@@ -398,7 +399,7 @@ if __name__ == '__main__':
                     R = np.clip(k.reward, -1, 1) + 0.99 * R
                     dr.append(R)
                 dr.reverse()
-                print(dr)
+                # print(dr)
                 mem.reverse()
                 i = -1
                 j = 0
@@ -422,7 +423,7 @@ if __name__ == '__main__':
 
     name = 'ipc://c2s'
     name2 = 'ipc://s2c'
-    procs = [NaiveSimulator(k, name, name2) for k in range(2)]
+    procs = [NaiveSimulator(k, name, name2) for k in range(10)]
     [k.start() for k in procs]
 
     th = NaiveActioner(name, name2)

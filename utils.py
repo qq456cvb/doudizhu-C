@@ -289,7 +289,7 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx, main_c
 
 
 def discard_onehot_from_s_60(s, cards_onehot):
-    s[:60] -= cards_onehot
+    s[:60] -= cards_onehot.astype(np.int32)
     normalize(s, 0, 60)
     # s[2 * 60:3 * 60] += cards_onehot
     # normalize(s, 2 * 60, 2 * 60 + 60)

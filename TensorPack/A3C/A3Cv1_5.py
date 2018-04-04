@@ -47,12 +47,12 @@ POLICY_LAST_INPUT_DIM = 60
 POLICY_WEIGHT_DECAY = 5 * 1e-4
 VALUE_INPUT_DIM = 60 * 3
 LORD_ID = 2
-SIMULATOR_PROC = 1
+SIMULATOR_PROC = 40
 
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
-STEPS_PER_EPOCH = 1000
-BATCH_SIZE = 128
-PREDICT_BATCH_SIZE = 128
+STEPS_PER_EPOCH = 100
+BATCH_SIZE = 1024
+PREDICT_BATCH_SIZE = 64
 PREDICTOR_THREAD_PER_GPU = 1
 PREDICTOR_THREAD = None
 
@@ -262,6 +262,8 @@ class Model(ModelDesc):
 
             with tf.variable_scope('value_fc'):
                 value = slim.fully_connected(flattened, num_outputs=1, activation_fn=None)
+
+        value = tf.squeeze(value, 1)
         indicator = tf.cast(tf.equal(role_id, LORD_ID), tf.float32) * 2 - 1
         return -value * indicator
 
@@ -351,40 +353,45 @@ class Model(ModelDesc):
 
         # B
         pa = tf.gather_nd(pa, idx)
-        importance = tf.stop_gradient(tf.clip_by_value(pa / (history_action_prob + 1e-8), 0, 10))
+        importance_b = tf.stop_gradient(tf.clip_by_value(pa / (history_action_prob + 1e-8), 0, 10))
 
         # advantage
-        advantage = tf.subtract(discounted_return, tf.stop_gradient(value), name='advantage')
+        advantage_b = tf.subtract(discounted_return, tf.stop_gradient(value), name='advantage')
 
-        policy_loss_b = -logpa * advantage * importance
+        policy_loss_b = -logpa * advantage_b * importance_b
         entropy_loss_b = pa * logpa
         value_loss_b = tf.square(value - discounted_return)
 
         entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.01),
                                        trainable=False)
-
+        print(policy_loss_b.shape)
+        print(entropy_loss_b.shape)
+        print(value_loss_b.shape)
+        print(advantage_b.shape)
         costs = []
         for i in range(1, 4):
             mask = tf.equal(role_id, i)
+            print(mask.shape)
             pred_reward = tf.reduce_mean(tf.boolean_mask(value, mask), name='predict_reward_%d' % i)
-            advantage = tf.sqrt(tf.reduce_mean(tf.square(tf.boolean_mask(advantage, mask))), name='rms_advantage_%d' % i)
+            advantage = tf.sqrt(tf.reduce_mean(tf.square(tf.boolean_mask(advantage_b, mask))), name='rms_advantage_%d' % i)
 
-            policy_loss = tf.boolean_mask(policy_loss_b, mask, name='policy_loss_%d' % i)
-            entropy_loss = tf.boolean_mask(entropy_loss_b, mask, name='entropy_loss_%d' % i)
-            value_loss = tf.boolean_mask(value_loss_b, mask, name='value_loss_%d' % i)
+            policy_loss = tf.reduce_sum(tf.boolean_mask(policy_loss_b, mask, name='policy_loss_%d' % i))
+            entropy_loss = tf.reduce_sum(tf.boolean_mask(entropy_loss_b, mask, name='entropy_loss_%d' % i))
+            value_loss = tf.reduce_sum(tf.boolean_mask(value_loss_b, mask, name='value_loss_%d' % i))
             cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, value_loss])
             cost = tf.truediv(cost, tf.reduce_sum(tf.cast(mask, tf.float32)), name='cost_%d' % i)
             costs.append(cost)
 
-            add_moving_summary(policy_loss, entropy_loss, value_loss, pred_reward, advantage, cost, tf.reduce_mean(tf.boolean_mask(importance, mask), name='importance_%d' % i), decay=0.1)
+            importance = tf.reduce_mean(tf.boolean_mask(importance_b, mask), name='importance_%d' % i)
+            add_moving_summary(policy_loss, entropy_loss, value_loss, pred_reward, advantage, cost, importance, decay=0.1)
 
         return tf.add_n(costs)
 
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-4, trainable=False)
         opt = tf.train.AdamOptimizer(lr)
-        gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3)),
-                     SummaryGradient()]
+        gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3))]
+                     # SummaryGradient()]
         opt = optimizer.apply_grad_processors(opt, gradprocs)
         return opt
 
@@ -479,6 +486,8 @@ class MySimulatorMaster(SimulatorMaster, Callback):
                 target = [0 for _ in range(7)]
                 k = mem[j]
                 target[k.mode] = k.action
+                # print('pushed to queue')
+                # sys.stdout.flush()
                 self.queue.put([role_id, k.prob_state, k.all_state, k.last_cards_onehot, *target, k.minor_type, k.mode, k.prob, dr[i]])
                 j += 1
 
@@ -494,8 +503,8 @@ def train():
     global PREDICTOR_THREAD
     if nr_gpu > 0:
         if nr_gpu > 1:
-            # use half gpus for inference
-            predict_tower = list(range(nr_gpu))[-nr_gpu // 2:]
+            # use all gpus for inference
+            predict_tower = list(range(nr_gpu))
         else:
             predict_tower = [0]
         PREDICTOR_THREAD = len(predict_tower) * PREDICTOR_THREAD_PER_GPU
