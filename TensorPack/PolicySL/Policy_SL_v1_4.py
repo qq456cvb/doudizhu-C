@@ -465,8 +465,8 @@ class Model(ModelDesc):
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-4, trainable=False)
         opt = tf.train.AdamOptimizer(lr)
-        gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3)),
-                     SummaryGradient()]
+        gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3))]
+                     # SummaryGradient()]
         opt = optimizer.apply_grad_processors(opt, gradprocs)
         return opt
 
@@ -508,7 +508,7 @@ def train():
                 every_k_epochs=1),
         ],
         steps_per_epoch=STEPS_PER_EPOCH,
-        max_epoch=10,
+        max_epoch=100,
     )
     trainer = AsyncMultiGPUTrainer(train_tower) if nr_gpu > 1 else SimpleTrainer()
     launch_train_with_config(config, trainer)
