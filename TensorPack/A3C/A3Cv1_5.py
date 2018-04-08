@@ -28,6 +28,8 @@ from tensorpack.tfutils.summary import add_moving_summary
 from tensorpack.tfutils import get_current_tower_context, optimizer
 
 from TensorPack.A3C.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience
+from TensorPack.A3C.model_loader import ModelLoader
+from TensorPack.A3C.evaluator import Evaluator
 from TensorPack.PolicySL.Policy_SL_v1_4 import conv_block as policy_conv_block
 from TensorPack.ValueSL.Value_SL_v1_4 import conv_block as value_conv_block
 
@@ -56,6 +58,9 @@ PREDICT_BATCH_SIZE = 64
 PREDICTOR_THREAD_PER_GPU = 1
 PREDICTOR_THREAD = None
 
+
+def get_player():
+    return CEnv()
 
 class Model(ModelDesc):
     def get_policy(self, role_id, state, last_cards, minor_type):
@@ -219,6 +224,7 @@ class Model(ModelDesc):
                 outputs.append([passive_decision_logits, passive_bomb_logits, passive_response_logits,
                    active_decision_logits, active_response_logits, active_seq_logits, minor_response_logits])
 
+        # TODO: instead of output all and gather, prebatch different ids and feed once exactly
         # 7: B * 3 * ?
         outputs = [tf.stack([outputs[0][i], outputs[1][i], outputs[2][i]], axis=1) for i in range(7)]
 
@@ -289,6 +295,7 @@ class Model(ModelDesc):
     def build_graph(self, role_id, prob_state, value_state, last_cards, passive_decision_target, passive_bomb_target, passive_response_target,
                     active_decision_target, active_response_target, seq_length_target, minor_response_target,
                     minor_type, mode, history_action_prob, discounted_return):
+
         (passive_decision_logits, passive_bomb_logits, passive_response_logits, active_decision_logits,
          active_response_logits, active_seq_logits, minor_response_logits) = self.get_policy(role_id, prob_state, last_cards,
                                                                                            minor_type)
@@ -535,8 +542,13 @@ def train():
             # ScheduledHyperParamSetter('learning_rate', [(20, 0.0003), (120, 0.0001)]),
             # ScheduledHyperParamSetter('entropy_beta', [(80, 0.005)]),
             master,
-            StartProcOrThread(master)
+            StartProcOrThread(master),
+            Evaluator(
+                100, ['role_id', 'policy_state_in', 'last_cards_in', 'minor_type_in'],
+                ['passive_decision_prob', 'passive_bomb_prob', 'passive_response_prob',
+                 'active_decision_prob', 'active_response_prob', 'active_seq_prob', 'minor_response_prob'], get_player),
         ],
+        session_init=ModelLoader('policy_network_2', 'SL_policy_network'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=1000,
     )

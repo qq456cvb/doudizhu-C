@@ -32,6 +32,7 @@ SCOPE = 'SL_value_network'
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
 STEPS_PER_EPOCH = 1000
 BATCH_SIZE = 2048
+GAMMA = 0.99
 
 
 def get_player():
@@ -79,8 +80,9 @@ def data_generator(rng):
         r = 1 if r > 0 else -1
         # negative reward means lord wins
         # assume discount factor 1
-        for s in buffer:
+        for s in reversed(buffer):
             yield s, r
+            r = GAMMA * r
 
     # dump for testing
     # env.reset()
@@ -231,9 +233,9 @@ def train():
 
     dataflow = DataFromGeneratorRNG(data_generator)
     if os.name == 'nt':
-        dataflow = PrefetchData(dataflow, nr_proc=multiprocessing.cpu_count() // 2, nr_prefetch=multiprocessing.cpu_count() // 2)
+        dataflow = PrefetchData(dataflow, nr_proc=multiprocessing.cpu_count(), nr_prefetch=multiprocessing.cpu_count())
     else:
-        dataflow = PrefetchDataZMQ(dataflow, nr_proc=multiprocessing.cpu_count() // 2)
+        dataflow = PrefetchDataZMQ(dataflow, nr_proc=multiprocessing.cpu_count())
     dataflow = BatchData(dataflow, BATCH_SIZE)
     config = TrainConfig(
         model=Model(),
