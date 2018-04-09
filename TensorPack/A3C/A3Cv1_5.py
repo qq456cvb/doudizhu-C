@@ -62,16 +62,24 @@ PREDICTOR_THREAD = None
 def get_player():
     return CEnv()
 
+
 class Model(ModelDesc):
     def get_policy(self, role_id, state, last_cards, minor_type):
         # policy network, different for three agents
-        outputs = []
+        batch_size = tf.shape(role_id)[0]
+        gathered_outputs = []
+        indices = []
         for idx in range(1, 4):
             with tf.variable_scope('policy_network_%d' % idx):
+                id_idx = tf.where(tf.equal(role_id, idx))
+                indices.append(id_idx)
+                state_id = tf.gather(state, id_idx)
+                last_cards_id = tf.gather(last_cards, id_idx)
+                minor_type_id = tf.gather(minor_type, id_idx)
                 with slim.arg_scope([slim.fully_connected, slim.conv2d],
                                     weights_regularizer=slim.l2_regularizer(POLICY_WEIGHT_DECAY)):
                     with tf.variable_scope('branch_main'):
-                        flattened_1 = policy_conv_block(state[:, :60], 32, POLICY_INPUT_DIM // 3,
+                        flattened_1 = policy_conv_block(state_id[:, :60], 32, POLICY_INPUT_DIM // 3,
                                                         [[16, 32, 5, 'identity'],
                                                          [16, 32, 5, 'identity'],
                                                          [32, 128, 5, 'upsampling'],
@@ -81,7 +89,7 @@ class Model(ModelDesc):
                                                          [64, 256, 3, 'identity'],
                                                          [64, 256, 3, 'identity']
                                                          ], 'branch_main1')
-                        flattened_2 = policy_conv_block(state[:, 60:120], 32, POLICY_INPUT_DIM // 3,
+                        flattened_2 = policy_conv_block(state_id[:, 60:120], 32, POLICY_INPUT_DIM // 3,
                                                         [[16, 32, 5, 'identity'],
                                                          [16, 32, 5, 'identity'],
                                                          [32, 128, 5, 'upsampling'],
@@ -91,7 +99,7 @@ class Model(ModelDesc):
                                                          [64, 256, 3, 'identity'],
                                                          [64, 256, 3, 'identity']
                                                          ], 'branch_main2')
-                        flattened_3 = policy_conv_block(state[:, 120:], 32, POLICY_INPUT_DIM // 3,
+                        flattened_3 = policy_conv_block(state_id[:, 120:], 32, POLICY_INPUT_DIM // 3,
                                                         [[16, 32, 5, 'identity'],
                                                          [16, 32, 5, 'identity'],
                                                          [32, 128, 5, 'upsampling'],
@@ -104,7 +112,7 @@ class Model(ModelDesc):
                         flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
 
                     with tf.variable_scope('branch_passive'):
-                        flattened_last = policy_conv_block(last_cards, 32, POLICY_LAST_INPUT_DIM,
+                        flattened_last = policy_conv_block(last_cards_id, 32, POLICY_LAST_INPUT_DIM,
                                                            [[16, 32, 5, 'identity'],
                                                             [16, 32, 5, 'identity'],
                                                             [32, 128, 5, 'upsampling'],
@@ -213,7 +221,7 @@ class Model(ModelDesc):
                     with tf.variable_scope('branch_minor'):
                         fc_minor = slim.fully_connected(inputs=flattened, num_outputs=256,
                                                         activation_fn=tf.nn.relu)
-                        minor_type_embedding = slim.fully_connected(inputs=tf.one_hot(minor_type, 2), num_outputs=256,
+                        minor_type_embedding = slim.fully_connected(inputs=tf.one_hot(minor_type_id, 2), num_outputs=256,
                                                                     activation_fn=tf.nn.sigmoid)
                         fc_minor = fc_minor * minor_type_embedding
 
@@ -221,16 +229,15 @@ class Model(ModelDesc):
                         minor_response_logits = slim.fully_connected(inputs=fc_minor, num_outputs=15,
                                                                      activation_fn=None)
 
-                outputs.append([passive_decision_logits, passive_bomb_logits, passive_response_logits,
+            gathered_outputs.append([passive_decision_logits, passive_bomb_logits, passive_response_logits,
                    active_decision_logits, active_response_logits, active_seq_logits, minor_response_logits])
 
-        # TODO: instead of output all and gather, prebatch different ids and feed once exactly
-        # 7: B * 3 * ?
-        outputs = [tf.stack([outputs[0][i], outputs[1][i], outputs[2][i]], axis=1) for i in range(7)]
-
         # 7: B * ?
-        gather_idx = tf.stack([tf.range(tf.shape(role_id)[0]), role_id - 1], axis=1)
-        outputs = [tf.gather_nd(output, gather_idx) for output in outputs]
+        outputs = []
+        for i in range(7):
+            scatter_shape = tf.cast(tf.stack([batch_size, tf.shape([gathered_outputs[0][i]])[1]]), dtype=tf.int64)
+            outputs.append(tf.add_n([tf.scatter_nd(indices[k], gathered_outputs[k][i], scatter_shape) for k in range(3)]))
+
         return outputs
 
     def get_value(self, role_id, state):
@@ -371,14 +378,14 @@ class Model(ModelDesc):
 
         entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.01),
                                        trainable=False)
-        print(policy_loss_b.shape)
-        print(entropy_loss_b.shape)
-        print(value_loss_b.shape)
-        print(advantage_b.shape)
+        # print(policy_loss_b.shape)
+        # print(entropy_loss_b.shape)
+        # print(value_loss_b.shape)
+        # print(advantage_b.shape)
         costs = []
         for i in range(1, 4):
             mask = tf.equal(role_id, i)
-            print(mask.shape)
+            # print(mask.shape)
             pred_reward = tf.reduce_mean(tf.boolean_mask(value, mask), name='predict_reward_%d' % i)
             advantage = tf.sqrt(tf.reduce_mean(tf.square(tf.boolean_mask(advantage_b, mask))), name='rms_advantage_%d' % i)
 
@@ -534,7 +541,7 @@ def train():
 
     master = MySimulatorMaster(namec2s, names2c, predict_tower)
     dataflow = BatchData(DataFromQueue(master.queue), BATCH_SIZE)
-    config = TrainConfig(
+    config = AutoResumeTrainConfig(
         model=Model(),
         dataflow=dataflow,
         callbacks=[
@@ -548,7 +555,7 @@ def train():
                 ['passive_decision_prob', 'passive_bomb_prob', 'passive_response_prob',
                  'active_decision_prob', 'active_response_prob', 'active_seq_prob', 'minor_response_prob'], get_player),
         ],
-        session_init=ModelLoader('policy_network_2', 'SL_policy_network'),
+        session_init=ModelLoader('policy_network_2', 'SL_policy_network', 'value_network', 'SL_value_network'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=1000,
     )

@@ -12,6 +12,7 @@ from tensorpack.utils.utils import get_tqdm_kwargs
 
 import sys
 import os
+
 if os.name == 'nt':
     sys.path.insert(0, '../build/Release')
 else:
@@ -27,10 +28,70 @@ from utils import inference_minor_cards, gputimeblock, give_cards_without_minor,
 
 
 def play_one_episode(env, func):
+    def take_action_from_prob(prob, mask):
+        prob = prob[0]
+        # to avoid numeric difficulty
+        prob[mask == 0] = -1
+        return np.argmax(prob)
+
+    # return char minor cards output
+    def inference_minor_util60(role_id, s, handcards, num, is_pair, dup_mask, main_cards_char):
+        for main_card in main_cards_char:
+            handcards.remove(main_card)
+        cards_onehot = Card.char2onehot60(main_cards_char)
+        discard_onehot_from_s_60(s[0], cards_onehot)
+
+        outputs = []
+        minor_type = 1 if is_pair else 0
+        for i in range(num):
+            input_single, input_pair, _, _ = get_masks(handcards, None)
+            _, _, _, _, _, _, minor_response_prob = func(
+                [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 60]), np.array([minor_type])]
+            )
+
+            # give minor cards
+            mask = None
+            if is_pair:
+                mask = np.concatenate([input_pair, [0, 0]]) * dup_mask
+            else:
+                mask = input_single * dup_mask
+
+            minor_response = take_action_from_prob(minor_response_prob, mask)
+            dup_mask[minor_response] = 0
+
+            # convert network output to char cards
+            cards = [to_char(minor_response + 3)]
+            handcards.remove(to_char(minor_response + 3))
+            if is_pair:
+                handcards.remove(to_char(minor_response + 3))
+                cards.append(to_char(minor_response + 3))
+
+            # correct for one-hot state
+            cards_onehot = Card.char2onehot60(cards)
+
+            discard_onehot_from_s_60(s, cards_onehot)
+
+            # save to output
+            outputs.append(to_char(minor_response + 3))
+            if is_pair:
+                outputs.append(to_char(minor_response + 3))
+        return outputs
+
+    def inference_minor_cards60(role_id, category, s, handcards, seq_length, dup_mask, main_cards_char):
+        if category == Category.THREE_ONE.value:
+            return inference_minor_util60(role_id, s, handcards, 1, False, dup_mask, main_cards_char)
+        if category == Category.THREE_TWO.value:
+            return inference_minor_util60(role_id, s, handcards, 1, True, dup_mask, main_cards_char)
+        if category == Category.THREE_ONE_LINE.value:
+            return inference_minor_util60(role_id, s, handcards, seq_length, False, dup_mask, main_cards_char)
+        if category == Category.THREE_TWO_LINE.value:
+            return inference_minor_util60(role_id, s, handcards, seq_length, True, dup_mask, main_cards_char)
+        if category == Category.FOUR_TWO.value:
+            return inference_minor_util60(role_id, s, handcards, 2, False, dup_mask, main_cards_char)
+
     env.reset()
     env.prepare()
     r = 0
-    stats = [StatCounter() for _ in range(7)]
     while r == 0:
         last_cards_value = env.get_last_outcards()
         last_cards_char = to_char(last_cards_value)
@@ -40,105 +101,100 @@ def play_one_episode(env, func):
         is_active = True if last_cards_value.size == 0 else False
 
         s = env.get_state_prob()
-        intention, r, category_idx = env.step_auto()
+        role_id = env.get_role_ID()
 
-        if category_idx == 14:
-            continue
-        minor_cards_targets = pick_minor_targets(category_idx, to_char(intention))
+        intention = None
+        if role_id == 2:
+            if is_active:
+                # first get mask
+                decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], last_category_idx)
 
-        if not is_active:
-            if category_idx == Category.QUADRIC.value and category_idx != last_category_idx:
-                passive_decision_input = 1
-                passive_bomb_input = intention[0] - 3
-                passive_decision_prob, passive_bomb_prob, _, _, _, _, _ = func(
-                    [np.ones(1) * 2, s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])])
-                stats[0].feed(int(passive_decision_input == np.argmax(passive_decision_prob)))
-                stats[1].feed(int(passive_bomb_input == np.argmax(passive_bomb_prob)))
-
-            else:
-                if category_idx == Category.BIGBANG.value:
-                    passive_decision_input = 2
-                    passive_decision_prob, _, _, _, _, _, _ = func(
-                        [np.ones(1) * 2, s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])])
-                    stats[0].feed(int(passive_decision_input == np.argmax(passive_decision_prob)))
-                else:
-                    if category_idx != Category.EMPTY.value:
-                        passive_decision_input = 3
-                        # OFFSET_ONE
-                        # 1st, Feb - remove relative card output since shift is hard for the network to learn
-                        passive_response_input = intention[0] - 3
-                        if passive_response_input < 0:
-                            print("something bad happens")
-                            passive_response_input = 0
-                        passive_decision_prob, _, passive_response_prob, _, _, _, _ = func(
-                            [np.ones(1) * 2, s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])])
-                        stats[0].feed(int(passive_decision_input == np.argmax(passive_decision_prob)))
-                        stats[2].feed(int(passive_response_input == np.argmax(passive_response_prob)))
-                    else:
-                        passive_decision_input = 0
-                        passive_decision_prob, _, _, _, _, _, _ = func(
-                            [np.ones(1) * 2, s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])])
-                        stats[0].feed(int(passive_decision_input == np.argmax(passive_decision_prob)))
-
-        else:
-            seq_length = get_seq_length(category_idx, intention)
-
-            # ACTIVE OFFSET ONE!
-            active_decision_input = category_idx - 1
-            active_response_input = intention[0] - 3
-            _, _, _, active_decision_prob, active_response_prob, active_seq_prob, _ = func(
-                [np.ones(1) * 2, s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])]
-            )
-
-            stats[3].feed(int(active_decision_input == np.argmax(active_decision_prob)))
-            stats[4].feed(int(active_response_input == np.argmax(active_response_prob)))
-
-            if seq_length is not None:
-                # length offset one
-                seq_length_input = seq_length - 1
-                stats[5].feed(int(seq_length_input == np.argmax(active_seq_prob)))
-
-        if minor_cards_targets is not None:
-            main_cards = pick_main_cards(category_idx, to_char(intention))
-            handcards = curr_cards_char.copy()
-            state = s.copy()
-            for main_card in main_cards:
-                handcards.remove(main_card)
-            cards_onehot = Card.char2onehot60(main_cards)
-
-            # we must make the order in each 4 batch correct...
-            discard_onehot_from_s_60(state, cards_onehot)
-
-            is_pair = False
-            minor_type = 0
-            if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
-                is_pair = True
-                minor_type = 1
-            for target in minor_cards_targets:
-                target_val = Card.char2value_3_17(target) - 3
-                _, _, _, _, _, _, minor_response_prob = func(
-                    [np.ones(1) * 2, state.copy().reshape(1, -1), last_out_cards.reshape(1, -1), np.array([minor_type])]
+                _, _, _, active_decision_prob, active_response_prob, active_seq_prob, _ = func(
+                    [np.array([role_id]), s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])]
                 )
-                stats[6].feed(int(target_val == np.argmax(minor_response_prob)))
-                cards = [target]
-                handcards.remove(target)
-                if is_pair:
-                    if target not in handcards:
-                        logger.warn('something wrong...')
-                        logger.warn('minor', target)
-                        logger.warn('main_cards', main_cards)
-                        logger.warn('handcards', handcards)
+
+                # make decision depending on output
+                active_decision = take_action_from_prob(active_decision_prob, decision_mask)
+
+                active_category_idx = active_decision + 1
+
+                # get response
+                active_response = take_action_from_prob(active_response_prob, response_mask[active_decision])
+
+                seq_length = 0
+                # next sequence length
+                if active_category_idx == Category.SINGLE_LINE.value or \
+                        active_category_idx == Category.DOUBLE_LINE.value or \
+                        active_category_idx == Category.TRIPLE_LINE.value or \
+                        active_category_idx == Category.THREE_ONE_LINE.value or \
+                        active_category_idx == Category.THREE_TWO_LINE.value:
+                    seq_length = take_action_from_prob(active_seq_prob, length_mask[active_decision][active_response]) + 1
+
+                # give main cards
+                intention = give_cards_without_minor(active_response, last_cards_value, active_category_idx, seq_length)
+
+                # then give minor cards
+                if active_category_idx == Category.THREE_ONE.value or \
+                        active_category_idx == Category.THREE_TWO.value or \
+                        active_category_idx == Category.THREE_ONE_LINE.value or \
+                        active_category_idx == Category.THREE_TWO_LINE.value or \
+                        active_category_idx == Category.FOUR_TWO.value:
+                    dup_mask = np.ones([15])
+                    if seq_length > 0:
+                        for i in range(seq_length):
+                            dup_mask[intention[0] - 3 + i] = 0
                     else:
-                        handcards.remove(target)
-                        cards.append(target)
+                        dup_mask[intention[0] - 3] = 0
+                    intention = np.concatenate([intention,
+                                                to_value(inference_minor_cards60(role_id, active_category_idx, s.copy(),
+                                                                                 curr_cards_char.copy(), seq_length,
+                                                                                 dup_mask, to_char(intention)))])
+            else:
+                # print(to_char(last_cards_value), is_bomb, last_category_idx)
+                decision_mask, response_mask, bomb_mask, _ = get_mask_alter(curr_cards_char, to_char(last_cards_value),
+                                                                            last_category_idx)
 
-                # correct for one-hot state
-                cards_onehot = Card.char2onehot60(cards)
+                passive_decision_prob, passive_bomb_prob, passive_response_prob, _, _, _, _ = func(
+                    [np.array([role_id]), s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])])
 
-                # print(s.shape)
-                # print(cards_onehot.shape)
-                discard_onehot_from_s_60(state, cards_onehot)
-    return stats
+                passive_decision = take_action_from_prob(passive_decision_prob, decision_mask)
+
+                if passive_decision == 0:
+                    intention = np.array([])
+                elif passive_decision == 1:
+
+                    passive_bomb = take_action_from_prob(passive_bomb_prob, bomb_mask)
+
+                    # converting 0-based index to 3-based value
+                    intention = np.array([passive_bomb + 3] * 4)
+
+                elif passive_decision == 2:
+                    intention = np.array([16, 17])
+                elif passive_decision == 3:
+                    passive_response = take_action_from_prob(passive_response_prob, response_mask)
+
+                    intention = give_cards_without_minor(passive_response, last_cards_value, last_category_idx, None)
+                    if last_category_idx == Category.THREE_ONE.value or \
+                            last_category_idx == Category.THREE_TWO.value or \
+                            last_category_idx == Category.THREE_ONE_LINE.value or \
+                            last_category_idx == Category.THREE_TWO_LINE.value or \
+                            last_category_idx == Category.FOUR_TWO.value:
+                        dup_mask = np.ones([15])
+                        seq_length = get_seq_length(last_category_idx, last_cards_value)
+                        if seq_length:
+                            for i in range(seq_length):
+                                dup_mask[intention[0] - 3 + i] = 0
+                        else:
+                            dup_mask[intention[0] - 3] = 0
+                        intention = np.concatenate([intention,
+                                                    to_value(inference_minor_cards60(role_id, last_category_idx, s.copy(),
+                                                                                     curr_cards_char.copy(), seq_length,
+                                                                                     dup_mask, to_char(intention)))])
+            r, _, _ = env.step_manual(intention)
+            assert intention
+        else:
+            _, r, _ = env.step_auto()
+    return int(r > 0)
 
 
 def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
@@ -146,6 +202,7 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
     Args:
         predictors ([PredictorBase])
     """
+
     class Worker(StoppableThread, ShareSessionThread):
         def __init__(self, func, queue):
             super(Worker, self).__init__()
@@ -162,11 +219,10 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
                 player = get_player_fn()
                 while not self.stopped():
                     try:
-                        stats = play_one_episode(player, self.func)
+                        val = play_one_episode(player, self.func)
                     except RuntimeError:
                         return
-                    scores = [stat.average if stat.count > 0 else -1 for stat in stats]
-                    self.queue_put_stoppable(self.q, scores)
+                    self.queue_put_stoppable(self.q, val)
 
     q = queue.Queue()
     threads = [Worker(f, q) for f in predictors]
@@ -174,22 +230,16 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
     for k in threads:
         k.start()
         time.sleep(0.1)  # avoid simulator bugs
-    stats = [StatCounter() for _ in range(7)]
+    stat = StatCounter()
 
     def fetch():
-        scores = q.get()
-        for i, score in enumerate(scores):
-            if scores[i] >= 0:
-                stats[i].feed(scores[i])
-        accs = [stat.average if stat.count > 0 else 0 for stat in stats]
+        val = q.get()
+        stat.feed(val)
         if verbose:
-            logger.info("passive decision accuracy: {}\n"
-                        "passive bomb accuracy: {}\n"
-                        "passive response accuracy: {}\n"
-                        "active decision accuracy: {}\n"
-                        "active response accuracy: {}\n"
-                        "active sequence accuracy: {}\n"
-                        "minor response accuracy: {}\n".format(accs[0], accs[1], accs[2], accs[3], accs[4], accs[5], accs[6]))
+            if val > 0:
+                logger.info("farmer wins")
+            else:
+                logger.info("lord wins")
 
     for _ in tqdm(range(nr_eval), **get_tqdm_kwargs()):
         fetch()
@@ -200,8 +250,8 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
         k.join()
     while q.qsize():
         fetch()
-    accs = [stat.average if stat.count > 0 else 0 for stat in stats]
-    return accs
+    farmer_win_rate = stat.average
+    return farmer_win_rate
 
 
 class Evaluator(Callback):
@@ -212,29 +262,26 @@ class Evaluator(Callback):
         self.get_player_fn = get_player_fn
 
     def _setup_graph(self):
-        nr_proc = min(multiprocessing.cpu_count() // 2, 20)
+        nr_proc = min(multiprocessing.cpu_count(), 20)
         self.pred_funcs = [self.trainer.get_predictor(
             self.input_names, self.output_names)] * nr_proc
 
     def _before_train(self):
         t = time.time()
-        accs = eval_with_funcs(
+        farmer_win_rate = eval_with_funcs(
             self.pred_funcs, self.eval_episode, self.get_player_fn, verbose=False)
         t = time.time() - t
+        logger.info("farmer win rate: {}".format(farmer_win_rate))
+        logger.info("lord win rate: {}".format(1 - farmer_win_rate))
         # if t > 10 * 60:  # eval takes too long
         #     self.eval_episode = int(self.eval_episode * 0.94)
-        # self.trainer.monitors.put_scalar('passive_decision_accuracy', accs[0])
-        # self.trainer.monitors.put_scalar('passive_bomb_accuracy', accs[1])
-        # self.trainer.monitors.put_scalar('passive_response_accuracy', accs[2])
-        # self.trainer.monitors.put_scalar('active_decision_accuracy', accs[3])
-        # self.trainer.monitors.put_scalar('active_response_accuracy', accs[4])
-        # self.trainer.monitors.put_scalar('active_sequence_accuracy', accs[5])
-        # self.trainer.monitors.put_scalar('minor_response_accuracy', accs[6])
-        logger.info("passive decision accuracy: {}\n"
-                    "passive bomb accuracy: {}\n"
-                    "passive response accuracy: {}\n"
-                    "active decision accuracy: {}\n"
-                    "active response accuracy: {}\n"
-                    "active sequence accuracy: {}\n"
-                    "minor response accuracy: {}\n".format(accs[0], accs[1], accs[2], accs[3], accs[4], accs[5],
-                                                           accs[6]))
+
+    def _trigger_epoch(self):
+        t = time.time()
+        farmer_win_rate = eval_with_funcs(
+            self.pred_funcs, self.eval_episode, self.get_player_fn, verbose=False)
+        t = time.time() - t
+        if t > 10 * 60:  # eval takes too long
+            self.eval_episode = int(self.eval_episode * 0.94)
+        self.trainer.monitors.put_scalar('farmer win rate', farmer_win_rate)
+        self.trainer.monitors.put_scalar('lord win rate', 1 - farmer_win_rate)
