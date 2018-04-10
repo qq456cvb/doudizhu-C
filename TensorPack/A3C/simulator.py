@@ -136,9 +136,23 @@ class SubState:
                     # modify the state for minor cards
                     discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
                     self.minor_length = get_seq_length(self.category, self.last_cards_value)
+                    if self.minor_length is None:
+                        self.minor_length = 2 if self.category == Category.FOUR_TWO.value else 1
                     return
                 else:
                     self.finished = True
+                    return
+            elif self.mode == MODE.MINOR_RESPONSE:
+                minor_value_cards = [action + 3] * (1 if self.minor_type == 0 else 2)
+                # modify the state for minor cards
+                discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(minor_value_cards))
+                self.intention = np.append(self.intention, minor_value_cards)
+                assert self.minor_length > 0
+                self.minor_length -= 1
+                if self.minor_length == 0:
+                    self.finished = True
+                    return
+                else:
                     return
         elif self.act == ACT_TYPE.ACTIVE:
             if self.mode == MODE.ACTIVE_DECISION:
@@ -171,6 +185,7 @@ class SubState:
                     self.finished = True
                     return
             elif self.mode == MODE.ACTIVE_SEQ:
+                self.minor_length = action + 1
                 self.intention = give_cards_without_minor(self.active_response, np.array([]), self.category, action + 1)
                 if self.category == Category.THREE_ONE_LINE.value or \
                         self.category == Category.THREE_TWO_LINE.value:
@@ -182,17 +197,18 @@ class SubState:
                 else:
                     self.finished = True
                 return
-        elif self.mode == MODE.MINOR_RESPONSE:
-            minor_value_cards = [action + 3] * (1 if self.minor_type == 0 else 2)
-            # modify the state for minor cards
-            discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(minor_value_cards))
-            self.intention = np.append(self.intention, minor_value_cards)
-            self.minor_length -= 1
-            if self.minor_length == 0:
-                self.finished = True
-                return
-            else:
-                return
+            elif self.mode == MODE.MINOR_RESPONSE:
+                minor_value_cards = [action + 3] * (1 if self.minor_type == 0 else 2)
+                # modify the state for minor cards
+                discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(minor_value_cards))
+                self.intention = np.append(self.intention, minor_value_cards)
+                assert self.minor_length > 0
+                self.minor_length -= 1
+                if self.minor_length == 0:
+                    self.finished = True
+                    return
+                else:
+                    return
 
 
 class TransitionExperience(object):
@@ -261,20 +277,25 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
             st = SubState(ACT_TYPE.PASSIVE if last_cards_value.size > 0 else ACT_TYPE.ACTIVE, prob_state, all_state,
                           to_char(curr_handcards_value), last_cards_value, last_category)
             first_st = True
+            cnt = 0
             while not st.finished:
                 c2s_socket.send(dumps(
-                    (self.identity, role_id, st.prob_state, st.all_state, Card.val2onehot60(last_cards_value), first_st, st.get_mask(), st.minor_type, st.mode, r, is_over)),
+                    (self.identity, role_id, st.prob_state.copy(), st.all_state, Card.val2onehot60(last_cards_value), first_st, st.get_mask(), st.minor_type, st.mode, r, is_over)),
                     copy=False)
                 first_st = False
                 action = loads(s2c_socket.recv(copy=False).bytes)
+                # logger.info('received action {}'.format(action))
                 # print(action)
                 st.step(action)
+                cnt += 1
+                if cnt > 10:
+                    raise Exception('this is a BUG')
 
             # print(st.intention)
             r, is_over, _ = player.step_manual(st.intention)
             if is_over:
-                print('%s over with reward %d' % (self.identity, r))
-                sys.stdout.flush()
+                # logger.info('{} over with reward {}'.format(self.identity, r))
+                # sys.stdout.flush()
                 player.reset()
                 player.prepare()
 

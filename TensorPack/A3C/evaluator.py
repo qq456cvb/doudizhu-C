@@ -39,7 +39,7 @@ def play_one_episode(env, func):
         for main_card in main_cards_char:
             handcards.remove(main_card)
         cards_onehot = Card.char2onehot60(main_cards_char)
-        discard_onehot_from_s_60(s[0], cards_onehot)
+        discard_onehot_from_s_60(s, cards_onehot)
 
         outputs = []
         minor_type = 1 if is_pair else 0
@@ -101,6 +101,8 @@ def play_one_episode(env, func):
         is_active = True if last_cards_value.size == 0 else False
 
         s = env.get_state_prob()
+        # print(s.shape)
+
         role_id = env.get_role_ID()
 
         intention = None
@@ -110,7 +112,7 @@ def play_one_episode(env, func):
                 decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], last_category_idx)
 
                 _, _, _, active_decision_prob, active_response_prob, active_seq_prob, _ = func(
-                    [np.array([role_id]), s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])]
+                    [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 60]), np.zeros([s.shape[0]])]
                 )
 
                 # make decision depending on output
@@ -191,7 +193,7 @@ def play_one_episode(env, func):
                                                                                      curr_cards_char.copy(), seq_length,
                                                                                      dup_mask, to_char(intention)))])
             r, _, _ = env.step_manual(intention)
-            assert intention
+            assert (intention is not None)
         else:
             _, r, _ = env.step_auto()
     return int(r > 0)
@@ -262,7 +264,7 @@ class Evaluator(Callback):
         self.get_player_fn = get_player_fn
 
     def _setup_graph(self):
-        nr_proc = min(multiprocessing.cpu_count(), 20)
+        nr_proc = min(multiprocessing.cpu_count() // 2, 20)
         self.pred_funcs = [self.trainer.get_predictor(
             self.input_names, self.output_names)] * nr_proc
 

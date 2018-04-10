@@ -54,8 +54,8 @@ SIMULATOR_PROC = 40
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
 STEPS_PER_EPOCH = 100
 BATCH_SIZE = 1024
-PREDICT_BATCH_SIZE = 64
-PREDICTOR_THREAD_PER_GPU = 1
+PREDICT_BATCH_SIZE = 256
+PREDICTOR_THREAD_PER_GPU = 5
 PREDICTOR_THREAD = None
 
 
@@ -73,9 +73,9 @@ class Model(ModelDesc):
             with tf.variable_scope('policy_network_%d' % idx):
                 id_idx = tf.where(tf.equal(role_id, idx))
                 indices.append(id_idx)
-                state_id = tf.gather(state, id_idx)
-                last_cards_id = tf.gather(last_cards, id_idx)
-                minor_type_id = tf.gather(minor_type, id_idx)
+                state_id = tf.gather_nd(state, id_idx)
+                last_cards_id = tf.gather_nd(last_cards, id_idx)
+                minor_type_id = tf.gather_nd(minor_type, id_idx)
                 with slim.arg_scope([slim.fully_connected, slim.conv2d],
                                     weights_regularizer=slim.l2_regularizer(POLICY_WEIGHT_DECAY)):
                     with tf.variable_scope('branch_main'):
@@ -178,7 +178,7 @@ class Model(ModelDesc):
                                                                                                   sequence_length=tf.ones(
                                                                                                       [
                                                                                                           tf.shape(
-                                                                                                              state)[
+                                                                                                              state_id)[
                                                                                                               0]]))
                             fc_active_decision = slim.fully_connected(
                                 inputs=tf.squeeze(lstm_active_decision_output, axis=[1]), num_outputs=64,
@@ -197,7 +197,7 @@ class Model(ModelDesc):
                                                                                                   sequence_length=tf.ones(
                                                                                                       [
                                                                                                           tf.shape(
-                                                                                                              state)[
+                                                                                                              state_id)[
                                                                                                               0]]))
                             fc_active_response = slim.fully_connected(
                                 inputs=tf.squeeze(lstm_active_response_output, axis=[1]), num_outputs=64,
@@ -212,7 +212,7 @@ class Model(ModelDesc):
                                                                           tf.expand_dims(fc_active_seq, 1),
                                                                           initial_state=hidden_active_output,
                                                                           sequence_length=tf.ones(
-                                                                              [tf.shape(state)[0]]))
+                                                                              [tf.shape(state_id)[0]]))
                             fc_active_seq = slim.fully_connected(inputs=tf.squeeze(lstm_active_seq_output, axis=[1]),
                                                                  num_outputs=64, activation_fn=tf.nn.relu)
                             active_seq_logits = slim.fully_connected(inputs=fc_active_seq, num_outputs=12,
@@ -235,7 +235,8 @@ class Model(ModelDesc):
         # 7: B * ?
         outputs = []
         for i in range(7):
-            scatter_shape = tf.cast(tf.stack([batch_size, tf.shape([gathered_outputs[0][i]])[1]]), dtype=tf.int64)
+            scatter_shape = tf.cast(tf.stack([batch_size, gathered_outputs[0][i].shape[1]]), dtype=tf.int64)
+            # scatter_shape = tf.Print(scatter_shape, [tf.shape(scatter_shape)])
             outputs.append(tf.add_n([tf.scatter_nd(indices[k], gathered_outputs[k][i], scatter_shape) for k in range(3)]))
 
         return outputs
@@ -441,6 +442,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
         Launch forward prediction for the new state given by some client.
         """
         def cb(outputs):
+            # logger.info('async predictor callback')
             try:
                 output = outputs.result()
             except CancelledError:

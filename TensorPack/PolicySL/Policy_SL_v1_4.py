@@ -58,7 +58,9 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
                     conv = upsample_block(conv, param[0], param[1], param[2])
                 else:
                     raise Exception('unsupported layer type')
-            conv_out.append(slim.flatten(conv))
+            assert conv.shape[1] * conv.shape[2] * conv.shape[3] == 1024
+            # print(conv.shape)
+            conv_out.append(tf.reshape(conv, [-1, 1024]))
 
     flattened = tf.concat(conv_out, 1)
     return flattened

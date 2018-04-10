@@ -50,11 +50,12 @@ class ModelLoader(SessionInit):
 
 
 if __name__ == '__main__':
-    a = tf.reshape(tf.range(10), [5, 2])
-    b = tf.equal(tf.constant([1, 2, 0, 0, 2]), 2)
+    a = tf.reshape(tf.range(10), [-1, 2])
+    b = tf.equal(tf.constant([1, 2, 0, 0, 2]), 3)
     c = tf.where(b)
-    d = tf.constant([[2, 3], [8, 9]])
+    d = tf.zeros([0, 2])
     e = tf.scatter_nd(c, d, shape=tf.cast(tf.stack([tf.shape(a)[0], tf.shape(a)[1]]), dtype=tf.int64))
+    f = tf.shape(tf.ones([0]))
     with tf.Session() as sess:
-        print(sess.run(e))
+        print(sess.run(c))
 
