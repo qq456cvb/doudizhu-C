@@ -22,7 +22,7 @@ import tensorflow.contrib.slim as slim
 from tensorpack import *
 from tensorpack.utils.concurrency import ensure_proc_terminate, start_proc_mask_signal
 from tensorpack.utils.serialize import dumps
-from tensorpack.tfutils.gradproc import MapGradient, SummaryGradient
+from tensorpack.tfutils.gradproc import MapGradient, SummaryGradient, AvgNormGradient
 from tensorpack.utils.gpu import get_nr_gpu
 from tensorpack.tfutils.summary import add_moving_summary
 from tensorpack.tfutils import get_current_tower_context, optimizer
@@ -49,13 +49,13 @@ POLICY_LAST_INPUT_DIM = 60
 POLICY_WEIGHT_DECAY = 5 * 1e-4
 VALUE_INPUT_DIM = 60 * 3
 LORD_ID = 2
-SIMULATOR_PROC = 40
+SIMULATOR_PROC = 50
 
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
 STEPS_PER_EPOCH = 100
 BATCH_SIZE = 1024
 PREDICT_BATCH_SIZE = 256
-PREDICTOR_THREAD_PER_GPU = 5
+PREDICTOR_THREAD_PER_GPU = 4
 PREDICTOR_THREAD = None
 
 
@@ -228,9 +228,12 @@ class Model(ModelDesc):
                         fc_minor = slim.fully_connected(inputs=fc_minor, num_outputs=64, activation_fn=tf.nn.relu)
                         minor_response_logits = slim.fully_connected(inputs=fc_minor, num_outputs=15,
                                                                      activation_fn=None)
-
-            gathered_outputs.append([passive_decision_logits, passive_bomb_logits, passive_response_logits,
-                   active_decision_logits, active_response_logits, active_seq_logits, minor_response_logits])
+            gathered_output = [passive_decision_logits, passive_bomb_logits, passive_response_logits,
+                   active_decision_logits, active_response_logits, active_seq_logits, minor_response_logits]
+            if idx == 1 or idx == 3:
+                for k in range(len(gathered_output)):
+                    gathered_output[k] = tf.stop_gradient(gathered_output[k])
+            gathered_outputs.append(gathered_output)
 
         # 7: B * ?
         outputs = []
@@ -319,6 +322,7 @@ class Model(ModelDesc):
         # this is the value for each agent, not the global value
         value = tf.identity(value, name='pred_value')
         is_training = get_current_tower_context().is_training
+
         if not is_training:
             return
 
@@ -377,7 +381,7 @@ class Model(ModelDesc):
         entropy_loss_b = pa * logpa
         value_loss_b = tf.square(value - discounted_return)
 
-        entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.01),
+        entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.001),
                                        trainable=False)
         # print(policy_loss_b.shape)
         # print(entropy_loss_b.shape)
@@ -388,6 +392,7 @@ class Model(ModelDesc):
             mask = tf.equal(role_id, i)
             # print(mask.shape)
             pred_reward = tf.reduce_mean(tf.boolean_mask(value, mask), name='predict_reward_%d' % i)
+            true_reward = tf.reduce_mean(tf.boolean_mask(discounted_return, mask), name='true_reward_%d' % i)
             advantage = tf.sqrt(tf.reduce_mean(tf.square(tf.boolean_mask(advantage_b, mask))), name='rms_advantage_%d' % i)
 
             policy_loss = tf.reduce_sum(tf.boolean_mask(policy_loss_b, mask, name='policy_loss_%d' % i))
@@ -398,15 +403,14 @@ class Model(ModelDesc):
             costs.append(cost)
 
             importance = tf.reduce_mean(tf.boolean_mask(importance_b, mask), name='importance_%d' % i)
-            add_moving_summary(policy_loss, entropy_loss, value_loss, pred_reward, advantage, cost, importance, decay=0.1)
+            add_moving_summary(policy_loss, entropy_loss, value_loss, pred_reward, true_reward, advantage, cost, importance, decay=0)
 
         return tf.add_n(costs)
 
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-4, trainable=False)
         opt = tf.train.AdamOptimizer(lr)
-        gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3))]
-                     # SummaryGradient()]
+        gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3)), AvgNormGradient()]
         opt = optimizer.apply_grad_processors(opt, gradprocs)
         return opt
 

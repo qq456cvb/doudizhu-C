@@ -95,6 +95,7 @@ public:
         uctALLCardsList.reset(new ALLCardsList());
         memset(arrHandCardData, 0, sizeof(HandCardData) * 3);
         value_lastCards.clear();
+        last_category_idx = -1;
     }
 
     static void reorder_cards(vector<int>& cards, CardGroupType category) {
@@ -887,6 +888,10 @@ public:
                 cnt[arr[i]]++;
             }
             arrHandCardData[indexID].uctPutCardType = ins_SurCardsType(cnt);
+            if (arrHandCardData[indexID].uctPutCardType.cgType == cgERROR) {
+                for (int i = 0; i < 18; i++) cout << cnt[i] << " ";
+                cout << endl;
+            }
         }
         arrHandCardData[indexID].PutCards();
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
@@ -939,6 +944,9 @@ public:
                 break;
             case cgFOUR_TAKE_TWO:
                 category_idx = 14;
+                break;
+            case cgERROR:
+                category_idx = -1;
                 break;
         }
 

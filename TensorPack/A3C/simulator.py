@@ -276,6 +276,8 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
             # This tuple is not the same as the one put into the memory buffer
             st = SubState(ACT_TYPE.PASSIVE if last_cards_value.size > 0 else ACT_TYPE.ACTIVE, prob_state, all_state,
                           to_char(curr_handcards_value), last_cards_value, last_category)
+            if last_cards_value.size > 0:
+                assert last_category > 0
             first_st = True
             cnt = 0
             while not st.finished:
@@ -292,8 +294,9 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
                     raise Exception('this is a BUG')
 
             # print(st.intention)
-            r, is_over, _ = player.step_manual(st.intention)
+            r, is_over, category_idx = player.step_manual(st.intention)
             if is_over:
+                # print('{} over with reward {}'.format(self.identity, r))
                 # logger.info('{} over with reward {}'.format(self.identity, r))
                 # sys.stdout.flush()
                 player.reset()
@@ -398,14 +401,11 @@ if __name__ == '__main__':
                         j -= 1
                 self._parse_memory(0, client)
             # feed state and return action
-            sent = 0
-            for a in range(len(mask)):
-                if mask[a] > 0:
-                    sent = a
-                    break
-            self.send_queue.put([client.ident, dumps(sent)])
+            rand_a = np.random.rand(mask.shape[0])
+            rand_a = (rand_a + 1e-6) * mask
+            self.send_queue.put([client.ident, dumps(np.argmax(rand_a))])
             client.memory[role_id - 1].append(TransitionExperience(
-                prob_state, all_state, sent, reward=0, first_st=first_st, mode=mode))
+                prob_state, all_state, np.argmax(rand_a), reward=0, first_st=first_st, mode=mode))
 
         def _parse_memory(self, init_r, client):
             # for each agent's memory
@@ -444,7 +444,7 @@ if __name__ == '__main__':
 
     name = 'ipc://c2s'
     name2 = 'ipc://s2c'
-    procs = [NaiveSimulator(k, name, name2) for k in range(10)]
+    procs = [NaiveSimulator(k, name, name2) for k in range(20)]
     [k.start() for k in procs]
 
     th = NaiveActioner(name, name2)

@@ -498,7 +498,7 @@ CardGroupData ins_SurCardsType(int arr[])
                 
             }
         }
-        for (j = 3; j < 16; j++)
+        for (j = 3; j < 18; j++)
         {
             if (arr[j] == 1)
             {
