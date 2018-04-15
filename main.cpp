@@ -759,54 +759,7 @@ public:
 
         // get group category
         auto category = arrHandCardData[indexID].uctPutCardType.cgType;
-        int category_idx = 0;
-        switch(category) {
-            case cgZERO:
-                category_idx = 0;
-                break;
-            case cgSINGLE:
-                category_idx = 1;
-                break;
-            case cgDOUBLE:
-                category_idx = 2;
-                break;
-            case cgTHREE:
-                category_idx = 3;
-                break;
-            case cgBOMB_CARD:
-                category_idx = 4;
-                break;
-            case cgTHREE_TAKE_ONE:
-                category_idx = 5;
-                break;
-            case cgTHREE_TAKE_TWO:
-                category_idx = 6;
-                break;
-            case cgSINGLE_LINE:
-                category_idx = 7;
-                break;
-            case cgDOUBLE_LINE:
-                category_idx = 8;
-                break;
-            case cgTHREE_LINE:
-                category_idx = 9;
-                break;
-            case cgTHREE_TAKE_ONE_LINE:
-                category_idx = 10;
-                break;
-            case cgTHREE_TAKE_TWO_LINE:
-                category_idx = 11;
-                break;
-            case cgKING_CARD:
-                category_idx = 12;
-                break;
-            case cgFOUR_TAKE_ONE:
-                category_idx = 13;
-                break;
-            case cgFOUR_TAKE_TWO:
-                category_idx = 14;
-                break;
-        }
+        int category_idx = static_cast<int>(category);
 
         const auto &intention = arrHandCardData[indexID].value_nPutCardList;
         // check for bomb
@@ -874,81 +827,26 @@ public:
         return std::make_tuple(0, false, category_idx);
     }
 
-    auto step_manual(py::array_t<int> cards = py::array_t<int>()) {
+    auto step_manual(py::array_t<int> cards = py::array_t<int>(), int card_type = -1) {
         arrHandCardData[indexID].ClearPutCardList();
         if (cards.size() == 0)
         {
             arrHandCardData[indexID].uctPutCardType = get_GroupData(cgZERO, 0, 0);
         } else {
             auto arr = cards.unchecked<1>();
-            int cnt[18] = { 0 };
+//            int cnt[18] = { 0 };
             for (int i = 0; i < arr.shape(0); ++i)
             {
                 arrHandCardData[indexID].value_nPutCardList.push_back(arr[i]);
-                cnt[arr[i]]++;
+//                cnt[arr[i]]++;
             }
-            arrHandCardData[indexID].uctPutCardType = ins_SurCardsType(cnt);
-            if (arrHandCardData[indexID].uctPutCardType.cgType == cgERROR) {
-                for (int i = 0; i < 18; i++) cout << cnt[i] << " ";
-                cout << endl;
-            }
+            arrHandCardData[indexID].uctPutCardType.cgType = static_cast<CardGroupType>(card_type);
         }
         arrHandCardData[indexID].PutCards();
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
 
         // get group category
-        auto category = arrHandCardData[indexID].uctPutCardType.cgType;
-        int category_idx = 0;
-        switch(category) {
-            case cgZERO:
-                category_idx = 0;
-                break;
-            case cgSINGLE:
-                category_idx = 1;
-                break;
-            case cgDOUBLE:
-                category_idx = 2;
-                break;
-            case cgTHREE:
-                category_idx = 3;
-                break;
-            case cgBOMB_CARD:
-                category_idx = 4;
-                break;
-            case cgTHREE_TAKE_ONE:
-                category_idx = 5;
-                break;
-            case cgTHREE_TAKE_TWO:
-                category_idx = 6;
-                break;
-            case cgSINGLE_LINE:
-                category_idx = 7;
-                break;
-            case cgDOUBLE_LINE:
-                category_idx = 8;
-                break;
-            case cgTHREE_LINE:
-                category_idx = 9;
-                break;
-            case cgTHREE_TAKE_ONE_LINE:
-                category_idx = 10;
-                break;
-            case cgTHREE_TAKE_TWO_LINE:
-                category_idx = 11;
-                break;
-            case cgKING_CARD:
-                category_idx = 12;
-                break;
-            case cgFOUR_TAKE_ONE:
-                category_idx = 13;
-                break;
-            case cgFOUR_TAKE_TWO:
-                category_idx = 14;
-                break;
-            case cgERROR:
-                category_idx = -1;
-                break;
-        }
+        int category_idx = card_type;
 
         const auto &intention = arrHandCardData[indexID].value_nPutCardList;
         // check for bomb
@@ -1089,54 +987,8 @@ public:
         // get group category
         auto category = arrHandCardData[indexID].uctPutCardType.cgType;
         reorder_cards(intention, category);
-        int category_idx = 0;
-        switch(category) {
-            case cgZERO:
-                category_idx = 0;
-                break;
-            case cgSINGLE:
-                category_idx = 1;
-                break;
-            case cgDOUBLE:
-                category_idx = 2;
-                break;
-            case cgTHREE:
-                category_idx = 3;
-                break;
-            case cgBOMB_CARD:
-                category_idx = 4;
-                break;
-            case cgTHREE_TAKE_ONE:
-                category_idx = 5;
-                break;
-            case cgTHREE_TAKE_TWO:
-                category_idx = 6;
-                break;
-            case cgSINGLE_LINE:
-                category_idx = 7;
-                break;
-            case cgDOUBLE_LINE:
-                category_idx = 8;
-                break;
-            case cgTHREE_LINE:
-                category_idx = 9;
-                break;
-            case cgTHREE_TAKE_ONE_LINE:
-                category_idx = 10;
-                break;
-            case cgTHREE_TAKE_TWO_LINE:
-                category_idx = 11;
-                break;
-            case cgKING_CARD:
-                category_idx = 12;
-                break;
-            case cgFOUR_TAKE_ONE:
-                category_idx = 13;
-                break;
-            case cgFOUR_TAKE_TWO:
-                category_idx = 14;
-                break;
-        }
+        int category_idx = static_cast<int>(category);
+
         // check for bomb
         bool bomb = false;
         if (intention.size() == 4) {
@@ -1192,7 +1044,7 @@ PYBIND11_MODULE(env, m) {
         .def("get_state_all_cards", &Env::getStateAllCards)
         .def("get_state2", &Env::getState2)
         .def("step", &Env::step, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
-        .def("step_manual", &Env::step_manual, py::arg("cards") = py::array_t<int>())
+        .def("step_manual", &Env::step_manual, py::arg("cards") = py::array_t<int>(), py::arg("card_type") = -1)
         .def("step_trial", &Env::step_trial, py::arg("lord") = false, py::arg("cards") = py::array_t<int>())
         .def("step_auto", &Env::step_auto)
         .def_static("step_auto_static", &Env::step_auto_static)

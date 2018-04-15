@@ -29,18 +29,19 @@ enum CardGroupType
     cgZERO = 0,                                     
     cgSINGLE = 1,                                   
     cgDOUBLE = 2,                                   
-    cgTHREE = 3,                                    
-    cgSINGLE_LINE = 4,                              
-    cgDOUBLE_LINE = 5,                              
-    cgTHREE_LINE = 6,                               
-    cgTHREE_TAKE_ONE = 7,                           
-    cgTHREE_TAKE_TWO = 8,                           
-    cgTHREE_TAKE_ONE_LINE = 9,                      
-    cgTHREE_TAKE_TWO_LINE = 10,                     
-    cgFOUR_TAKE_ONE = 11,                           
-    cgFOUR_TAKE_TWO = 12,                           
-    cgBOMB_CARD = 13,                               
-    cgKING_CARD = 14                                
+    cgTHREE = 3,
+    cgBOMB_CARD = 4,
+    cgTHREE_TAKE_ONE = 5,
+    cgTHREE_TAKE_TWO = 6,
+    cgSINGLE_LINE = 7,
+    cgDOUBLE_LINE = 8,
+    cgTHREE_LINE = 9,
+    cgTHREE_TAKE_ONE_LINE = 10,
+    cgTHREE_TAKE_TWO_LINE = 11,
+    cgKING_CARD = 12,
+    cgFOUR_TAKE_ONE = 13,
+    cgFOUR_TAKE_TWO = 14,
+
 };
 
 
