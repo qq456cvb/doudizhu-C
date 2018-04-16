@@ -432,7 +432,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
         predictors = [self.trainer.get_predictor(
             ['role_id', 'policy_state_in', 'value_state_in', 'last_cards_in', 'minor_type_in', 'mode_in'],
             ['passive_decision_prob', 'passive_bomb_prob', 'passive_response_prob', 'active_decision_prob',
-             'active_response_prob', 'active_seq_prob', 'minor_response_prob', 'mode_out', 'pred_value'],
+             'active_response_prob', 'active_seq_prob', 'minor_response_prob', 'mode_out'],
             self._gpus[k % nr_gpu])
             for k in range(PREDICTOR_THREAD)]
         self.async_predictor = MultiThreadAsyncPredictor(
@@ -452,14 +452,13 @@ class MySimulatorMaster(SimulatorMaster, Callback):
             except CancelledError:
                 logger.info("Client {} cancelled.".format(client.ident))
                 return
-            value = output[-1]
-            mode = output[-2]
-            distrib = (output[:-2][mode] + 1e-6) * mask
+            mode = output[-1]
+            distrib = (output[:-1][mode] + 1e-6) * mask
             assert np.all(np.isfinite(distrib)), distrib
             action = np.random.choice(len(distrib), p=distrib / distrib.sum())
             client.memory[role_id - 1].append(TransitionExperience(
                 prob_state, all_state, action, reward=0, minor_type=minor_type, first_st=first_st,
-                last_cards_onehot=last_cards_onehot, mode=mode, value=value, prob=distrib[action]))
+                last_cards_onehot=last_cards_onehot, mode=mode, prob=distrib[action]))
             self.send_queue.put([client.ident, dumps(action)])
         self.async_predictor.put_task([role_id, prob_state, all_state, last_cards_onehot, minor_type, mode], cb)
 
