@@ -65,6 +65,7 @@ class SubState:
         self.curr_handcards_char = curr_handcards_char
         self.active_decision = 0
         self.active_response = 0
+        self.card_type = -1
 
     def get_mask(self):
         if self.act == ACT_TYPE.PASSIVE:
@@ -109,6 +110,9 @@ class SubState:
                     self.finished = True
                     if action == 2:
                         self.intention = np.array([16, 17])
+                        self.card_type = Category.BIGBANG.value
+                    else:
+                        self.card_type = Category.EMPTY.value
                     return
                 elif action == 1:
                     self.mode = MODE.PASSIVE_BOMB
@@ -122,6 +126,7 @@ class SubState:
                 # convert to value input
                 self.intention = np.array([action + 3] * 4)
                 self.finished = True
+                self.card_type = Category.QUADRIC.value
                 return
             elif self.mode == MODE.PASSIVE_RESPONSE:
                 self.intention = give_cards_without_minor(action, self.last_cards_value, self.category, None)
@@ -138,9 +143,11 @@ class SubState:
                     self.minor_length = get_seq_length(self.category, self.last_cards_value)
                     if self.minor_length is None:
                         self.minor_length = 2 if self.category == Category.FOUR_TWO.value else 1
+                    self.card_type = self.category
                     return
                 else:
                     self.finished = True
+                    self.card_type = self.category
                     return
             elif self.mode == MODE.MINOR_RESPONSE:
                 minor_value_cards = [action + 3] * (1 if self.minor_type == 0 else 2)
@@ -159,6 +166,7 @@ class SubState:
                 self.category = action + 1
                 self.active_decision = action
                 self.mode = MODE.ACTIVE_RESPONSE
+                self.card_type = self.category
                 return
             elif self.mode == MODE.ACTIVE_RESPONSE:
                 if self.category == Category.SINGLE_LINE.value or \
@@ -274,27 +282,29 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
             # after taking the last action, get to this state and get this reward/isOver.
             # If isOver, get to the next-episode state immediately.
             # This tuple is not the same as the one put into the memory buffer
-            st = SubState(ACT_TYPE.PASSIVE if last_cards_value.size > 0 else ACT_TYPE.ACTIVE, prob_state, all_state,
-                          to_char(curr_handcards_value), last_cards_value, last_category)
-            if last_cards_value.size > 0:
-                assert last_category > 0
-            first_st = True
-            cnt = 0
-            while not st.finished:
-                c2s_socket.send(dumps(
-                    (self.identity, role_id, st.prob_state.copy(), st.all_state, Card.val2onehot60(last_cards_value), first_st, st.get_mask(), st.minor_type, st.mode, r, is_over)),
-                    copy=False)
-                first_st = False
-                action = loads(s2c_socket.recv(copy=False).bytes)
-                # logger.info('received action {}'.format(action))
-                # print(action)
-                st.step(action)
-                cnt += 1
-                if cnt > 10:
-                    raise Exception('this is a BUG')
 
-            # print(st.intention)
-            r, is_over, category_idx = player.step_manual(st.intention)
+            if role_id == 2:
+                st = SubState(ACT_TYPE.PASSIVE if last_cards_value.size > 0 else ACT_TYPE.ACTIVE, prob_state, all_state,
+                              to_char(curr_handcards_value), last_cards_value, last_category)
+                if last_cards_value.size > 0:
+                    assert last_category > 0
+                first_st = True
+                while not st.finished:
+                    c2s_socket.send(dumps(
+                        (self.identity, role_id, st.prob_state.copy(), st.all_state, Card.val2onehot60(last_cards_value), first_st, st.get_mask(), st.minor_type, st.mode, r, is_over)),
+                        copy=False)
+                    first_st = False
+                    action = loads(s2c_socket.recv(copy=False).bytes)
+                    # logger.info('received action {}'.format(action))
+                    # print(action)
+                    st.step(action)
+
+                # print(st.intention)
+                assert st.card_type != -1
+                r, is_over, category_idx = player.step_manual(st.intention)
+            else:
+                _, r, _ = player.step_auto()
+                is_over = (r != 0)
             if is_over:
                 # print('{} over with reward {}'.format(self.identity, r))
                 # logger.info('{} over with reward {}'.format(self.identity, r))

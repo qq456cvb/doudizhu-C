@@ -149,21 +149,20 @@ void SendCards(GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList, 
     return;
 }
 
-void SendCards_manual(const py::array_t<int>& pycards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList)
+void SendCards_manual(const py::array_t<int>& pycards, GameSituation & clsGameSituation, ALLCardsList &uctALLCardsList, std::mt19937& g)
 {
     auto init_cards = pycards.unchecked<1>();
     vector<int> cards;
     int i;
     for (int i = 0; i < init_cards.shape(0); ++i) {
         cards.push_back(init_cards[i]);
-        // std::cout << init_cards[i] << " ";
     }
-    // std::cout << std::endl;
+    std::shuffle(cards.begin(), cards.end(), g);
 
     int j, k;
     j = 0;
     for (i = 0; i < 3; i++) {
-        for (k = 0; k < 17; k++, j++) {
+        for (k = 0; k < cards.size() / 3 - 1; k++, j++) {
             uctALLCardsList.arrCardsList[i].push_back(cards[j]);
             // std::cout << cards[j] << " ";
         }

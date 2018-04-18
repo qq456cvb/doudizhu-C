@@ -46,7 +46,7 @@ else:
 GAMMA = 0.99
 POLICY_INPUT_DIM = 60 * 3
 POLICY_LAST_INPUT_DIM = 60
-POLICY_WEIGHT_DECAY = 5 * 1e-4
+POLICY_WEIGHT_DECAY = 1e-3
 VALUE_INPUT_DIM = 60 * 3
 LORD_ID = 2
 SIMULATOR_PROC = 50
@@ -383,6 +383,74 @@ class Model(ModelDesc):
 
         entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.001),
                                        trainable=False)
+
+        # regularization loss
+        ctx = get_current_tower_context()
+        if ctx.has_own_variables:  # be careful of the first tower (name='')
+            l2_loss = ctx.get_collection_in_tower(tf.GraphKeys.REGULARIZATION_LOSSES)
+        else:
+            l2_loss = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+        if len(l2_loss) > 0:
+            logger.info("regularize_cost_from_collection() found {} regularizers "
+                        "in REGULARIZATION_LOSSES collection.".format(len(l2_loss)))
+
+        # 3 * 7
+        l2_losses = []
+        for role in range(1, 4):
+            scope = 'policy_network_%d' % role
+            l2_loss_role = [l for l in l2_loss if l.op.name.startswith(scope)]
+            l2_main_loss = [l for l in l2_loss_role if 'branch_main' in l.name]
+            l2_passive_fc_loss = [l for l in l2_loss_role if
+                                  'branch_passive' in l.name and 'decision' not in l.name and 'bomb' not in l.name and 'response' not in l.name]
+            l2_active_fc_loss = [l for l in l2_loss_role if
+                                 'branch_active' in l.name and 'decision' not in l.name and 'response' not in l.name and 'seq_length' not in l.name]
+            l2_active_lstm_weight = [l for l in ctx.get_collection_in_tower(tf.GraphKeys.TRAINABLE_VARIABLES) if l.op.name == scope + '/branch_active/decision/rnn/basic_lstm_cell/kernel']
+            l2_active_lstm_loss = [POLICY_WEIGHT_DECAY * tf.nn.l2_loss(l2_active_lstm_weight[0])]
+            assert len(l2_active_lstm_loss) > 0
+
+            print('l2 loss', len(l2_loss_role))
+            print('l2 main loss', len(l2_main_loss))
+            print('l2 passive fc loss', len(l2_passive_fc_loss))
+            print('l2 active fc loss', len(l2_active_fc_loss))
+
+            name_scopes = ['branch_passive/decision', 'branch_passive/bomb', 'branch_passive/response',
+                           'branch_active/decision', 'branch_active/response', 'branch_active/seq_length',
+                           'branch_minor']
+
+            # 7
+            losses = []
+            for i, name in enumerate(name_scopes):
+                l2_branch_loss = l2_main_loss.copy()
+                if 'passive' in name:
+                    if 'bomb' in name:
+                        l2_branch_loss += [l for l in l2_loss_role if name in l.name]
+                    else:
+                        l2_branch_loss += l2_passive_fc_loss + [l for l in l2_loss_role if name in l.name]
+                else:
+                    if 'minor' in name:
+                        # do not include lstm regularization in minor loss
+                        l2_branch_loss += l2_active_fc_loss + [l for l in l2_loss_role if name in l.name]
+                    else:
+                        l2_branch_loss += l2_active_fc_loss + [l for l in l2_loss_role if name in l.name] + l2_active_lstm_loss
+
+                losses.append(tf.add_n(l2_branch_loss))
+                # print('losses shape', losses[i].shape)
+                print(name, 'l2 branch loss', len(l2_branch_loss))
+            losses = tf.stack(losses, axis=0)
+            if role == 1 or role == 3:
+                losses = tf.stop_gradient(losses)
+            l2_losses.append(losses)
+
+        # 3 * 7
+        l2_losses = tf.stack(l2_losses, axis=0)
+
+        # B * 7
+        l2_losses = tf.gather(l2_losses, role_id)
+
+        # B
+        l2_losses = tf.gather_nd(l2_losses, idx)
+
+        print(l2_losses.shape)
         # print(policy_loss_b.shape)
         # print(entropy_loss_b.shape)
         # print(value_loss_b.shape)
@@ -391,6 +459,7 @@ class Model(ModelDesc):
         for i in range(1, 4):
             mask = tf.equal(role_id, i)
             # print(mask.shape)
+            l2_loss = tf.reduce_mean(tf.boolean_mask(l2_losses, mask), name='l2_loss_%d' % i)
             pred_reward = tf.reduce_mean(tf.boolean_mask(value, mask), name='predict_reward_%d' % i)
             true_reward = tf.reduce_mean(tf.boolean_mask(discounted_return, mask), name='true_reward_%d' % i)
             advantage = tf.sqrt(tf.reduce_mean(tf.square(tf.boolean_mask(advantage_b, mask))), name='rms_advantage_%d' % i)
@@ -398,7 +467,7 @@ class Model(ModelDesc):
             policy_loss = tf.reduce_sum(tf.boolean_mask(policy_loss_b, mask, name='policy_loss_%d' % i))
             entropy_loss = tf.reduce_sum(tf.boolean_mask(entropy_loss_b, mask, name='entropy_loss_%d' % i))
             value_loss = tf.reduce_sum(tf.boolean_mask(value_loss_b, mask, name='value_loss_%d' % i))
-            cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, value_loss])
+            cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, value_loss, l2_loss])
             cost = tf.truediv(cost, tf.reduce_sum(tf.cast(mask, tf.float32)), name='cost_%d' % i)
             costs.append(cost)
 
@@ -472,6 +541,8 @@ class MySimulatorMaster(SimulatorMaster, Callback):
             # should clear client's memory and put to queue
             assert reward != 0
             for i in range(3):
+                if i != 1:
+                    continue
                 j = -1
                 while client.memory[i][j].reward == 0:
                     # notice that C++ returns the reward for farmer, transform to the reward in each agent's perspective
@@ -486,6 +557,8 @@ class MySimulatorMaster(SimulatorMaster, Callback):
     def _parse_memory(self, init_r, client):
         # for each agent's memory
         for role_id in range(1, 4):
+            if role_id != 2:
+                continue
             mem = client.memory[role_id - 1]
 
             mem.reverse()
@@ -514,7 +587,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
 
 
 def train():
-    dirname = os.path.join('train_log', 'a3c')
+    dirname = os.path.join('train_log', 'a3c_small')
     logger.set_logger_dir(dirname)
 
     # assign GPUs for training & inference
@@ -560,7 +633,7 @@ def train():
                 ['passive_decision_prob', 'passive_bomb_prob', 'passive_response_prob',
                  'active_decision_prob', 'active_response_prob', 'active_seq_prob', 'minor_response_prob'], get_player),
         ],
-        session_init=ModelLoader('policy_network_2', 'SL_policy_network', 'value_network', 'SL_value_network'),
+        # session_init=ModelLoader('policy_network_2', 'SL_policy_network', 'value_network', 'SL_value_network'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=1000,
     )

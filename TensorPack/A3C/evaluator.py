@@ -107,7 +107,6 @@ def play_one_episode(env, func):
 
         intention = None
         if role_id == 2:
-            category_idx = -1
             if is_active:
 
                 # first get mask
@@ -121,8 +120,6 @@ def play_one_episode(env, func):
                 active_decision = take_action_from_prob(active_decision_prob, decision_mask)
 
                 active_category_idx = active_decision + 1
-
-                category_idx = active_category_idx
 
                 # get response
                 active_response = take_action_from_prob(active_response_prob, response_mask[active_decision])
@@ -167,20 +164,16 @@ def play_one_episode(env, func):
 
                 if passive_decision == 0:
                     intention = np.array([])
-                    category_idx = Category.EMPTY.value
                 elif passive_decision == 1:
 
                     passive_bomb = take_action_from_prob(passive_bomb_prob, bomb_mask)
 
                     # converting 0-based index to 3-based value
                     intention = np.array([passive_bomb + 3] * 4)
-                    category_idx = Category.QUADRIC.value
 
                 elif passive_decision == 2:
                     intention = np.array([16, 17])
-                    category_idx = Category.BIGBANG.value
                 elif passive_decision == 3:
-                    category_idx = last_category_idx
                     passive_response = take_action_from_prob(passive_response_prob, response_mask)
 
                     intention = give_cards_without_minor(passive_response, last_cards_value, last_category_idx, None)
@@ -200,7 +193,8 @@ def play_one_episode(env, func):
                                                     to_value(inference_minor_cards60(role_id, last_category_idx, s.copy(),
                                                                                      curr_cards_char.copy(), seq_length,
                                                                                      dup_mask, to_char(intention)))])
-            r, _, _ = env.step_manual(intention, category_idx)
+            # since step auto needs full last card group info, we do not explicitly feed card type
+            r, _, _ = env.step_manual(intention)
             assert (intention is not None)
         else:
             _, r, _ = env.step_auto()

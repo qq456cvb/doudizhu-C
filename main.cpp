@@ -421,7 +421,7 @@ public:
     }
 
     int prepare_manual(py::array_t<int> pycards) {
-        SendCards_manual(pycards, *clsGameSituation, *uctALLCardsList);
+        SendCards_manual(pycards, *clsGameSituation, *uctALLCardsList, this->g);
         
         arrHandCardData[0].color_nHandCardList = (*uctALLCardsList).arrCardsList[0];
         arrHandCardData[1].color_nHandCardList = (*uctALLCardsList).arrCardsList[1];
@@ -834,19 +834,28 @@ public:
             arrHandCardData[indexID].uctPutCardType = get_GroupData(cgZERO, 0, 0);
         } else {
             auto arr = cards.unchecked<1>();
-//            int cnt[18] = { 0 };
+            int cnt[18] = { 0 };
             for (int i = 0; i < arr.shape(0); ++i)
             {
                 arrHandCardData[indexID].value_nPutCardList.push_back(arr[i]);
-//                cnt[arr[i]]++;
+                cnt[arr[i]]++;
             }
-            arrHandCardData[indexID].uctPutCardType.cgType = static_cast<CardGroupType>(card_type);
+//            auto cg = ins_SurCardsType(cnt);
+            if (card_type == -1) {
+                arrHandCardData[indexID].uctPutCardType = ins_SurCardsType(cnt);
+            } else {
+                arrHandCardData[indexID].uctPutCardType.cgType = static_cast<CardGroupType>(card_type);
+            }
+//            arrHandCardData[indexID].uctPutCardType.cgType = cg.cgType;
+//            if (static_cast<int>(arrHandCardData[indexID].uctPutCardType.cgType) != card_type) {
+//                cout << static_cast<int>(arrHandCardData[indexID].uctPutCardType.cgType) << ", " << card_type << endl;
+//            }
         }
         arrHandCardData[indexID].PutCards();
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
 
         // get group category
-        int category_idx = card_type;
+        int category_idx = arrHandCardData[indexID].uctPutCardType.cgType;
 
         const auto &intention = arrHandCardData[indexID].value_nPutCardList;
         // check for bomb
