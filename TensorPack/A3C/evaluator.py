@@ -181,16 +181,26 @@ class Evaluator(Callback):
         t = time.time() - t
         if t > 10 * 60:  # eval takes too long
             self.eval_episode = int(self.eval_episode * 0.94)
+<<<<<<< HEAD
         # self.lord_win_rate.load(1 - farmer_win_rate)
         self.trainer.monitors.put_scalar('farmer_win_rate', farmer_win_rate)
         self.trainer.monitors.put_scalar('lord_win_rate', 1 - farmer_win_rate)
+=======
+        self.trainer.monitors.put_scalar('farmer win rate', farmer_win_rate)
+        self.trainer.monitors.put_scalar('lord win rate', 1 - farmer_win_rate)
+>>>>>>> start from easy mode, modify resnet block to match pre-activation
 
 
 if __name__ == '__main__':
     env = Env()
     stat = StatCounter()
+<<<<<<< HEAD
     init_cards = np.arange(24)
     # init_cards = np.append(init_cards[::4], init_cards[1::4])
+=======
+    init_cards = np.arange(52)
+    init_cards = np.append(init_cards[::4], init_cards[1::4])
+>>>>>>> start from easy mode, modify resnet block to match pre-activation
     for _ in range(1000):
         env.reset()
         env.prepare_manual(init_cards)

@@ -306,7 +306,7 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
                 # logger.info('{} over with reward {}'.format(self.identity, r))
                 # sys.stdout.flush()
                 player.reset()
-                player.prepare()
+                player.prepare_manual(init_cards)
 
 
 # compatibility
