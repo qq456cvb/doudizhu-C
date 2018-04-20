@@ -14,9 +14,9 @@ import sys
 import os
 
 if os.name == 'nt':
-    sys.path.insert(0, '../build/Release')
+    sys.path.insert(0, '../../build/Release')
 else:
-    sys.path.insert(0, '../build.linux')
+    sys.path.insert(0, '../../build.linux')
 from env import Env
 from logger import Logger
 from utils import to_char
@@ -90,7 +90,9 @@ def play_one_episode(env, func):
             return inference_minor_util60(role_id, s, handcards, 2, False, dup_mask, main_cards_char)
 
     env.reset()
-    env.prepare()
+    init_cards = np.arange(52)
+    init_cards = np.append(init_cards[::4], init_cards[1::4])
+    env.prepare_manual(init_cards)
     r = 0
     while r == 0:
         last_cards_value = env.get_last_outcards()
@@ -104,6 +106,7 @@ def play_one_episode(env, func):
         # print(s.shape)
 
         role_id = env.get_role_ID()
+        # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
 
         intention = None
         if role_id == 2:
@@ -195,9 +198,15 @@ def play_one_episode(env, func):
                                                                                      dup_mask, to_char(intention)))])
             # since step auto needs full last card group info, we do not explicitly feed card type
             r, _, _ = env.step_manual(intention)
+            # print('lord gives', to_char(intention))
             assert (intention is not None)
         else:
-            _, r, _ = env.step_auto()
+            intention, r, _ = env.step_auto()
+            # print('farmer gives', to_char(intention))
+    # if r > 0:
+    #     print('farmer wins')
+    # else:
+    #     print('lord wins')
     return int(r > 0)
 
 
@@ -289,3 +298,18 @@ class Evaluator(Callback):
             self.eval_episode = int(self.eval_episode * 0.94)
         self.trainer.monitors.put_scalar('farmer win rate', farmer_win_rate)
         self.trainer.monitors.put_scalar('lord win rate', 1 - farmer_win_rate)
+
+
+if __name__ == '__main__':
+    env = Env()
+    stat = StatCounter()
+    init_cards = np.arange(52)
+    init_cards = np.append(init_cards[::4], init_cards[1::4])
+    for _ in range(1000):
+        env.reset()
+        env.prepare_manual(init_cards)
+        r = 0
+        while r == 0:
+            _, r, _ = env.step_auto()
+        stat.feed(int(r < 0))
+    print('lord win rate: {}'.format(stat.average))

@@ -80,32 +80,32 @@ class Model(ModelDesc):
                                     weights_regularizer=slim.l2_regularizer(POLICY_WEIGHT_DECAY)):
                     with tf.variable_scope('branch_main'):
                         flattened_1 = policy_conv_block(state_id[:, :60], 32, POLICY_INPUT_DIM // 3,
-                                                        [[16, 32, 5, 'identity'],
-                                                         [16, 32, 5, 'identity'],
-                                                         [32, 128, 5, 'upsampling'],
-                                                         [32, 128, 5, 'identity'],
-                                                         [32, 128, 5, 'identity'],
-                                                         [64, 256, 5, 'upsampling'],
+                                                        [[16, 32, 3, 'identity'],
+                                                         [16, 32, 3, 'identity'],
+                                                         [32, 128, 3, 'upsampling'],
+                                                         [32, 128, 3, 'identity'],
+                                                         [32, 128, 3, 'identity'],
+                                                         [64, 256, 3, 'upsampling'],
                                                          [64, 256, 3, 'identity'],
                                                          [64, 256, 3, 'identity']
                                                          ], 'branch_main1')
                         flattened_2 = policy_conv_block(state_id[:, 60:120], 32, POLICY_INPUT_DIM // 3,
-                                                        [[16, 32, 5, 'identity'],
-                                                         [16, 32, 5, 'identity'],
-                                                         [32, 128, 5, 'upsampling'],
-                                                         [32, 128, 5, 'identity'],
-                                                         [32, 128, 5, 'identity'],
-                                                         [64, 256, 5, 'upsampling'],
+                                                        [[16, 32, 3, 'identity'],
+                                                         [16, 32, 3, 'identity'],
+                                                         [32, 128, 3, 'upsampling'],
+                                                         [32, 128, 3, 'identity'],
+                                                         [32, 128, 3, 'identity'],
+                                                         [64, 256, 3, 'upsampling'],
                                                          [64, 256, 3, 'identity'],
                                                          [64, 256, 3, 'identity']
                                                          ], 'branch_main2')
                         flattened_3 = policy_conv_block(state_id[:, 120:], 32, POLICY_INPUT_DIM // 3,
-                                                        [[16, 32, 5, 'identity'],
-                                                         [16, 32, 5, 'identity'],
-                                                         [32, 128, 5, 'upsampling'],
-                                                         [32, 128, 5, 'identity'],
-                                                         [32, 128, 5, 'identity'],
-                                                         [64, 256, 5, 'upsampling'],
+                                                        [[16, 32, 3, 'identity'],
+                                                         [16, 32, 3, 'identity'],
+                                                         [32, 128, 3, 'upsampling'],
+                                                         [32, 128, 3, 'identity'],
+                                                         [32, 128, 3, 'identity'],
+                                                         [64, 256, 3, 'upsampling'],
                                                          [64, 256, 3, 'identity'],
                                                          [64, 256, 3, 'identity']
                                                          ], 'branch_main3')
@@ -113,12 +113,12 @@ class Model(ModelDesc):
 
                     with tf.variable_scope('branch_passive'):
                         flattened_last = policy_conv_block(last_cards_id, 32, POLICY_LAST_INPUT_DIM,
-                                                           [[16, 32, 5, 'identity'],
-                                                            [16, 32, 5, 'identity'],
-                                                            [32, 128, 5, 'upsampling'],
-                                                            [32, 128, 5, 'identity'],
-                                                            [32, 128, 5, 'identity'],
-                                                            [64, 256, 5, 'upsampling'],
+                                                           [[16, 32, 3, 'identity'],
+                                                            [16, 32, 3, 'identity'],
+                                                            [32, 128, 3, 'upsampling'],
+                                                            [32, 128, 3, 'identity'],
+                                                            [32, 128, 3, 'identity'],
+                                                            [64, 256, 3, 'upsampling'],
                                                             [64, 256, 3, 'identity'],
                                                             [64, 256, 3, 'identity']
                                                             ], 'last_cards')
