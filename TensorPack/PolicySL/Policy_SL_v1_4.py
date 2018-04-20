@@ -37,25 +37,25 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
     with tf.variable_scope(scope):
         input_conv = tf.reshape(input, [-1, 1, input_dim, 1])
         single_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                  kernel_size=[1, 1], stride=[1, 4], padding='VALID')
+                                  kernel_size=[1, 1], stride=[1, 4], padding='SAME')
 
         pair_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                kernel_size=[1, 2], stride=[1, 4], padding='VALID')
+                                kernel_size=[1, 2], stride=[1, 4], padding='SAME')
 
         triple_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                  kernel_size=[1, 3], stride=[1, 4], padding='VALID')
+                                  kernel_size=[1, 3], stride=[1, 4], padding='SAME')
 
         quadric_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                   kernel_size=[1, 4], stride=[1, 4], padding='VALID')
+                                   kernel_size=[1, 4], stride=[1, 4], padding='SAME')
 
         conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
 
         for conv in conv_list:
             for param in res_params:
                 if param[-1] == 'identity':
-                    conv = identity_block(conv, param[0], param[1], param[2])
+                    conv = identity_block(conv, param[0], param[1])
                 elif param[-1] == 'upsampling':
-                    conv = upsample_block(conv, param[0], param[1], param[2])
+                    conv = upsample_block(conv, param[0], param[1])
                 else:
                     raise Exception('unsupported layer type')
             assert conv.shape[1] * conv.shape[2] * conv.shape[3] == 1024
