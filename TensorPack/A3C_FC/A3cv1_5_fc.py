@@ -27,9 +27,9 @@ from tensorpack.utils.gpu import get_nr_gpu
 from tensorpack.tfutils.summary import add_moving_summary
 from tensorpack.tfutils import get_current_tower_context, optimizer
 
-from TensorPack.A3C.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience
+from TensorPack.A3C_FC.simulator_fc import SimulatorProcess, SimulatorMaster, TransitionExperience
 from TensorPack.A3C.model_loader import ModelLoader
-from TensorPack.A3C.evaluator import Evaluator
+from TensorPack.A3C_FC.evaluator_fc import Evaluator
 from TensorPack.PolicySL.Policy_SL_v1_4 import conv_block as policy_conv_block
 from TensorPack.ValueSL.Value_SL_v1_4 import conv_block as value_conv_block
 
@@ -90,16 +90,16 @@ class Model(ModelDesc):
                                     weights_regularizer=slim.l2_regularizer(POLICY_WEIGHT_DECAY)):
                     with tf.variable_scope('branch_main'):
                         x = state_id
-                        feats = [2048, 1024, 512, 256]
+                        feats = [1024, 512, 512, 256, 256]
                         for f in feats:
-                            for _ in range(2):
+                            for _ in range(3):
                                 x = res_fc_block(x, f)
                         flattened = x
 
                     with tf.variable_scope('branch_passive'):
                         x = last_cards_id
                         for f in feats:
-                            for _ in range(2):
+                            for _ in range(3):
                                 x = res_fc_block(x, f)
                         flattened_last = x
 
@@ -214,9 +214,9 @@ class Model(ModelDesc):
             # not adding regular loss for fc since we need big scalar output [-1, 1]
             with tf.variable_scope('value_fc'):
                 x = state
-                feats = [4096, 2048, 1024, 512, 256]
+                feats = [1024, 512, 512, 256, 256]
                 for f in feats:
-                    for _ in range(2):
+                    for _ in range(3):
                         x = res_fc_block(x, f)
                 flattened = x
                 value = slim.fully_connected(flattened, num_outputs=1, activation_fn=None)
@@ -569,6 +569,7 @@ def train():
             # ScheduledHyperParamSetter('entropy_beta', [(80, 0.005)]),
             master,
             StartProcOrThread(master),
+            HumanHyperParamSetter('learning_rate'),
             Evaluator(
                 100, ['role_id', 'policy_state_in', 'last_cards_in', 'minor_type_in'],
                 ['passive_decision_prob', 'passive_bomb_prob', 'passive_response_prob',

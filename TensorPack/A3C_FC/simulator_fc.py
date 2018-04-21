@@ -293,7 +293,7 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
         s2c_socket.connect(self.s2c)
 
         player.reset()
-        init_cards = np.arange(15)
+        init_cards = np.arange(21)
         # init_cards = np.append(init_cards[::4], init_cards[1::4])
         player.prepare_manual(init_cards)
         r, is_over = 0, False

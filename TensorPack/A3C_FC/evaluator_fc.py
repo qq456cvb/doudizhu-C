@@ -35,18 +35,17 @@ def play_one_episode(env, func):
         return np.argmax(prob)
 
     # return char minor cards output
-    def inference_minor_util60(role_id, s, handcards, num, is_pair, dup_mask, main_cards_char):
+    def inference_minor_util60(role_id, handcards, num, is_pair, dup_mask, main_cards_char):
         for main_card in main_cards_char:
             handcards.remove(main_card)
-        cards_onehot = Card.char2onehot60(main_cards_char)
-        discard_onehot_from_s_60(s, cards_onehot)
 
+        s = get_mask(handcards, action_space, None).astype(np.float32)
         outputs = []
         minor_type = 1 if is_pair else 0
         for i in range(num):
             input_single, input_pair, _, _ = get_masks(handcards, None)
             _, _, _, _, _, _, minor_response_prob = func(
-                [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 60]), np.array([minor_type])]
+                [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 9085]), np.array([minor_type])]
             )
 
             # give minor cards
@@ -60,16 +59,10 @@ def play_one_episode(env, func):
             dup_mask[minor_response] = 0
 
             # convert network output to char cards
-            cards = [to_char(minor_response + 3)]
             handcards.remove(to_char(minor_response + 3))
             if is_pair:
                 handcards.remove(to_char(minor_response + 3))
-                cards.append(to_char(minor_response + 3))
-
-            # correct for one-hot state
-            cards_onehot = Card.char2onehot60(cards)
-
-            discard_onehot_from_s_60(s, cards_onehot)
+            s = get_mask(handcards, action_space, None).astype(np.float32)
 
             # save to output
             outputs.append(to_char(minor_response + 3))
@@ -79,18 +72,18 @@ def play_one_episode(env, func):
 
     def inference_minor_cards60(role_id, category, s, handcards, seq_length, dup_mask, main_cards_char):
         if category == Category.THREE_ONE.value:
-            return inference_minor_util60(role_id, s, handcards, 1, False, dup_mask, main_cards_char)
+            return inference_minor_util60(role_id, handcards, 1, False, dup_mask, main_cards_char)
         if category == Category.THREE_TWO.value:
-            return inference_minor_util60(role_id, s, handcards, 1, True, dup_mask, main_cards_char)
+            return inference_minor_util60(role_id, handcards, 1, True, dup_mask, main_cards_char)
         if category == Category.THREE_ONE_LINE.value:
-            return inference_minor_util60(role_id, s, handcards, seq_length, False, dup_mask, main_cards_char)
+            return inference_minor_util60(role_id, handcards, seq_length, False, dup_mask, main_cards_char)
         if category == Category.THREE_TWO_LINE.value:
-            return inference_minor_util60(role_id, s, handcards, seq_length, True, dup_mask, main_cards_char)
+            return inference_minor_util60(role_id, handcards, seq_length, True, dup_mask, main_cards_char)
         if category == Category.FOUR_TWO.value:
-            return inference_minor_util60(role_id, s, handcards, 2, False, dup_mask, main_cards_char)
+            return inference_minor_util60(role_id, handcards, 2, False, dup_mask, main_cards_char)
 
     env.reset()
-    init_cards = np.arange(15)
+    init_cards = np.arange(21)
     # init_cards = np.append(init_cards[::4], init_cards[1::4])
     env.prepare_manual(init_cards)
     r = 0
@@ -102,7 +95,7 @@ def play_one_episode(env, func):
         curr_cards_char = to_char(env.get_curr_handcards())
         is_active = True if last_cards_value.size == 0 else False
 
-        s = get_mask(Card.onehot2char(curr_cards_char), action_space, None if is_active else last_cards_char).astype(np.float32)
+        s = get_mask(curr_cards_char, action_space, None if is_active else last_cards_char).astype(np.float32)
         last_state = get_mask(last_cards_char, action_space, None).astype(np.float32)
         # print(s.shape)
 
@@ -117,7 +110,7 @@ def play_one_episode(env, func):
                 decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], last_category_idx)
 
                 _, _, _, active_decision_prob, active_response_prob, active_seq_prob, _ = func(
-                    [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 60]), np.zeros([s.shape[0]])]
+                    [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 9085]), np.zeros([s.shape[0]])]
                 )
 
                 # make decision depending on output
