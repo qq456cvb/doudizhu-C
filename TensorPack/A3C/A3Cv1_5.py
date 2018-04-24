@@ -89,27 +89,7 @@ class Model(ModelDesc):
                                                          [256, 3, 'identity'],
                                                          [256, 3, 'identity']
                                                          ], 'branch_main1')
-                        flattened_2 = policy_conv_block(state_id[:, 60:120], 64, POLICY_INPUT_DIM // 3,
-                                                        [[64, 3, 'identity'],
-                                                         [64, 3, 'identity'],
-                                                         [128, 3, 'upsampling'],
-                                                         [128, 3, 'identity'],
-                                                         [128, 3, 'identity'],
-                                                         [256, 3, 'upsampling'],
-                                                         [256, 3, 'identity'],
-                                                         [256, 3, 'identity']
-                                                         ], 'branch_main2')
-                        flattened_3 = policy_conv_block(state_id[:, 120:], 64, POLICY_INPUT_DIM // 3,
-                                                        [[32, 3, 'identity'],
-                                                         [32, 3, 'identity'],
-                                                         [128, 3, 'upsampling'],
-                                                         [128, 3, 'identity'],
-                                                         [128, 3, 'identity'],
-                                                         [256, 3, 'upsampling'],
-                                                         [256, 3, 'identity'],
-                                                         [256, 3, 'identity']
-                                                         ], 'branch_main3')
-                        flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
+                        flattened = flattened_1
 
                     with tf.variable_scope('branch_passive'):
                         flattened_last = policy_conv_block(last_cards_id, 64, POLICY_LAST_INPUT_DIM,
@@ -381,7 +361,7 @@ class Model(ModelDesc):
         entropy_loss_b = pa * logpa
         value_loss_b = tf.square(value - discounted_return)
 
-        entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.001),
+        entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.01),
                                        trainable=False)
 
         # regularization loss
@@ -478,7 +458,7 @@ class Model(ModelDesc):
 
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-4, trainable=False)
-        opt = tf.train.AdamOptimizer(lr)
+        opt = tf.train.RMSPropOptimizer(lr)
         gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3)), AvgNormGradient()]
         opt = optimizer.apply_grad_processors(opt, gradprocs)
         return opt
@@ -587,7 +567,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
 
 
 def train():
-    dirname = os.path.join('train_log', 'a3c_small')
+    dirname = os.path.join('train_log', 'a3c_self_card')
     logger.set_logger_dir(dirname)
 
     # assign GPUs for training & inference

@@ -90,8 +90,8 @@ def play_one_episode(env, func):
             return inference_minor_util60(role_id, s, handcards, 2, False, dup_mask, main_cards_char)
 
     env.reset()
-    init_cards = np.arange(52)
-    init_cards = np.append(init_cards[::4], init_cards[1::4])
+    init_cards = np.arange(21)
+    # init_cards = np.append(init_cards[::4], init_cards[1::4])
     env.prepare_manual(init_cards)
     r = 0
     while r == 0:
