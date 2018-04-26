@@ -352,12 +352,16 @@ class Model(ModelDesc):
 
         # B
         pa = tf.gather_nd(pa, idx)
-        importance_b = tf.stop_gradient(tf.clip_by_value(pa / (history_action_prob + 1e-8), 0, 10))
+
+        # using PPO
+        ppo_epsilon = tf.get_variable('ppo_epsilon', shape=[], initializer=tf.constant_initializer(0.2),
+                                       trainable=False)
+        importance_b = pa / (history_action_prob + 1e-8)
 
         # advantage
         advantage_b = tf.subtract(discounted_return, tf.stop_gradient(value), name='advantage')
 
-        policy_loss_b = -logpa * advantage_b * importance_b
+        policy_loss_b = -tf.minimum(importance_b * advantage_b, tf.clip_by_value(importance_b, 1 - ppo_epsilon, 1 + ppo_epsilon) * advantage_b)
         entropy_loss_b = pa * logpa
         value_loss_b = tf.square(value - discounted_return)
 
@@ -458,7 +462,7 @@ class Model(ModelDesc):
 
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-4, trainable=False)
-        opt = tf.train.RMSPropOptimizer(lr)
+        opt = tf.train.AdamOptimizer(lr)
         gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3)), AvgNormGradient()]
         opt = optimizer.apply_grad_processors(opt, gradprocs)
         return opt
@@ -600,6 +604,8 @@ def train():
     master = MySimulatorMaster(namec2s, names2c, predict_tower)
     dataflow = BatchData(DataFromQueue(master.queue), BATCH_SIZE)
     config = AutoResumeTrainConfig(
+        always_resume=False,
+        starting_epoch=84,
         model=Model(),
         dataflow=dataflow,
         callbacks=[
@@ -613,6 +619,7 @@ def train():
                 ['passive_decision_prob', 'passive_bomb_prob', 'passive_response_prob',
                  'active_decision_prob', 'active_response_prob', 'active_seq_prob', 'minor_response_prob'], get_player),
         ],
+        session_init=SaverRestore('./train_log/a3c_self_card/model-8400'),
         # session_init=ModelLoader('policy_network_2', 'SL_policy_network', 'value_network', 'SL_value_network'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=1000,
