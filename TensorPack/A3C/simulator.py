@@ -19,8 +19,8 @@ import numpy as np
 from tensorpack.utils import logger
 from tensorpack.utils.serialize import loads, dumps
 from tensorpack.utils.concurrency import LoopThread, ensure_proc_terminate
-from utils import give_cards_without_minor, get_seq_length, get_mask_alter, to_char, get_masks, discard_onehot_from_s_60
-from card import Card
+from utils import give_cards_without_minor, get_seq_length, get_mask_alter, to_char, to_value, get_masks, get_mask, discard_onehot_from_s_60
+from card import Card, action_space
 from card import Category
 
 import sys
@@ -274,9 +274,10 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
         s2c_socket.connect(self.s2c)
 
         player.reset()
-        init_cards = np.arange(36)
+        # init_cards = np.arange(52)
         # init_cards = np.append(init_cards[::4], init_cards[1::4])
-        player.prepare_manual(init_cards)
+        # player.prepare_manual(init_cards)
+        player.prepare()
         r, is_over = 0, False
         while True:
             prob_state, all_state, role_id, curr_handcards_value, last_cards_value, last_category = \
@@ -285,25 +286,18 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
             # If isOver, get to the next-episode state immediately.
             # This tuple is not the same as the one put into the memory buffer
 
+            is_active = False if last_cards_value.size > 0 else True
+            mask = get_mask(to_char(curr_handcards_value), action_space, None if is_active else to_char(last_cards_value))
+            if is_active:
+                mask[0] = 0
             if role_id == 2:
-                st = SubState(ACT_TYPE.PASSIVE if last_cards_value.size > 0 else ACT_TYPE.ACTIVE, prob_state, all_state,
-                              to_char(curr_handcards_value), last_cards_value, last_category)
-                if last_cards_value.size > 0:
-                    assert last_category > 0
-                first_st = True
-                while not st.finished:
-                    c2s_socket.send(dumps(
-                        (self.identity, role_id, st.prob_state.copy(), st.all_state, Card.val2onehot60(last_cards_value), first_st, st.get_mask(), st.minor_type, st.mode, r, is_over)),
-                        copy=False)
-                    first_st = False
-                    action = loads(s2c_socket.recv(copy=False).bytes)
-                    # logger.info('received action {}'.format(action))
-                    # print(action)
-                    st.step(action)
+                c2s_socket.send(dumps(
+                    (self.identity, role_id, prob_state, all_state, Card.val2onehot60(last_cards_value), mask,
+                     0 if is_active else 1, r, is_over)),
+                    copy=False)
+                action_idx = loads(s2c_socket.recv(copy=False).bytes)
 
-                # print(st.intention)
-                assert st.card_type != -1
-                r, is_over, category_idx = player.step_manual(st.intention)
+                r, is_over, _ = player.step_manual(to_value(action_space[action_idx]))
             else:
                 _, r, _ = player.step_auto()
                 is_over = (r != 0)
@@ -312,8 +306,7 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
                 # logger.info('{} over with reward {}'.format(self.identity, r))
                 # sys.stdout.flush()
                 player.reset()
-                player.prepare_manual(init_cards)
-
+                player.prepare()
 
 
 # compatibility
@@ -368,12 +361,12 @@ class SimulatorMaster(threading.Thread):
         try:
             while True:
                 msg = loads(self.c2s_socket.recv(copy=False).bytes)
-                ident, role_id, prob_state, all_state, last_cards, first_st, mask, minor_type, mode, reward, isOver = msg
+                ident, role_id, prob_state, all_state, last_cards, mask, mode, reward, isOver = msg
                 client = self.clients[ident]
                 if client.ident is None:
                     client.ident = ident
                 # maybe check history and warn about dead client?
-                self._process_msg(client, role_id, prob_state, all_state, last_cards, first_st, mask, minor_type, mode, reward, isOver)
+                self._process_msg(client, role_id, prob_state, all_state, last_cards, mask, mode, reward, isOver)
         except zmq.ContextTerminated:
             logger.info("[Simulator] Context was terminated.")
 

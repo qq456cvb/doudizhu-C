@@ -53,14 +53,14 @@ def get_mask(cards, action_space, last_cards):
     for j in range(mask.size):
         if counter_subset(action_space[j], cards):
             mask[j] = 1
-    mask = mask.astype(bool)
+    # mask = mask.astype(bool)
     if last_cards is None:
         return mask
     if len(last_cards) > 0:
         for j in range(1, mask.size):
-            if mask[j] is True and not card.CardGroup.to_cardgroup(action_space[j]).\
+            if mask[j] == 1 and not card.CardGroup.to_cardgroup(action_space[j]).\
                     bigger_than(card.CardGroup.to_cardgroup(last_cards)):
-                mask[j] = False
+                mask[j] = 0
     # else:
     #     mask[0] = False
     return mask
