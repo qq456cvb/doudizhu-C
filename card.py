@@ -3,6 +3,7 @@ from enum import Enum
 import numpy as np
 import itertools
 import functools
+import math
 
 Category = Enum('Category', 'EMPTY SINGLE DOUBLE TRIPLE QUADRIC THREE_ONE THREE_TWO SINGLE_LINE DOUBLE_LINE \
     TRIPLE_LINE THREE_ONE_LINE THREE_TWO_LINE BIGBANG FOUR_TWO', start=0)
@@ -212,7 +213,7 @@ class Card:
             if i == 53:
                 result.append(Card.cards[14])
             else:
-                result.append(Card.cards[math.floor(i / 4)])
+                result.append(Card.cards[i // 4])
         return result
 
     @staticmethod
@@ -490,7 +491,8 @@ action_space_category = [action_space[:1], action_space[1:16], action_space[16:2
 
 if __name__ == '__main__':
     pass
-    print(Card.val2onehot60([3, 3, 16, 17]))
+    # print(Card.val2onehot60([3, 3, 16, 17]))
+    print(len(action_space))
     # print(action_space_category[Category.SINGLE_LINE.value])
     # print(action_space_category[Category.DOUBLE_LINE.value])
     # print(action_space_category[Category.THREE_ONE.value])

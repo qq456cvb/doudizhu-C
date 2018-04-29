@@ -30,6 +30,7 @@ from tensorpack.tfutils import get_current_tower_context, optimizer
 from TensorPack.A3C.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience
 from TensorPack.A3C.model_loader import ModelLoader
 from TensorPack.A3C.evaluator import Evaluator
+from  TensorPack.ResNetBlock import conv_block
 from TensorPack.PolicySL.Policy_SL_v1_4 import conv_block as policy_conv_block
 from TensorPack.ValueSL.Value_SL_v1_4 import conv_block as value_conv_block
 
@@ -88,6 +89,7 @@ class Model(ModelDesc):
                                                          [256, 3, 'identity'],
                                                          [256, 3, 'identity']
                                                          ], 'branch_main1')
+
                         flattened = flattened_1
 
                     active_fc = slim.fully_connected(flattened, 1024)

@@ -28,7 +28,6 @@ def upsample_block(input, num_channel, kernel_size):
     net = tf.nn.relu(net)
     residual = slim.conv2d(activation_fn=None, inputs=net, num_outputs=num_channel, biases_initializer=None,
                                             kernel_size=[1, kernel_size], stride=[1, 2], padding='SAME')
-
     residual = tf.contrib.layers.layer_norm(residual, scale=True)
     residual = tf.nn.relu(residual)
     residual = slim.conv2d(activation_fn=None, inputs=residual, num_outputs=num_channel, biases_initializer=None,
