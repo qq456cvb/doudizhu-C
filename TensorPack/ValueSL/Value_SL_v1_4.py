@@ -102,8 +102,8 @@ def data_generator(rng):
     #     for s in buffer:
     #         yield s, r
 
+
 def conv_block(input, conv_dim, input_dim, res_params, scope):
-    conv_out = []
     with tf.variable_scope(scope):
         input_conv = tf.reshape(input, [-1, 1, input_dim, 1])
         single_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
@@ -118,20 +118,17 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
         quadric_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
                                    kernel_size=[1, 4], stride=[1, 4], padding='SAME')
 
-        conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
+        conv = tf.concat([single_conv, pair_conv, triple_conv, quadric_conv], -1)
 
-        for conv in conv_list:
-            for param in res_params:
-                if param[-1] == 'identity':
-                    conv = identity_block(conv, param[0], param[1])
-                elif param[-1] == 'upsampling':
-                    conv = upsample_block(conv, param[0], param[1])
-                else:
-                    raise Exception('unsupported layer type')
-            conv_out.append(tf.squeeze(tf.reduce_mean(conv, axis=[2]), axis=[1]))
-
-    flattened = tf.concat(conv_out, 1)
-    return flattened
+        for param in res_params:
+            if param[-1] == 'identity':
+                conv = identity_block(conv, param[0], param[1])
+            elif param[-1] == 'upsampling':
+                conv = upsample_block(conv, param[0], param[1])
+            else:
+                raise Exception('unsupported layer type')
+        conv = tf.squeeze(tf.reduce_mean(conv, axis=[2]), axis=[1])
+    return conv
 
 
 class Model(ModelDesc):

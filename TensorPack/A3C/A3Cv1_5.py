@@ -78,9 +78,9 @@ class Model(ModelDesc):
                 with slim.arg_scope([slim.fully_connected, slim.conv2d],
                                     weights_regularizer=slim.l2_regularizer(POLICY_WEIGHT_DECAY)):
                     with tf.variable_scope('branch_main'):
-                        flattened_1 = policy_conv_block(state_id[:, :60], 64, POLICY_INPUT_DIM // 3,
-                                                        [[64, 3, 'identity'],
-                                                         [64, 3, 'identity'],
+                        flattened_1 = policy_conv_block(state_id[:, :60], 32, POLICY_INPUT_DIM // 3,
+                                                        [[128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
                                                          [128, 3, 'upsampling'],
                                                          [128, 3, 'identity'],
                                                          [128, 3, 'identity'],
@@ -93,9 +93,9 @@ class Model(ModelDesc):
                     active_fc = slim.fully_connected(flattened, 1024)
                     active_logits = slim.fully_connected(active_fc, 9085, activation_fn=None, scope='final_fc')
                     with tf.variable_scope('branch_passive'):
-                        flattened_last = policy_conv_block(last_cards_id, 64, POLICY_LAST_INPUT_DIM,
-                                                           [[64, 3, 'identity'],
-                                                            [64, 3, 'identity'],
+                        flattened_last = policy_conv_block(last_cards_id, 32, POLICY_LAST_INPUT_DIM,
+                                                           [[128, 3, 'identity'],
+                                                            [128, 3, 'identity'],
                                                             [128, 3, 'upsampling'],
                                                             [128, 3, 'identity'],
                                                             [128, 3, 'identity'],
@@ -128,8 +128,8 @@ class Model(ModelDesc):
         with tf.variable_scope('value_network'):
             # not adding regular loss for fc since we need big scalar output [-1, 1]
             with tf.variable_scope('value_conv'):
-                flattened_1 = value_conv_block(state[:, :60], 64, VALUE_INPUT_DIM // 3, [[64, 3, 'identity'],
-                                                                  [64, 3, 'identity'],
+                flattened_1 = value_conv_block(state[:, :60], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
+                                                                  [128, 3, 'identity'],
                                                                   [128, 3, 'upsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
@@ -137,8 +137,8 @@ class Model(ModelDesc):
                                                                   [256, 3, 'identity'],
                                                                   [256, 3, 'identity']
                                                                   ], 'value_conv1')
-                flattened_2 = value_conv_block(state[:, 60:120], 64, VALUE_INPUT_DIM // 3, [[64, 3, 'identity'],
-                                                                  [64, 3, 'identity'],
+                flattened_2 = value_conv_block(state[:, 60:120], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
+                                                                  [128, 3, 'identity'],
                                                                   [128, 3, 'upsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
@@ -146,8 +146,8 @@ class Model(ModelDesc):
                                                                   [256, 3, 'identity'],
                                                                   [256, 3, 'identity']
                                                                   ], 'value_conv2')
-                flattened_3 = value_conv_block(state[:, 120:], 64, VALUE_INPUT_DIM // 3, [[64, 3, 'identity'],
-                                                                  [64, 3, 'identity'],
+                flattened_3 = value_conv_block(state[:, 120:], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
+                                                                  [128, 3, 'identity'],
                                                                   [128, 3, 'upsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
@@ -233,6 +233,8 @@ class Model(ModelDesc):
         entropy_beta = tf.get_variable('entropy_beta', shape=[], initializer=tf.constant_initializer(0.005),
                                        trainable=False)
 
+        value_weight = tf.get_variable('value_weight', shape=[], initializer=tf.constant_initializer(0.2), trainable=False)
+
         # regularization loss
         ctx = get_current_tower_context()
         if ctx.has_own_variables:  # be careful of the first tower (name='')
@@ -287,7 +289,7 @@ class Model(ModelDesc):
             policy_loss = tf.truediv(tf.reduce_sum(tf.boolean_mask(policy_loss_b, mask)), valid_batch, name='policy_loss_%d' % i)
             entropy_loss = tf.truediv(tf.reduce_sum(tf.boolean_mask(entropy_loss_b, mask)), valid_batch, name='entropy_loss_%d' % i)
             value_loss = tf.truediv(tf.reduce_sum(tf.boolean_mask(value_loss_b, mask)), valid_batch, name='value_loss_%d' % i)
-            cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, 0.1 * value_loss], name='cost_%d' % i)
+            cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, value_weight * value_loss], name='cost_%d' % i)
             # cost = tf.truediv(cost, tf.reduce_sum(tf.cast(mask, tf.float32)), name='cost_%d' % i)
             costs.append(cost)
 
@@ -385,7 +387,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
 
 
 def train():
-    dirname = os.path.join('train_log', 'a3c_action_1d')
+    dirname = os.path.join('train_log', 'a3c_pointnet')
     logger.set_logger_dir(dirname)
 
     # assign GPUs for training & inference
@@ -418,8 +420,8 @@ def train():
     master = MySimulatorMaster(namec2s, names2c, predict_tower)
     dataflow = BatchData(DataFromQueue(master.queue), BATCH_SIZE)
     config = AutoResumeTrainConfig(
-        always_resume=False,
-        starting_epoch=38,
+        always_resume=True,
+        # starting_epoch=38,
         model=Model(),
         dataflow=dataflow,
         callbacks=[
@@ -442,7 +444,7 @@ def train():
                  'true_reward_2', 'predict_reward_2', 'rms_advantage_2']
                 ),
         ],
-        session_init=SaverRestore('./train_log/a3c_action_1d/max-true_reward_2'),
+        # session_init=SaverRestore('./train_log/a3c_action_1d/max-true_reward_2'),
         # session_init=ModelLoader('policy_network_2', 'SL_policy_network', 'value_network', 'SL_value_network'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=1000,
