@@ -289,7 +289,7 @@ class Model(ModelDesc):
             policy_loss = tf.truediv(tf.reduce_sum(tf.boolean_mask(policy_loss_b, mask)), valid_batch, name='policy_loss_%d' % i)
             entropy_loss = tf.truediv(tf.reduce_sum(tf.boolean_mask(entropy_loss_b, mask)), valid_batch, name='entropy_loss_%d' % i)
             value_loss = tf.truediv(tf.reduce_sum(tf.boolean_mask(value_loss_b, mask)), valid_batch, name='value_loss_%d' % i)
-            cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, value_weight * value_loss], name='cost_%d' % i)
+            cost = tf.add_n([policy_loss, entropy_loss * entropy_beta, value_weight * value_loss, l2_loss], name='cost_%d' % i)
             # cost = tf.truediv(cost, tf.reduce_sum(tf.cast(mask, tf.float32)), name='cost_%d' % i)
             costs.append(cost)
 
@@ -387,7 +387,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
 
 
 def train():
-    dirname = os.path.join('train_log', 'a3c_pointnet')
+    dirname = os.path.join('train_log', 'a3c_indep_then_fuse')
     logger.set_logger_dir(dirname)
 
     # assign GPUs for training & inference
@@ -421,7 +421,7 @@ def train():
     dataflow = BatchData(DataFromQueue(master.queue), BATCH_SIZE)
     config = AutoResumeTrainConfig(
         always_resume=True,
-        # starting_epoch=38,
+        # starting_epoch=0,
         model=Model(),
         dataflow=dataflow,
         callbacks=[

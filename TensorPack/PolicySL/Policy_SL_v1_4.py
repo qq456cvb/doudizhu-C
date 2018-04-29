@@ -47,7 +47,15 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
         quadric_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
                                    kernel_size=[1, 4], stride=[1, 4], padding='SAME')
 
-        conv = tf.concat([single_conv, pair_conv, triple_conv, quadric_conv], -1)
+        conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
+        # conv = tf.concat(conv_list, -1)
+
+        conv_idens = []
+        for c in conv_list:
+            for i in range(5):
+                c = identity_block(c, 32, 3)
+            conv_idens.append(c)
+        conv = tf.concat(conv_idens, -1)
 
         for param in res_params:
             if param[-1] == 'identity':
@@ -56,8 +64,9 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
                 conv = upsample_block(conv, param[0], param[1])
             else:
                 raise Exception('unsupported layer type')
-        # assert conv.shape[1] * conv.shape[2] * conv.shape[3] == 1024
-        conv = tf.squeeze(tf.reduce_mean(conv, axis=[2]), axis=[1])
+        assert conv.shape[1] * conv.shape[2] * conv.shape[3] == 1024
+        conv = tf.reshape(conv, [-1, conv.shape[1] * conv.shape[2] * conv.shape[3]])
+        # conv = tf.squeeze(tf.reduce_mean(conv, axis=[2]), axis=[1])
     return conv
 
 
