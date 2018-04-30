@@ -188,12 +188,16 @@ class Evaluator(Callback):
 =======
         self.trainer.monitors.put_scalar('farmer win rate', farmer_win_rate)
         self.trainer.monitors.put_scalar('lord win rate', 1 - farmer_win_rate)
+<<<<<<< HEAD
 >>>>>>> start from easy mode, modify resnet block to match pre-activation
+=======
+>>>>>>> b457ae4892ac47e4cc3ad8426a76f9248de91f5b
 
 
 if __name__ == '__main__':
     env = Env()
     stat = StatCounter()
+<<<<<<< HEAD
 <<<<<<< HEAD
     init_cards = np.arange(24)
     # init_cards = np.append(init_cards[::4], init_cards[1::4])
@@ -201,6 +205,10 @@ if __name__ == '__main__':
     init_cards = np.arange(52)
     init_cards = np.append(init_cards[::4], init_cards[1::4])
 >>>>>>> start from easy mode, modify resnet block to match pre-activation
+=======
+    init_cards = np.arange(52)
+    init_cards = np.append(init_cards[::4], init_cards[1::4])
+>>>>>>> b457ae4892ac47e4cc3ad8426a76f9248de91f5b
     for _ in range(1000):
         env.reset()
         env.prepare_manual(init_cards)
