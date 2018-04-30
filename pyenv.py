@@ -9,9 +9,13 @@ from datetime import datetime
 from statewrapper import WrappedState
 from contextlib import contextmanager
 
-sys.path.insert(0, './build/Release')
-from env import print_state
+import os
+if os.name == 'nt':
+    sys.path.insert(0, '../../build/Release')
+else:
+    sys.path.insert(0, '../../build.linux')
 from env import Env as CEnv
+from env import print_state
 from env import MCTree
 
 

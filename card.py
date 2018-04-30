@@ -5,8 +5,26 @@ import itertools
 import functools
 import math
 
-Category = Enum('Category', 'EMPTY SINGLE DOUBLE TRIPLE QUADRIC THREE_ONE THREE_TWO SINGLE_LINE DOUBLE_LINE \
-    TRIPLE_LINE THREE_ONE_LINE THREE_TWO_LINE BIGBANG FOUR_TWO', start=0)
+# Category = Enum('Category', 'EMPTY SINGLE DOUBLE TRIPLE QUADRIC THREE_ONE THREE_TWO SINGLE_LINE DOUBLE_LINE \
+#     TRIPLE_LINE THREE_ONE_LINE THREE_TWO_LINE BIGBANG FOUR_TWO', start=0)
+
+
+class Category:
+    EMPTY = 0
+    SINGLE = 1
+    DOUBLE = 2
+    TRIPLE = 3
+    QUADRIC = 4
+    THREE_ONE = 5
+    THREE_TWO = 6
+    SINGLE_LINE = 7
+    DOUBLE_LINE = 8
+    TRIPLE_LINE = 9
+    THREE_ONE_LINE = 10
+    THREE_TWO_LINE = 11
+    BIGBANG = 12
+    FOUR_TWO = 13
+
 
 Category2Range = []
 

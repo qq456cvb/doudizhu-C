@@ -12,6 +12,7 @@
 #include <random>
 #include "game.hpp"
 #include "mctree.h"
+#include "dancing_link.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
@@ -1068,6 +1069,7 @@ PYBIND11_MODULE(env, m) {
         .def("get_last_outcategory_idx", &Env::getLastCategory)
         .def("get_lord_cnt", &Env::getLordCnt);
     m.def("print_state", &print_state);
+    m.def("get_combinations", &get_combinations);
     py::class_<MCTree>(m, "MCTree")
         .def(py::init<py::dict>());
 }

@@ -43,7 +43,7 @@ def to_char(cards):
         return card.Card.cards[cards-3]
 
 
-def get_mask(cards, action_space, last_cards):
+def get_mask(cards, action_space, last_cards=None):
     # 1 valid; 0 invalid
     mask = np.zeros([len(action_space)])
     if cards is None:
@@ -63,6 +63,26 @@ def get_mask(cards, action_space, last_cards):
                 mask[j] = 0
     # else:
     #     mask[0] = False
+    return mask
+
+
+def get_mask_onehot60(cards, action_space, last_cards):
+    # 1 valid; 0 invalid
+    mask = np.zeros([len(action_space), 60])
+    if cards is None:
+        return mask
+    if len(cards) == 0:
+        return mask
+    for j in range(len(action_space)):
+        if counter_subset(action_space[j], cards):
+            mask[j] = card.Card.char2onehot60(action_space[j])
+    if last_cards is None:
+        return mask
+    if len(last_cards) > 0:
+        for j in range(1, len(action_space)):
+            if np.sum(mask[j]) > 0 and not card.CardGroup.to_cardgroup(action_space[j]).\
+                    bigger_than(card.CardGroup.to_cardgroup(last_cards)):
+                mask[j] = np.zeros([60])
     return mask
 
 # # get char cards, return valid response
