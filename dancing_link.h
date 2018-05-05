@@ -5,6 +5,7 @@
 #include <vector>
 #include <limits>
 #include <stdio.h>
+#include <numeric>
 #include <iostream>
 
 #include <pybind11/pybind11.h>
@@ -33,7 +34,9 @@ public:
 };
 
 
-py::list get_combinations(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, py::array_t<uint8_t, py::array::c_style | py::array::forcecast> mask);
+py::list get_combinations(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, 
+	py::array_t<uint8_t, py::array::c_style | py::array::forcecast> target,
+	py::array_t<bool, py::array::c_style | py::array::forcecast> mask);
 
 
 #endif

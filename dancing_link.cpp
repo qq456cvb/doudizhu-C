@@ -128,11 +128,46 @@ void search(Object *head, vector<int> &path, py::list &results) {
     uncoverCol(cand_c);
 }
 
-py::list get_combinations(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, py::array_t<uint8_t, py::array::c_style | py::array::forcecast> mask) {
+// py::list get_combinations(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, py::array_t<uint8_t, py::array::c_style | py::array::forcecast> mask) {
+//     const uint8_t *mat = arr.data();
+//     ColumnObject *head = static_cast<ColumnObject *>(createHead(mat, mask, arr.shape(0), arr.shape(1)));
+//     vector<int> path;
+//     py::list results;
+//     search(head, path, results);
+//     return results;
+// }
+
+void helper(const uint8_t *mat, const vector<uint8_t> &target, int r_idx, int n_rows, vector<int> &path, const bool *mask, py::list &results) {
+    if (accumulate(target.begin(), target.end(), (int)0) == 0) {
+        results.append(py::array(path.size(), path.data()));
+        return;
+    }
+    for (int i = r_idx; i < n_rows; i++) {
+        if (!mask[i]) continue;
+        auto target_copy = target;
+        bool valid = true;
+        for (int j = 0; j < 15; j++) {
+            if (mat[i * 15 + j] > target[j]) {
+                valid = false;
+                break;
+            }
+            target_copy[j] -= mat[i * 15 + j];
+        }
+        if (!valid) continue;
+        path.push_back(i);
+        helper(mat, target_copy, i, n_rows, path, mask, results);
+        path.pop_back();
+    }
+}
+
+py::list get_combinations(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, 
+        py::array_t<uint8_t, py::array::c_style | py::array::forcecast> target, 
+        py::array_t<bool, py::array::c_style | py::array::forcecast> mask) {
     const uint8_t *mat = arr.data();
-    ColumnObject *head = static_cast<ColumnObject *>(createHead(mat, mask, arr.shape(0), arr.shape(1)));
-    vector<int> path;
+    vector<uint8_t> cnt(target.data(), target.data() + target.size());
     py::list results;
-    search(head, path, results);
+    vector<int> path;
+    const bool *mask_ptr = mask.data();
+    helper(mat, cnt, 1, arr.size() / 15, path, mask_ptr, results);
     return results;
 }

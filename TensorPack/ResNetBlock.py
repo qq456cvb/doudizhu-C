@@ -23,7 +23,7 @@ def identity_block(input, num_channel, kernel_size):
     return residual + identity
 
 
-def upsample_block(input, num_channel, kernel_size):
+def downsample_block(input, num_channel, kernel_size):
     net = tf.contrib.layers.layer_norm(input, scale=True)
     net = tf.nn.relu(net)
     residual = slim.conv2d(activation_fn=None, inputs=net, num_outputs=num_channel, biases_initializer=None,
@@ -41,7 +41,7 @@ def upsample_block(input, num_channel, kernel_size):
     return residual + shortcut
 
 
-def downsample_block(input, num_channel, kernel_size=2):
+def upsample_block(input, num_channel, kernel_size=2):
     net = tf.contrib.layers.layer_norm(input, scale=True)
     net = tf.nn.relu(net)
     residual = slim.conv2d_transpose(activation_fn=None, inputs=net, num_outputs=num_channel, biases_initializer=None,

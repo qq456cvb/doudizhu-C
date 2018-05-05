@@ -274,16 +274,10 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
         s2c_socket.connect(self.s2c)
 
         player.reset()
-<<<<<<< HEAD
         # init_cards = np.arange(52)
         # init_cards = np.append(init_cards[::4], init_cards[1::4])
         # player.prepare_manual(init_cards)
         player.prepare()
-=======
-        init_cards = np.arange(21)
-        # init_cards = np.append(init_cards[::4], init_cards[1::4])
-        player.prepare_manual(init_cards)
->>>>>>> b457ae4892ac47e4cc3ad8426a76f9248de91f5b
         r, is_over = 0, False
         while True:
             prob_state, all_state, role_id, curr_handcards_value, last_cards_value, last_category = \
@@ -312,11 +306,7 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
                 # logger.info('{} over with reward {}'.format(self.identity, r))
                 # sys.stdout.flush()
                 player.reset()
-                player.prepare_manual(init_cards)
-<<<<<<< HEAD
-=======
-
->>>>>>> b457ae4892ac47e4cc3ad8426a76f9248de91f5b
+                player.prepare()
 
 
 # compatibility
