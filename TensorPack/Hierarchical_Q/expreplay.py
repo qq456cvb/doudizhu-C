@@ -29,20 +29,19 @@ from env import Env as CEnv
 __all__ = ['ExpReplay']
 
 Experience = namedtuple('Experience',
-                        ['state', 'atten_state', 'action', 'reward', 'isOver', 'isActive'])
+                        ['joint_state', 'action', 'reward', 'isOver', 'comb_mask'])
 
 
 class ReplayMemory(object):
-    def __init__(self, max_size, state_shape, atten_state_shape):
+    def __init__(self, max_size, state_shape):
         self.max_size = int(max_size)
-        self.state_shape = (state_shape,)
+        self.state_shape = state_shape
 
-        self.state = np.zeros((self.max_size,) + (state_shape,), dtype='float32')
-        self.atten_state = np.zeros((self.max_size,) + (atten_state_shape,), dtype='float32')
+        self.state = np.zeros((self.max_size,) + state_shape, dtype='float32')
         self.action = np.zeros((self.max_size,), dtype='int32')
         self.reward = np.zeros((self.max_size,), dtype='float32')
         self.isOver = np.zeros((self.max_size,), dtype='bool')
-        self.isActive = np.zeros((self.max_size,), dtype='bool')
+        self.comb_mask = np.zeros((self.max_size,), dtype='bool')
 
         self._curr_size = 0
         self._curr_pos = 0
@@ -62,25 +61,22 @@ class ReplayMemory(object):
 
     def sample(self, idx):
         """ return a tuple of (s,r,a,o),
-            where s is of shape STATE_SIZE + (hist_len+1,)"""
+            where s is of shape STATE_SIZE + (2,)"""
         idx = (self._curr_pos + idx) % self._curr_size
-        state = self.state[idx:idx+2]
-        atten_state = self.atten_state[idx:idx+2]
-        reward = self.reward[idx]
-        action = self.action[idx]
-        isOver = self.isOver[idx]
-        isActive = self.isActive[idx:idx+2]
-        return state, atten_state, reward, action, isOver, isActive
-
-    # the next_state is a different episode if current_state.isOver==True
-    def _pad_sample(self, state, reward, action, isOver):
-        for k in range(self.history_len - 2, -1, -1):
-            if isOver[k]:
-                state = copy.deepcopy(state)
-                state[:k + 1].fill(0)
-                break
-        state = state.transpose(1, 2, 0)
-        return (state, reward[-2], action[-2], isOver[-2])
+        if idx + 2 <= self._curr_size:
+            state = self.state[idx:idx+2]
+            reward = self.reward[idx]
+            action = self.action[idx]
+            isOver = self.isOver[idx]
+            comb_mask = self.comb_mask[idx]
+        else:
+            end = idx + 2 - self._curr_size
+            state = self._slice(self.state, idx, end)
+            reward = self._slice(self.reward, idx, end)
+            action = self._slice(self.action, idx, end)
+            isOver = self._slice(self.isOver, idx, end)
+            comb_mask = self._slice(self.comb_mask, idx, end)
+        return state, reward, action, isOver, comb_mask
 
     def _slice(self, arr, start, end):
         s1 = arr[start:]
@@ -91,12 +87,11 @@ class ReplayMemory(object):
         return self._curr_size
 
     def _assign(self, pos, exp):
-        self.state[pos] = exp.state
-        self.atten_state[pos] = exp.atten_state
+        self.state[pos] = exp.joint_state
         self.reward[pos] = exp.reward
         self.action[pos] = exp.action
         self.isOver[pos] = exp.isOver
-        self.isActive[pos] = exp.isActive
+        self.comb_mask[pos] = exp.comb_mask
 
 
 class ExpReplay(DataFlow, Callback):
@@ -114,7 +109,7 @@ class ExpReplay(DataFlow, Callback):
                  predictor_io_names,
                  player,
                  state_shape,
-                 atten_state_shape,
+                 num_actions,
                  batch_size,
                  memory_size, init_memory_size,
                  init_exploration,
@@ -135,8 +130,8 @@ class ExpReplay(DataFlow, Callback):
             if k != 'self':
                 setattr(self, k, v)
         self.exploration = init_exploration
-        self.num_actions = len(action_space)
-        logger.info("Number of Legal actions: {}".format(self.num_actions))
+        self.num_actions = num_actions
+        logger.info("Number of Legal actions: {}, {}".format(*self.num_actions))
 
         self.rng = get_rng(self)
         self._init_memory_flag = threading.Event()  # tell if memory has been initialized
@@ -144,12 +139,12 @@ class ExpReplay(DataFlow, Callback):
         # a queue to receive notifications to populate memory
         self._populate_job_queue = queue.Queue(maxsize=5)
 
-        self.mem = ReplayMemory(memory_size, state_shape, atten_state_shape)
+        self.mem = ReplayMemory(memory_size, state_shape)
         self.player.reset()
         self.player.prepare()
-        self._current_ob = self.player.get_state_prob()
-        self._atten_ob = Card.val2onehot60(self.player.get_last_outcards())
-        self._is_active = True
+        # self._current_ob = self.player.get_state_prob()
+        self._current_ob = np.zeros([20, 21, 256])
+        self._comb_mask = True
         self._player_scores = StatCounter()
         self._current_game_score = StatCounter()
 
@@ -175,32 +170,32 @@ class ExpReplay(DataFlow, Callback):
     def _populate_exp(self):
         """ populate a transition by epsilon-greedy"""
         old_s = self._current_ob
-        old_att = self._atten_ob
-        is_active = self._is_active
+        comb_mask = self._comb_mask
         if self.rng.rand() <= self.exploration:
-            act = self.rng.choice(range(self.num_actions))
+            act = self.rng.choice(range(self.num_actions[0 if comb_mask else 1]))
         else:
+            act = 0
             # assume batched network
-            state = np.stack([old_s, np.zeros_like(old_s)], axis=0)
-            atten_state = np.stack([old_att, np.zeros_like(old_att)], axis=0)
-            q_values = self.predictor([state[None, :, :], atten_state[None, :, :], [is_active, is_active]])[0][0]  # this is the bottleneck
-            act = np.argmax(q_values)
-        reward, isOver, _ = self.player.step_manual(to_value(action_space[act]))
-        while not isOver and self.player.get_role_ID() != 2:
-            _, reward, _ = self.player.step_auto()
-            isOver = (reward != 0)
-        # get reward for lord
-        reward = -reward
+            # state = np.stack([old_s, np.zeros_like(old_s)], axis=0)
+            # atten_state = np.stack([old_att, np.zeros_like(old_att)], axis=0)
+            # q_values = self.predictor([state[None, :, :], atten_state[None, :, :], [is_active, is_active]])[0][0]  # this is the bottleneck
+            # act = np.argmax(q_values)
+        # reward, isOver, _ = self.player.step_manual(to_value(action_space[act]))
+        # while not isOver and self.player.get_role_ID() != 2:
+        #     _, reward, _ = self.player.step_auto()
+        #     isOver = (reward != 0)
+        # # get reward for lord
+        # reward = -reward
+        reward = 0
+        isOver = False
 
         if isOver:
             self.player.reset()
             self.player.prepare()
-        self._current_ob = self.player.get_state_prob()
-        last_cards_val = self.player.get_last_outcards()
-        self._atten_ob = Card.val2onehot60(last_cards_val)
-        self._is_active = (last_cards_val.size == 0)
+        self._current_ob = np.zeros([20, 21, 256])
+        self._comb_mask = not comb_mask
         self._current_game_score.feed(reward)
-        self.mem.append(Experience(old_s, old_att, act, reward, isOver, is_active))
+        self.mem.append(Experience(old_s, act, reward, isOver, comb_mask))
 
     def _debug_sample(self, sample):
         import cv2
@@ -233,12 +228,11 @@ class ExpReplay(DataFlow, Callback):
 
     def _process_batch(self, batch_exp):
         state = np.asarray([e[0] for e in batch_exp], dtype='float32')
-        atten_state = np.asarray([e[1] for e in batch_exp], dtype='float32')
-        reward = np.asarray([e[2] for e in batch_exp], dtype='float32')
-        action = np.asarray([e[3] for e in batch_exp], dtype='int32')
-        isOver = np.asarray([e[4] for e in batch_exp], dtype='bool')
-        isActive = np.asarray([e[5] for e in batch_exp], dtype='bool')
-        return [state, atten_state, action, reward, isOver, isActive]
+        reward = np.asarray([e[1] for e in batch_exp], dtype='float32')
+        action = np.asarray([e[2] for e in batch_exp], dtype='int32')
+        isOver = np.asarray([e[3] for e in batch_exp], dtype='bool')
+        comb_mask = np.asarray([e[4] for e in batch_exp], dtype='bool')
+        return [state, action, reward, isOver, comb_mask]
 
     def _setup_graph(self):
         self.predictor = self.trainer.get_predictor(*self.predictor_io_names)
@@ -265,7 +259,7 @@ if __name__ == '__main__':
         return np.ones([1, len(action_space)])
     player = CEnv()
     E = expreplay = ExpReplay(
-        predictor_io_names=(['state'], ['Qvalue']),
+        predictor_io_names=(['joint_state', 'comb_mask'], ['Qvalue']),
         player=player,
         state_shape=180,
         batch_size=4,

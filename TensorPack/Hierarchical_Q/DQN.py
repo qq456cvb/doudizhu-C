@@ -56,15 +56,28 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
     return conv
 
 
+def res_fc_block(inputs, units, stack=3):
+    residual = inputs
+    for i in range(stack):
+        residual = FullyConnected('fc%d' % i, residual, units, activation=tf.nn.relu)
+    x = inputs
+    if inputs.shape[1].value != units:
+        x = FullyConnected('fc', x, units, activation=tf.nn.relu)
+    return tf.contrib.layers.layer_norm(residual + x, scale=False)
+
+
 BATCH_SIZE = 64
-STATE_SHAPE = 180
+MAX_NUM_COMBS = 20
+MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
+HIDDEN_STATE_DIM = 256
+STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
 UPDATE_FREQ = 4
 
 GAMMA = 0.99
 
-MEMORY_SIZE = 1e6
+MEMORY_SIZE = 3 * 1e4
 # will consume at least 1e6 * 84 * 84 bytes == 6.6G memory.
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ * 10  # each epoch is 100k played frames
@@ -81,62 +94,64 @@ def get_player():
 
 class Model(DQNModel):
     def __init__(self):
-        super(Model, self).__init__(STATE_SHAPE, ATTEN_STATE_SHAPE, METHOD, NUM_ACTIONS, GAMMA)
+        super(Model, self).__init__(STATE_SHAPE, METHOD, NUM_ACTIONS, GAMMA)
 
-    def _get_DQN_prediction(self, state, atten_state, is_active):
+    # input :B * COMB * N * D
+    # output : B * COMB * D
+    # assume N is padded with big negative numbers
+    def _get_global_feature(self, joint_state):
+        shape = joint_state.shape
+        net = tf.reshape(joint_state, [-1, shape[-1]])
+        units = [256, 512, 1024]
+        for i, unit in enumerate(units):
+            with tf.variable_scope('block%i' % i):
+                net = res_fc_block(net, unit)
+        net = tf.reshape(net, [-1, shape[1], shape[2], units[-1]])
+        return tf.reduce_max(net, [2])
 
-        flattened_1 = conv_block(state[:, :60], 32, STATE_SHAPE // 3,
-                                        [[128, 3, 'identity'],
-                                         [128, 3, 'identity'],
-                                         [128, 3, 'downsampling'],
-                                         [128, 3, 'identity'],
-                                         [128, 3, 'identity'],
-                                         [256, 3, 'downsampling'],
-                                         [256, 3, 'identity'],
-                                         [256, 3, 'identity']
-                                         ], 'branch_main1')
-
-        flattened = flattened_1
-
-        fc = FullyConnected('fctAll', flattened, 1024, activation=tf.nn.relu)
-        passive_idx = tf.where(tf.logical_not(is_active))
-        active_idx = tf.where(is_active)
-        with tf.variable_scope('branch_passive'):
-            flattened_last = conv_block(tf.gather_nd(atten_state, passive_idx), 32, ATTEN_STATE_SHAPE,
-                                               [[128, 3, 'identity'],
-                                                [128, 3, 'identity'],
-                                                [128, 3, 'downsampling'],
-                                                [128, 3, 'identity'],
-                                                [128, 3, 'identity'],
-                                                [256, 3, 'downsampling'],
-                                                [256, 3, 'identity'],
-                                                [256, 3, 'identity']
-                                                ], 'last_cards')
-
-            passive_attention = FullyConnected('fctPassive', flattened_last, 1024,
-                                                     activation=tf.nn.sigmoid)
-            passive_fc = passive_attention * tf.gather_nd(fc, passive_idx)
-        active_fc = tf.gather_nd(fc, active_idx)
-        scatter_shape = tf.cast(tf.stack([tf.shape(fc)[0], 1024]), tf.int64)
-        l = tf.scatter_nd(active_idx, active_fc, scatter_shape) + tf.scatter_nd(passive_idx, passive_fc, scatter_shape)
-        l = tf.reshape(l, [-1, 1024])
+    def _get_DQN_prediction_comb(self, state):
+        shape = state.shape
+        net = tf.reshape(state, [-1, shape[-1]])
+        units = [512, 256, 128]
+        for i, unit in enumerate(units):
+            with tf.variable_scope('block%i' % i):
+                net = res_fc_block(net, unit)
+        l = net
 
         if self.method != 'Dueling':
-            Q = FullyConnected('fct', l, self.num_actions)
+            Q = FullyConnected('fct', l, 1)
         else:
             # Dueling DQN
             V = FullyConnected('fctV', l, 1)
-            As = FullyConnected('fctA', l, self.num_actions)
+            As = FullyConnected('fctA', l, 1)
             Q = tf.add(As, V - tf.reduce_mean(As, 1, keep_dims=True))
-        return tf.identity(Q, name='Qvalue')
+        return tf.reshape(Q, [-1, shape[1], 1])
+
+    def _get_DQN_prediction_fine(self, state):
+        shape = state.shape
+        net = tf.reshape(state, [-1, shape[-1]])
+        units = [512, 256, 128]
+        for i, unit in enumerate(units):
+            with tf.variable_scope('block%i' % i):
+                net = res_fc_block(net, unit)
+        l = net
+
+        if self.method != 'Dueling':
+            Q = FullyConnected('fct', l, 1)
+        else:
+            # Dueling DQN
+            V = FullyConnected('fctV', l, 1)
+            As = FullyConnected('fctA', l, 1)
+            Q = tf.add(As, V - tf.reduce_mean(As, 1, keep_dims=True))
+        return tf.reshape(Q, [-1, shape[1], 1])
 
 
 def get_config():
     expreplay = ExpReplay(
-        predictor_io_names=(['state', 'atten_state', 'is_active'], ['Qvalue']),
+        predictor_io_names=(['joint_state', 'comb_mask'], ['Qvalue']),
         player=get_player(),
         state_shape=STATE_SHAPE,
-        atten_state_shape=ATTEN_STATE_SHAPE,
+        num_actions=[MAX_NUM_COMBS, MAX_NUM_GROUPS],
         batch_size=BATCH_SIZE,
         memory_size=MEMORY_SIZE,
         init_memory_size=INIT_MEMORY_SIZE,
@@ -144,6 +159,8 @@ def get_config():
         update_frequency=UPDATE_FREQ
     )
 
+    ds = FakeData([(2, 2, *STATE_SHAPE), [2], [2], [2], [2]], dtype=['float32', 'int64', 'float32', 'bool', 'bool'])
+    ds = PrefetchData(ds, nr_prefetch=6, nr_proc=2)
     return TrainConfig(
         data=QueueInput(expreplay),
         model=Model(),
@@ -183,14 +200,14 @@ if __name__ == '__main__':
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     METHOD = args.algo
     # set num_actions
-    NUM_ACTIONS = len(action_space)
+    NUM_ACTIONS = max(MAX_NUM_GROUPS, MAX_NUM_COMBS)
 
     if args.task != 'train':
         assert args.load is not None
         pred = OfflinePredictor(PredictConfig(
             model=Model(),
             session_init=get_model_loader(args.load),
-            input_names=['state'],
+            input_names=['joint_state', 'comb_mask'],
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
