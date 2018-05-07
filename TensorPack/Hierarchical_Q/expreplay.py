@@ -25,7 +25,8 @@ if os.name == 'nt':
 else:
     sys.path.insert(0, '../../build.linux')
 from env import Env as CEnv
-from env import get_combinations_nosplit
+from env import get_combinations_nosplit, get_combinations_recursive
+import random
 
 __all__ = ['ExpReplay']
 
@@ -152,17 +153,35 @@ class ExpReplay(DataFlow, Callback):
         self._player_scores = StatCounter()
         self._current_game_score = StatCounter()
 
+    def get_combinations(self, curr_cards_char, last_cards_value):
+        if len(curr_cards_char) > 10:
+            mask = get_mask_onehot60(curr_cards_char, action_space,
+                                     None if last_cards_value.size == 0 else to_char(last_cards_value)).astype(
+                np.uint8)
+            combs = get_combinations_nosplit(mask, Card.char2onehot60(curr_cards_char).astype(np.uint8))
+        else:
+            mask = get_mask_onehot60(curr_cards_char, action_space,
+                                     None if last_cards_value.size == 0 else to_char(last_cards_value))\
+                .reshape(len(action_space), 15, 4).sum(-1).astype(np.uint8)
+            valid = mask.sum(-1) > 0
+            cards_target = Card.char2onehot60(curr_cards_char).reshape(-1, 4).sum(-1).astype(np.uint8)
+            combs = get_combinations_recursive(mask, cards_target, valid)
+        return combs
+
+    def subsample_combs(self, combs, num_sample):
+        random.shuffle(combs)
+        return combs[:num_sample]
+
     def get_state_and_action_spaces(self, action=None):
         last_cards_value = self.player.get_last_outcards()
         curr_cards_char = to_char(self.player.get_curr_handcards())
         if self._comb_mask:
-            mask = get_mask_onehot60(curr_cards_char, action_space, None if last_cards_value.size == 0 else to_char(last_cards_value)).astype(np.uint8)
-            combs = get_combinations_nosplit(mask, Card.char2onehot60(curr_cards_char).astype(np.uint8))
+            combs = self.get_combinations(curr_cards_char, last_cards_value)
             if len(combs) == 0:
                 # we have no larger cards
                 assert last_cards_value.size > 0
             if len(combs) > self.num_actions[0]:
-                combs = combs[:self.num_actions[0]]
+                combs = self.subsample_combs(combs, self.num_actions[0])
             # TODO: utilize temporal relations to speedup
             available_actions = [([[]] if last_cards_value.size > 0 else []) + [action_space[idx] for idx in comb] for comb in combs]
             if len(combs) == 0:
@@ -200,6 +219,8 @@ class ExpReplay(DataFlow, Callback):
         newstates = np.stack(newstates, axis=0)
         if len(state) < self.num_actions[0]:
             state = np.concatenate([newstates, np.repeat(newstates[-1:, :, :], self.num_actions[0] - newstates.shape[0], axis=0)], axis=0)
+        else:
+            state = newstates
         return state
 
     def get_simulator_thread(self):
@@ -257,21 +278,6 @@ class ExpReplay(DataFlow, Callback):
         self._current_ob, self._action_space = self.get_state_and_action_spaces(act if not self._comb_mask else None)
         self._current_game_score.feed(reward)
         self.mem.append(Experience(old_s, act, reward, isOver, comb_mask))
-
-    def _debug_sample(self, sample):
-        import cv2
-
-        def view_state(comb_state):
-            state = comb_state[:, :, :-1]
-            next_state = comb_state[:, :, 1:]
-            r = np.concatenate([state[:, :, k] for k in range(self.history_len)], axis=1)
-            r2 = np.concatenate([next_state[:, :, k] for k in range(self.history_len)], axis=1)
-            r = np.concatenate([r, r2], axis=0)
-            cv2.imshow("state", r)
-            cv2.waitKey()
-        print("Act: ", sample[2], " reward:", sample[1], " isOver: ", sample[3])
-        if sample[1] or sample[3]:
-            view_state(sample[0])
 
     def get_data(self):
         # wait for memory to be initialized

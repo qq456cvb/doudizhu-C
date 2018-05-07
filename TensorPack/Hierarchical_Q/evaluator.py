@@ -17,7 +17,7 @@ if os.name == 'nt':
     sys.path.insert(0, '../../build/Release')
 else:
     sys.path.insert(0, '../../build.linux')
-from env import Env, get_combinations_nosplit
+from env import Env, get_combinations_nosplit, get_combinations_recursive
 from logger import Logger
 from utils import to_char
 from card import Card, action_space, Category
@@ -42,6 +42,8 @@ def play_one_episode(env, func, num_actions):
         newstates = np.stack(newstates, axis=0)
         if len(state) < num_actions[0]:
             state = np.concatenate([newstates, np.repeat(newstates[-1:, :, :], num_actions[0] - newstates.shape[0], axis=0)], axis=0)
+        else:
+            state = newstates
         return state
 
     def pad_action_space(available_actions):
@@ -51,14 +53,30 @@ def play_one_episode(env, func, num_actions):
         if len(available_actions) < num_actions[0]:
             available_actions.extend([available_actions[-1]] * (num_actions[0] - len(available_actions)))
 
-    def get_state_and_action_space(is_comb, cand_state=None, cand_actions=None, action=None):
-        if is_comb:
+    def get_combinations(curr_cards_char, last_cards_value):
+        if len(curr_cards_char) > 10:
             mask = get_mask_onehot60(curr_cards_char, action_space,
                                      None if last_cards_value.size == 0 else to_char(last_cards_value)).astype(
                 np.uint8)
             combs = get_combinations_nosplit(mask, Card.char2onehot60(curr_cards_char).astype(np.uint8))
+        else:
+            mask = get_mask_onehot60(curr_cards_char, action_space,
+                                     None if last_cards_value.size == 0 else to_char(last_cards_value))\
+                .reshape(len(action_space), 15, 4).sum(-1).astype(np.uint8)
+            valid = mask.sum(-1) > 0
+            cards_target = Card.char2onehot60(curr_cards_char).reshape(-1, 4).sum(-1).astype(np.uint8)
+            combs = get_combinations_recursive(mask, cards_target, valid)
+        return combs
+
+    def subsample_combs(combs, num_sample):
+        random.shuffle(combs)
+        return combs[:num_sample]
+
+    def get_state_and_action_space(is_comb, cand_state=None, cand_actions=None, action=None):
+        if is_comb:
+            combs = get_combinations(curr_cards_char, last_cards_value)
             if len(combs) > num_actions[0]:
-                combs = combs[:num_actions[0]]
+                combs = subsample_combs(combs, num_actions[0])
             # TODO: utilize temporal relations to speedup
             available_actions = [([[]] if last_cards_value.size > 0 else []) + [action_space[idx] for idx in comb] for
                                  comb in combs]
