@@ -128,14 +128,14 @@ void search(Object *head, vector<int> &path, py::list &results) {
     uncoverCol(cand_c);
 }
 
-// py::list get_combinations(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, py::array_t<uint8_t, py::array::c_style | py::array::forcecast> mask) {
-//     const uint8_t *mat = arr.data();
-//     ColumnObject *head = static_cast<ColumnObject *>(createHead(mat, mask, arr.shape(0), arr.shape(1)));
-//     vector<int> path;
-//     py::list results;
-//     search(head, path, results);
-//     return results;
-// }
+py::list get_combinations_nosplit(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, py::array_t<uint8_t, py::array::c_style | py::array::forcecast> mask) {
+    const uint8_t *mat = arr.data();
+    ColumnObject *head = static_cast<ColumnObject *>(createHead(mat, mask, arr.shape(0), arr.shape(1)));
+    vector<int> path;
+    py::list results;
+    search(head, path, results);
+    return results;
+}
 
 void helper(const uint8_t *mat, const vector<uint8_t> &target, int r_idx, int n_rows, vector<int> &path, const bool *mask, py::list &results) {
     if (accumulate(target.begin(), target.end(), (int)0) == 0) {
@@ -160,7 +160,7 @@ void helper(const uint8_t *mat, const vector<uint8_t> &target, int r_idx, int n_
     }
 }
 
-py::list get_combinations(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, 
+py::list get_combinations_recursive(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr,
         py::array_t<uint8_t, py::array::c_style | py::array::forcecast> target, 
         py::array_t<bool, py::array::c_style | py::array::forcecast> mask) {
     const uint8_t *mat = arr.data();

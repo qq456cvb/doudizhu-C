@@ -23,6 +23,7 @@ from card import action_space
 import tensorflow.contrib.slim as slim
 from TensorPack.Hierarchical_Q.expreplay import ExpReplay
 from TensorPack.ResNetBlock import identity_block, upsample_block, downsample_block
+from TensorPack.Hierarchical_Q.evaluator import Evaluator
 
 
 def conv_block(input, conv_dim, input_dim, res_params, scope):
@@ -148,7 +149,7 @@ class Model(DQNModel):
 
 def get_config():
     expreplay = ExpReplay(
-        predictor_io_names=(['joint_state', 'comb_mask'], ['Qvalue']),
+        predictor_io_names=(['state', 'comb_mask'], ['Qvalue']),
         player=get_player(),
         state_shape=STATE_SHAPE,
         num_actions=[MAX_NUM_COMBS, MAX_NUM_GROUPS],
@@ -159,8 +160,8 @@ def get_config():
         update_frequency=UPDATE_FREQ
     )
 
-    ds = FakeData([(2, 2, *STATE_SHAPE), [2], [2], [2], [2]], dtype=['float32', 'int64', 'float32', 'bool', 'bool'])
-    ds = PrefetchData(ds, nr_prefetch=6, nr_proc=2)
+    # ds = FakeData([(2, 2, *STATE_SHAPE), [2], [2], [2], [2]], dtype=['float32', 'int64', 'float32', 'bool', 'bool'])
+    # ds = PrefetchData(ds, nr_prefetch=6, nr_proc=2)
     return TrainConfig(
         data=QueueInput(expreplay),
         model=Model(),
@@ -176,9 +177,9 @@ def get_config():
                 ObjAttrParam(expreplay, 'exploration'),
                 [(0, 1), (10, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
                 interp='linear'),
-            # PeriodicTrigger(Evaluator(
-            #     EVAL_EPISODE, ['state'], ['Qvalue'], get_player),
-            #     every_k_epochs=10),
+            PeriodicTrigger(Evaluator(
+                EVAL_EPISODE, ['state', 'comb_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
+                every_k_epochs=10),
             HumanHyperParamSetter('learning_rate'),
         ],
         steps_per_epoch=STEPS_PER_EPOCH,
@@ -207,7 +208,7 @@ if __name__ == '__main__':
         pred = OfflinePredictor(PredictConfig(
             model=Model(),
             session_init=get_model_loader(args.load),
-            input_names=['joint_state', 'comb_mask'],
+            input_names=['state', 'comb_mask'],
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(

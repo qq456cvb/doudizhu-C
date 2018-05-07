@@ -33,8 +33,10 @@ public:
 	string name;
 };
 
+py::list get_combinations_nosplit(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr,
+    py::array_t<uint8_t, py::array::c_style | py::array::forcecast> mask);
 
-py::list get_combinations(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, 
+py::list get_combinations_recursive(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr,
 	py::array_t<uint8_t, py::array::c_style | py::array::forcecast> target,
 	py::array_t<bool, py::array::c_style | py::array::forcecast> mask);
 

@@ -31,6 +31,24 @@ class MyDataFlow(RNGDataFlow):
             yield [action_space_onehot[self.rng.randint(0, len(action_space_onehot))]]
 
 
+class Evaluator(Callback):
+    def __init__(self, input_names, output_names):
+        self.action_space_onehot = np.array([Card.char2onehot60(a) for a in action_space])
+        self.input_names = input_names
+        self.output_names = output_names
+
+    def _setup_graph(self):
+        self.predictor = self.trainer.get_predictor(
+            self.input_names, self.output_names)
+
+    def _before_train(self):
+        encoding, loss = self.predictor([self.action_space_onehot])
+        encoding = np.squeeze(encoding, [1, 2])
+        print(encoding.shape)
+        print('loss: {}'.format(loss))
+        np.save('encoding.npy', encoding)
+
+
 class Model(ModelDesc):
     def inputs(self):
         return [tf.placeholder(tf.float32, [None, INPUT_DIM], 'state_in')]
@@ -57,10 +75,10 @@ class Model(ModelDesc):
 
                 encoding_params = [[128, 3, 'identity'],
                                    [128, 3, 'identity'],
-                                   [128, 3, 'upsampling'],
+                                   [128, 3, 'downsampling'],
                                    [128, 3, 'identity'],
                                    [128, 3, 'identity'],
-                                   [256, 3, 'upsampling'],
+                                   [256, 3, 'downsampling'],
                                    [256, 3, 'identity'],
                                    [256, 3, 'identity']
                                    ]
@@ -76,17 +94,17 @@ class Model(ModelDesc):
                 conv = tf.reduce_mean(conv, [1, 2], True)
                 encoding = tf.identity(conv, name='encoding')
 
-                is_training = get_current_tower_context().is_training
-                if not is_training:
-                    return
+                # is_training = get_current_tower_context().is_training
+                # if not is_training:
+                #     return
 
-                decoding_params = [[256, 4, 'downsampling'],
+                decoding_params = [[256, 4, 'upsampling'],
                                    [256, 3, 'identity'],
                                    [256, 3, 'identity'],
-                                   [256, 4, 'downsampling'],
+                                   [256, 4, 'upsampling'],
                                    [128, 3, 'identity'],
                                    [128, 3, 'identity'],
-                                   [128, 4, 'downsampling'],
+                                   [128, 4, 'upsampling'],
                                    [128, 3, 'identity'],
                                    [1, 3, 'identity']
                                    ]
@@ -146,10 +164,12 @@ def train():
         callbacks=[
             ModelSaver(),
             EstimatedTimeLeft(),
+            Evaluator(['state_in'], ['AutoEncoder/encoding', 'reconstruct_loss']),
             # ScheduledHyperParamSetter('learning_rate', [(20, 0.0003), (120, 0.0001)]),
             # ScheduledHyperParamSetter('entropy_beta', [(80, 0.005)]),
             # HumanHyperParamSetter('learning_rate'),
         ],
+        session_init=SaverRestore('train_log/auto_encoder/model-10000'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=100,
     )

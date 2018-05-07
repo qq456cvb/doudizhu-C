@@ -1069,7 +1069,8 @@ PYBIND11_MODULE(env, m) {
         .def("get_last_outcategory_idx", &Env::getLastCategory)
         .def("get_lord_cnt", &Env::getLordCnt);
     m.def("print_state", &print_state);
-    m.def("get_combinations", &get_combinations);
+    m.def("get_combinations_recursive", &get_combinations_recursive);
+    m.def("get_combinations_nosplit", &get_combinations_nosplit);
     py::class_<MCTree>(m, "MCTree")
         .def(py::init<py::dict>());
 }
