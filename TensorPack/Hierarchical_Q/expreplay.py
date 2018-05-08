@@ -65,20 +65,16 @@ class ReplayMemory(object):
         """ return a tuple of (s,r,a,o),
             where s is of shape STATE_SIZE + (2,)"""
         idx = (self._curr_pos + idx) % self._curr_size
+        action = self.action[idx]
+        reward = self.reward[idx]
+        isOver = self.isOver[idx]
+        comb_mask = self.comb_mask[idx]
         if idx + 2 <= self._curr_size:
             state = self.state[idx:idx+2]
-            reward = self.reward[idx]
-            action = self.action[idx]
-            isOver = self.isOver[idx]
-            comb_mask = self.comb_mask[idx]
         else:
             end = idx + 2 - self._curr_size
             state = self._slice(self.state, idx, end)
-            reward = self._slice(self.reward, idx, end)
-            action = self._slice(self.action, idx, end)
-            isOver = self._slice(self.isOver, idx, end)
-            comb_mask = self._slice(self.comb_mask, idx, end)
-        return state, reward, action, isOver, comb_mask
+        return state, action, reward, isOver, comb_mask
 
     def _slice(self, arr, start, end):
         s1 = arr[start:]
@@ -90,8 +86,8 @@ class ReplayMemory(object):
 
     def _assign(self, pos, exp):
         self.state[pos] = exp.joint_state
-        self.reward[pos] = exp.reward
         self.action[pos] = exp.action
+        self.reward[pos] = exp.reward
         self.isOver[pos] = exp.isOver
         self.comb_mask[pos] = exp.comb_mask
 
@@ -276,7 +272,6 @@ class ExpReplay(DataFlow, Callback):
         else:
             self._comb_mask = not self._comb_mask
         self._current_ob, self._action_space = self.get_state_and_action_spaces(act if not self._comb_mask else None)
-        self._current_game_score.feed(reward)
         self.mem.append(Experience(old_s, act, reward, isOver, comb_mask))
 
     def get_data(self):
@@ -295,8 +290,8 @@ class ExpReplay(DataFlow, Callback):
 
     def _process_batch(self, batch_exp):
         state = np.asarray([e[0] for e in batch_exp], dtype='float32')
-        reward = np.asarray([e[1] for e in batch_exp], dtype='float32')
-        action = np.asarray([e[2] for e in batch_exp], dtype='int32')
+        action = np.asarray([e[1] for e in batch_exp], dtype='int32')
+        reward = np.asarray([e[2] for e in batch_exp], dtype='float32')
         isOver = np.asarray([e[3] for e in batch_exp], dtype='bool')
         comb_mask = np.asarray([e[4] for e in batch_exp], dtype='bool')
         return [state, action, reward, isOver, comb_mask]
