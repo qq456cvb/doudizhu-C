@@ -67,8 +67,8 @@ def res_fc_block(inputs, units, stack=3):
     return tf.contrib.layers.layer_norm(residual + x, scale=False)
 
 
-BATCH_SIZE = 64
-MAX_NUM_COMBS = 20
+BATCH_SIZE = 16
+MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
 HIDDEN_STATE_DIM = 256
@@ -78,7 +78,7 @@ UPDATE_FREQ = 4
 
 GAMMA = 0.99
 
-MEMORY_SIZE = 3 * 1e4
+MEMORY_SIZE = 1e4
 # will consume at least 1e6 * 84 * 84 bytes == 6.6G memory.
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
@@ -162,7 +162,7 @@ def get_config():
 
     # ds = FakeData([(2, 2, *STATE_SHAPE), [2], [2], [2], [2]], dtype=['float32', 'int64', 'float32', 'bool', 'bool'])
     # ds = PrefetchData(ds, nr_prefetch=6, nr_proc=2)
-    return TrainConfig(
+    return AutoResumeTrainConfig(
         data=QueueInput(expreplay),
         model=Model(),
         callbacks=[
