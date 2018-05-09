@@ -82,15 +82,35 @@ class Model(ModelDesc):
                         flattened_1 = policy_conv_block(state_id[:, :60], 32, POLICY_INPUT_DIM // 3,
                                                         [[128, 3, 'identity'],
                                                          [128, 3, 'identity'],
-                                                         [128, 3, 'upsampling'],
+                                                         [128, 3, 'downsampling'],
                                                          [128, 3, 'identity'],
                                                          [128, 3, 'identity'],
-                                                         [256, 3, 'upsampling'],
+                                                         [256, 3, 'downsampling'],
                                                          [256, 3, 'identity'],
                                                          [256, 3, 'identity']
                                                          ], 'branch_main1')
+                        flattened_2 = policy_conv_block(state_id[:, 60:120], 32, POLICY_INPUT_DIM // 3,
+                                                        [[128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
+                                                         [128, 3, 'downsampling'],
+                                                         [128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
+                                                         [256, 3, 'downsampling'],
+                                                         [256, 3, 'identity'],
+                                                         [256, 3, 'identity']
+                                                         ], 'branch_main2')
+                        flattened_3 = policy_conv_block(state_id[:, 120:], 32, POLICY_INPUT_DIM // 3,
+                                                        [[128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
+                                                         [128, 3, 'downsampling'],
+                                                         [128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
+                                                         [256, 3, 'downsampling'],
+                                                         [256, 3, 'identity'],
+                                                         [256, 3, 'identity']
+                                                         ], 'branch_main3')
 
-                        flattened = flattened_1
+                        flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
 
                     active_fc = slim.fully_connected(flattened, 1024)
                     active_logits = slim.fully_connected(active_fc, 9085, activation_fn=None, scope='final_fc')
@@ -98,10 +118,10 @@ class Model(ModelDesc):
                         flattened_last = policy_conv_block(last_cards_id, 32, POLICY_LAST_INPUT_DIM,
                                                            [[128, 3, 'identity'],
                                                             [128, 3, 'identity'],
-                                                            [128, 3, 'upsampling'],
+                                                            [128, 3, 'downsampling'],
                                                             [128, 3, 'identity'],
                                                             [128, 3, 'identity'],
-                                                            [256, 3, 'upsampling'],
+                                                            [256, 3, 'downsampling'],
                                                             [256, 3, 'identity'],
                                                             [256, 3, 'identity']
                                                             ], 'last_cards')
@@ -132,28 +152,28 @@ class Model(ModelDesc):
             with tf.variable_scope('value_conv'):
                 flattened_1 = value_conv_block(state[:, :60], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [128, 3, 'upsampling'],
+                                                                  [128, 3, 'downsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [256, 3, 'upsampling'],
+                                                                  [256, 3, 'downsampling'],
                                                                   [256, 3, 'identity'],
                                                                   [256, 3, 'identity']
                                                                   ], 'value_conv1')
                 flattened_2 = value_conv_block(state[:, 60:120], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [128, 3, 'upsampling'],
+                                                                  [128, 3, 'downsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [256, 3, 'upsampling'],
+                                                                  [256, 3, 'downsampling'],
                                                                   [256, 3, 'identity'],
                                                                   [256, 3, 'identity']
                                                                   ], 'value_conv2')
                 flattened_3 = value_conv_block(state[:, 120:], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [128, 3, 'upsampling'],
+                                                                  [128, 3, 'downsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [256, 3, 'upsampling'],
+                                                                  [256, 3, 'downsampling'],
                                                                   [256, 3, 'identity'],
                                                                   [256, 3, 'identity']
                                                                   ], 'value_conv3')

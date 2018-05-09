@@ -19,7 +19,7 @@ from TensorPack.PolicySL.evaluator import Evaluator
 from utils import get_seq_length, pick_minor_targets, to_char, discard_onehot_from_s_60
 from utils import pick_main_cards
 import multiprocessing
-from TensorPack.ResNetBlock import identity_block, upsample_block
+from TensorPack.ResNetBlock import identity_block, upsample_block, downsample_block
 import tensorflow as tf
 
 INPUT_DIM = 60 * 3
@@ -48,18 +48,20 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
                                    kernel_size=[1, 4], stride=[1, 4], padding='SAME')
 
         conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
-        # conv = tf.concat(conv_list, -1)
+        conv = tf.concat(conv_list, -1)
 
-        conv_idens = []
-        for c in conv_list:
-            for i in range(5):
-                c = identity_block(c, 32, 3)
-            conv_idens.append(c)
-        conv = tf.concat(conv_idens, -1)
+        # conv_idens = []
+        # for c in conv_list:
+        #     for i in range(5):
+        #         c = identity_block(c, 32, 3)
+        #     conv_idens.append(c)
+        # conv = tf.concat(conv_idens, -1)
 
         for param in res_params:
             if param[-1] == 'identity':
                 conv = identity_block(conv, param[0], param[1])
+            elif param[-1] == 'downsampling':
+                conv = downsample_block(conv, param[0], param[1])
             elif param[-1] == 'upsampling':
                 conv = upsample_block(conv, param[0], param[1])
             else:
@@ -210,28 +212,28 @@ class Model(ModelDesc):
                 with tf.variable_scope('branch_main'):
                     flattened_1 = conv_block(state[:, :60], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
                                                                       [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'upsampling'],
+                                                                      [32, 128, 5, 'downsampling'],
                                                                       [32, 128, 5, 'identity'],
                                                                       [32, 128, 5, 'identity'],
-                                                                      [64, 256, 5, 'upsampling'],
+                                                                      [64, 256, 5, 'downsampling'],
                                                                       [64, 256, 3, 'identity'],
                                                                       [64, 256, 3, 'identity']
                                                                       ], 'branch_main1')
                     flattened_2 = conv_block(state[:, 60:120], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
                                                                       [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'upsampling'],
+                                                                      [32, 128, 5, 'downsampling'],
                                                                       [32, 128, 5, 'identity'],
                                                                       [32, 128, 5, 'identity'],
-                                                                      [64, 256, 5, 'upsampling'],
+                                                                      [64, 256, 5, 'downsampling'],
                                                                       [64, 256, 3, 'identity'],
                                                                       [64, 256, 3, 'identity']
                                                                       ], 'branch_main2')
                     flattened_3 = conv_block(state[:, 120:], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
                                                                       [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'upsampling'],
+                                                                      [32, 128, 5, 'downsampling'],
                                                                       [32, 128, 5, 'identity'],
                                                                       [32, 128, 5, 'identity'],
-                                                                      [64, 256, 5, 'upsampling'],
+                                                                      [64, 256, 5, 'downsampling'],
                                                                       [64, 256, 3, 'identity'],
                                                                       [64, 256, 3, 'identity']
                                                                       ], 'branch_main3')
@@ -240,10 +242,10 @@ class Model(ModelDesc):
                 with tf.variable_scope('branch_passive'):
                     flattened_last = conv_block(last_cards, 32, LAST_INPUT_DIM, [[16, 32, 5, 'identity'],
                                                                              [16, 32, 5, 'identity'],
-                                                                             [32, 128, 5, 'upsampling'],
+                                                                             [32, 128, 5, 'downsampling'],
                                                                              [32, 128, 5, 'identity'],
                                                                              [32, 128, 5, 'identity'],
-                                                                             [64, 256, 5, 'upsampling'],
+                                                                             [64, 256, 5, 'downsampling'],
                                                                              [64, 256, 3, 'identity'],
                                                                              [64, 256, 3, 'identity']
                                                                              ], 'last_cards')
