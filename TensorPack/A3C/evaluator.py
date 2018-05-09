@@ -41,6 +41,7 @@ def play_one_episode(env, func):
     # env.prepare_manual(init_cards)
     env.prepare()
     r = 0
+    lstm_state = np.zeros([1024 * 2])
     while r == 0:
         last_cards_value = env.get_last_outcards()
         last_cards_char = to_char(last_cards_value)
@@ -62,8 +63,8 @@ def play_one_episode(env, func):
                 # not valid for active
                 mask[0] = 0
 
-                active_prob, _ = func(
-                    [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 60])]
+                active_prob, _, lstm_state = func(
+                    [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 60]), lstm_state.reshape(1, -1)]
                 )
 
                 # make decision depending on output
@@ -72,8 +73,8 @@ def play_one_episode(env, func):
                 # print('last cards char', last_cards_char)
                 mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
-                _, passive_prob = func(
-                    [np.array([role_id]), s.reshape(1, -1), last_out_cards.reshape(1, -1)])
+                _, passive_prob, lstm_state = func(
+                    [np.array([role_id]), s.reshape(1, -1), last_out_cards.reshape(1, -1), lstm_state.reshape(1, -1)])
 
                 action_idx = take_action_from_prob(passive_prob, mask)
 
@@ -181,8 +182,8 @@ class Evaluator(Callback):
         t = time.time() - t
         if t > 10 * 60:  # eval takes too long
             self.eval_episode = int(self.eval_episode * 0.94)
-        self.trainer.monitors.put_scalar('farmer win rate', farmer_win_rate)
-        self.trainer.monitors.put_scalar('lord win rate', 1 - farmer_win_rate)
+        self.trainer.monitors.put_scalar('farmer_win_rate', farmer_win_rate)
+        self.trainer.monitors.put_scalar('lord_win_rate', 1 - farmer_win_rate)
 
 
 if __name__ == '__main__':
