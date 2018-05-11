@@ -9,14 +9,14 @@ else:
 from env import get_combinations_recursive, get_combinations_nosplit
 from utils import get_mask_onehot60, get_mask
 from card import action_space, Card, action_space_category, Category
-
+from tensorpack.utils.stats import StatCounter
 
 def dancing_link():
     env = Pyenv()
     env.reset()
     env.prepare()
     # print(env.get_handcards())
-    cards = env.get_handcards()[:10]
+    cards = env.get_handcards()
     # cards = ['3', '3', '3']
     mask = get_mask_onehot60(cards, action_space, None).astype(np.uint8)
 
@@ -53,24 +53,31 @@ def dancing_link():
 
 
 def recursive():
+    import timeit
     env = Pyenv()
-    env.reset()
-    env.prepare()
-    # print(env.get_handcards())
-    cards = env.get_handcards()[:10]
-    # cards = ['3', '3',  '4', '4']
-    mask = get_mask_onehot60(cards, action_space, None).reshape(len(action_space), 15, 4).sum(-1).astype(np.uint8)
-    valid = mask.sum(-1) > 0
-    cards_target = Card.char2onehot60(cards).reshape(-1, 4).sum(-1).astype(np.uint8)
-    combs = get_combinations_recursive(mask, cards_target, valid)
-    print(len(combs))
-    for comb in combs:
-        for idx in comb:
-            print(action_space[idx], end=', ')
-        print()
+    st = StatCounter()
+    for i in range(100):
+        env.reset()
+        env.prepare()
+        # print(env.get_handcards())
+        cards = env.get_handcards()[:15]
+        # cards = ['3', '3',  '4', '4']
+        mask = get_mask_onehot60(cards, action_space, None).reshape(len(action_space), 15, 4).sum(-1).astype(np.uint8)
+        valid = mask.sum(-1) > 0
+        cards_target = Card.char2onehot60(cards).reshape(-1, 4).sum(-1).astype(np.uint8)
+        t1 = timeit.default_timer()
+        combs = get_combinations_recursive(mask, cards_target, valid)
+        t2 = timeit.default_timer()
+        st.feed(t2 - t1)
+        # print(len(combs))
+    print(st.average)
+    # for comb in combs:
+    #     for idx in comb:
+    #         print(action_space[idx], end=', ')
+    #     print()
 
 
 if __name__ == '__main__':
     # print(action_space[16:60])
-    dancing_link()
+    # dancing_link()
     recursive()

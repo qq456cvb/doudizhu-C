@@ -137,26 +137,30 @@ py::list get_combinations_nosplit(py::array_t<uint8_t, py::array::c_style | py::
     return results;
 }
 
-void helper(const uint8_t *mat, const vector<uint8_t> &target, int r_idx, int n_rows, vector<int> &path, const bool *mask, py::list &results) {
+void helper(const uint8_t *mat, vector<uint8_t> &target, int r_idx, int n_rows, vector<int> &path, const bool *mask, py::list &results) {
     if (accumulate(target.begin(), target.end(), (int)0) == 0) {
-        results.append(py::array(path.size(), path.data()));
+        // results.append(py::array(path.size(), path.data()));
         return;
     }
     for (int i = r_idx; i < n_rows; i++) {
         if (!mask[i]) continue;
-        auto target_copy = target;
         bool valid = true;
         for (int j = 0; j < 15; j++) {
             if (mat[i * 15 + j] > target[j]) {
                 valid = false;
                 break;
             }
-            target_copy[j] -= mat[i * 15 + j];
         }
         if (!valid) continue;
+        for (int j = 0; j < 15; j++) {
+            target[j] -= mat[i * 15 + j];
+        }
         path.push_back(i);
-        helper(mat, target_copy, i, n_rows, path, mask, results);
+        helper(mat, target, i, n_rows, path, mask, results);
         path.pop_back();
+        for (int j = 0; j < 15; j++) {
+            target[j] += mat[i * 15 + j];
+        } 
     }
 }
 
