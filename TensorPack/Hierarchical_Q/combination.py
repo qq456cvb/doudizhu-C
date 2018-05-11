@@ -8,8 +8,9 @@ else:
     sys.path.insert(0, '../../build.linux')
 from env import get_combinations_recursive, get_combinations_nosplit
 from utils import get_mask_onehot60, get_mask
-from card import action_space, Card, action_space_category, Category
+from card import action_space, Card, action_space_category, Category, augment_action_space_onehot60, CardGroup, augment_action_space
 from tensorpack.utils.stats import StatCounter
+
 
 def dancing_link():
     env = Pyenv()
@@ -17,39 +18,35 @@ def dancing_link():
     env.prepare()
     # print(env.get_handcards())
     cards = env.get_handcards()
-    # cards = ['3', '3', '3']
-    mask = get_mask_onehot60(cards, action_space, None).astype(np.uint8)
+    import timeit
+    begin = timeit.default_timer()
+    card_mask = Card.char2onehot60(cards).astype(np.uint8)
+    # mask = get_mask_onehot60(cards, action_space, None).astype(np.uint8)
+    # last_cards = ['3', '3']
+    mask = augment_action_space_onehot60
+    a = np.expand_dims(1 - card_mask, 0) * mask
+    row_idx = np.where(a > 0)[0]
 
-    # # augment mask
-    # # TODO: known issue: 555444666 will not decompose into 5554 and 66644
-    # augmented_action_space = action_space.copy()
-    # singles = []
-    # single_mask = get_mask(cards, action_space_category[Category.SINGLE])
-    # for i in range(single_mask.size - 2):
-    #     if single_mask[i] > 0:
-    #         augmented_action_space += [action_space_category[Category.SINGLE][i]] * 3
-    #         for j in range(1, 4):
-    #             tmp = np.zeros([60])
-    #             tmp[i * 4 + j] = 1
-    #             singles.append(tmp)
-    #
-    # doubles = []
-    # double_mask = get_mask(cards, action_space_category[Category.DOUBLE])
-    # for i in range(double_mask.size):
-    #     if double_mask[i] > 0:
-    #         augmented_action_space += [action_space_category[Category.DOUBLE][i]]
-    #         tmp = np.zeros([60])
-    #         tmp[i * 4 + 2:i * 4 + 4] = 1
-    #         doubles.append(tmp)
-    #
-    # mask = np.concatenate([mask, np.stack(singles + doubles)])
-    # print(Card.char2onehot60(cards).astype(np.uint8))
+    tmp = np.ones(len(augment_action_space))
+    tmp[row_idx] = 0
+    valid_row_idx = np.where(tmp > 0)[0]
+    # valid_row_idx = [idx for idx in valid_row_idx if CardGroup.to_cardgroup(action_space[idx]).\
+    #                 bigger_than(CardGroup.to_cardgroup(last_cards))]
+
+    mask = mask[valid_row_idx, :]
+    idx_mapping = dict(zip(range(mask.shape[0]), valid_row_idx))
+
+    # augment mask
+    # TODO: known issue: 555444666 will not decompose into 5554 and 66644
+
     combs = get_combinations_nosplit(mask, Card.char2onehot60(cards).astype(np.uint8))
+    end = timeit.default_timer()
+    print(end - begin)
     print(len(combs))
-    for comb in combs:
-        for idx in comb:
-            print(action_space[idx], end=', ')
-        print()
+    # for comb in combs:
+    #     for idx in comb:
+    #         print(augment_action_space[idx_mapping[idx]], end=', ')
+    #     print()
 
 
 def recursive():
@@ -60,7 +57,7 @@ def recursive():
         env.reset()
         env.prepare()
         # print(env.get_handcards())
-        cards = env.get_handcards()[:15]
+        cards = env.get_handcards()[:12]
         # cards = ['3', '3',  '4', '4']
         mask = get_mask_onehot60(cards, action_space, None).reshape(len(action_space), 15, 4).sum(-1).astype(np.uint8)
         valid = mask.sum(-1) > 0
@@ -80,4 +77,4 @@ def recursive():
 if __name__ == '__main__':
     # print(action_space[16:60])
     # dancing_link()
-    recursive()
+    dancing_link()

@@ -503,9 +503,28 @@ class CardGroup:
         return candidates
 
 action_space = get_action_space()
+
+action_space_onehot60 = np.array([Card.char2onehot60(a) for a in action_space])
 action_space_category = [action_space[:1], action_space[1:16], action_space[16:29], action_space[29:42], action_space[42:55], \
     action_space[55:237], action_space[237:393], action_space[393:429], action_space[429:478], \
     action_space[478:516], action_space[516:6109], action_space[6109:7914], action_space[7914:7915], action_space[7915:9085]]
+
+augment_action_space = action_space + action_space_category[Category.SINGLE][:13] * 3 + action_space_category[Category.DOUBLE]
+
+extra_actions = []
+for j in range(3):
+    for i in range(13):
+        tmp = np.zeros([60])
+        tmp[i * 4 + j + 1] = 1
+        extra_actions.append(tmp)
+
+for i in range(13):
+    tmp = np.zeros([60])
+    tmp[i * 4 + 2:i * 4 + 4] = 1
+    extra_actions.append(tmp)
+
+augment_action_space_onehot60 = np.concatenate([action_space_onehot60, np.stack(extra_actions)], 0)
+
 
 if __name__ == '__main__':
     pass
