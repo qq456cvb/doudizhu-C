@@ -137,13 +137,12 @@ py::list get_combinations_nosplit(py::array_t<uint8_t, py::array::c_style | py::
     return results;
 }
 
-void helper(const uint8_t *mat, vector<uint8_t> &target, int r_idx, int n_rows, vector<int> &path, const bool *mask, py::list &results) {
+void helper(const uint8_t *mat, vector<uint8_t> &target, int r_idx, int n_rows, vector<int> &path, py::list &results) {
     if (accumulate(target.begin(), target.end(), (int)0) == 0) {
-        // results.append(py::array(path.size(), path.data()));
+        results.append(py::array(path.size(), path.data()));
         return;
     }
     for (int i = r_idx; i < n_rows; i++) {
-        if (!mask[i]) continue;
         bool valid = true;
         for (int j = 0; j < 15; j++) {
             if (mat[i * 15 + j] > target[j]) {
@@ -156,7 +155,7 @@ void helper(const uint8_t *mat, vector<uint8_t> &target, int r_idx, int n_rows, 
             target[j] -= mat[i * 15 + j];
         }
         path.push_back(i);
-        helper(mat, target, i, n_rows, path, mask, results);
+        helper(mat, target, i, n_rows, path, results);
         path.pop_back();
         for (int j = 0; j < 15; j++) {
             target[j] += mat[i * 15 + j];
@@ -165,13 +164,11 @@ void helper(const uint8_t *mat, vector<uint8_t> &target, int r_idx, int n_rows, 
 }
 
 py::list get_combinations_recursive(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr,
-        py::array_t<uint8_t, py::array::c_style | py::array::forcecast> target, 
-        py::array_t<bool, py::array::c_style | py::array::forcecast> mask) {
+        py::array_t<uint8_t, py::array::c_style | py::array::forcecast> target) {
     const uint8_t *mat = arr.data();
     vector<uint8_t> cnt(target.data(), target.data() + target.size());
     py::list results;
     vector<int> path;
-    const bool *mask_ptr = mask.data();
-    helper(mat, cnt, 1, arr.size() / 15, path, mask_ptr, results);
+    helper(mat, cnt, 0, arr.size() / 15, path, results);
     return results;
 }

@@ -68,7 +68,7 @@ def res_fc_block(inputs, units, stack=3):
 
 
 BATCH_SIZE = 16
-MAX_NUM_COMBS = 100
+MAX_NUM_COMBS = 200
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
 HIDDEN_STATE_DIM = 256
@@ -214,7 +214,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN'))
+            os.path.join('train_log', 'DQN-36'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)
