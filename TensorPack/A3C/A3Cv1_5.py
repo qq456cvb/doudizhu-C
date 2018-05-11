@@ -19,6 +19,7 @@ from six.moves import queue
 
 from pyenv import Pyenv
 import tensorflow.contrib.slim as slim
+import tensorflow.contrib.rnn as rnn
 from tensorpack import *
 from tensorpack.utils.concurrency import ensure_proc_terminate, start_proc_mask_signal
 from tensorpack.utils.serialize import dumps
@@ -30,7 +31,6 @@ from tensorpack.tfutils import get_current_tower_context, optimizer
 from TensorPack.A3C.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience
 from TensorPack.A3C.model_loader import ModelLoader
 from TensorPack.A3C.evaluator import Evaluator
-from  TensorPack.ResNetBlock import conv_block
 from TensorPack.PolicySL.Policy_SL_v1_4 import conv_block as policy_conv_block
 from TensorPack.ValueSL.Value_SL_v1_4 import conv_block as value_conv_block
 
@@ -65,43 +65,67 @@ def get_player():
 
 
 class Model(ModelDesc):
-    def get_policy(self, role_id, state, last_cards):
+    def get_policy(self, role_id, state, last_cards, lstm_state):
         # policy network, different for three agents
         batch_size = tf.shape(role_id)[0]
         gathered_outputs = []
         indices = []
         for idx in range(1, 4):
             with tf.variable_scope('policy_network_%d' % idx):
+                lstm = rnn.BasicLSTMCell(1024, state_is_tuple=False)
                 id_idx = tf.where(tf.equal(role_id, idx))
                 indices.append(id_idx)
                 state_id = tf.gather_nd(state, id_idx)
                 last_cards_id = tf.gather_nd(last_cards, id_idx)
+                lstm_state_id = tf.gather_nd(lstm_state, id_idx)
                 with slim.arg_scope([slim.fully_connected, slim.conv2d],
                                     weights_regularizer=slim.l2_regularizer(POLICY_WEIGHT_DECAY)):
                     with tf.variable_scope('branch_main'):
                         flattened_1 = policy_conv_block(state_id[:, :60], 32, POLICY_INPUT_DIM // 3,
                                                         [[128, 3, 'identity'],
                                                          [128, 3, 'identity'],
-                                                         [128, 3, 'upsampling'],
+                                                         [128, 3, 'downsampling'],
                                                          [128, 3, 'identity'],
                                                          [128, 3, 'identity'],
-                                                         [256, 3, 'upsampling'],
+                                                         [256, 3, 'downsampling'],
                                                          [256, 3, 'identity'],
                                                          [256, 3, 'identity']
                                                          ], 'branch_main1')
+                        flattened_2 = policy_conv_block(state_id[:, 60:120], 32, POLICY_INPUT_DIM // 3,
+                                                        [[128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
+                                                         [128, 3, 'downsampling'],
+                                                         [128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
+                                                         [256, 3, 'downsampling'],
+                                                         [256, 3, 'identity'],
+                                                         [256, 3, 'identity']
+                                                         ], 'branch_main2')
+                        flattened_3 = policy_conv_block(state_id[:, 120:], 32, POLICY_INPUT_DIM // 3,
+                                                        [[128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
+                                                         [128, 3, 'downsampling'],
+                                                         [128, 3, 'identity'],
+                                                         [128, 3, 'identity'],
+                                                         [256, 3, 'downsampling'],
+                                                         [256, 3, 'identity'],
+                                                         [256, 3, 'identity']
+                                                         ], 'branch_main3')
 
-                        flattened = flattened_1
+                        flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
 
-                    active_fc = slim.fully_connected(flattened, 1024)
+                    fc, new_lstm_state = lstm(flattened, lstm_state_id)
+
+                    active_fc = slim.fully_connected(fc, 1024)
                     active_logits = slim.fully_connected(active_fc, 9085, activation_fn=None, scope='final_fc')
                     with tf.variable_scope('branch_passive'):
                         flattened_last = policy_conv_block(last_cards_id, 32, POLICY_LAST_INPUT_DIM,
                                                            [[128, 3, 'identity'],
                                                             [128, 3, 'identity'],
-                                                            [128, 3, 'upsampling'],
+                                                            [128, 3, 'downsampling'],
                                                             [128, 3, 'identity'],
                                                             [128, 3, 'identity'],
-                                                            [256, 3, 'upsampling'],
+                                                            [256, 3, 'downsampling'],
                                                             [256, 3, 'identity'],
                                                             [256, 3, 'identity']
                                                             ], 'last_cards')
@@ -111,15 +135,15 @@ class Model(ModelDesc):
                         passive_fc = passive_attention * active_fc
                     passive_logits = slim.fully_connected(passive_fc, 9085, activation_fn=None, reuse=True, scope='final_fc')
 
-            gathered_output = [active_logits, passive_logits]
+            gathered_output = [active_logits, passive_logits, new_lstm_state]
             if idx == 1 or idx == 3:
                 for k in range(len(gathered_output)):
                     gathered_output[k] = tf.stop_gradient(gathered_output[k])
             gathered_outputs.append(gathered_output)
 
-        # 2: B * ?
+        # 3: B * ?
         outputs = []
-        for i in range(2):
+        for i in range(3):
             scatter_shape = tf.cast(tf.stack([batch_size, gathered_outputs[0][i].shape[1]]), dtype=tf.int64)
             # scatter_shape = tf.Print(scatter_shape, [tf.shape(scatter_shape)])
             outputs.append(tf.add_n([tf.scatter_nd(indices[k], gathered_outputs[k][i], scatter_shape) for k in range(3)]))
@@ -132,28 +156,28 @@ class Model(ModelDesc):
             with tf.variable_scope('value_conv'):
                 flattened_1 = value_conv_block(state[:, :60], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [128, 3, 'upsampling'],
+                                                                  [128, 3, 'downsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [256, 3, 'upsampling'],
+                                                                  [256, 3, 'downsampling'],
                                                                   [256, 3, 'identity'],
                                                                   [256, 3, 'identity']
                                                                   ], 'value_conv1')
                 flattened_2 = value_conv_block(state[:, 60:120], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [128, 3, 'upsampling'],
+                                                                  [128, 3, 'downsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [256, 3, 'upsampling'],
+                                                                  [256, 3, 'downsampling'],
                                                                   [256, 3, 'identity'],
                                                                   [256, 3, 'identity']
                                                                   ], 'value_conv2')
                 flattened_3 = value_conv_block(state[:, 120:], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [128, 3, 'upsampling'],
+                                                                  [128, 3, 'downsampling'],
                                                                   [128, 3, 'identity'],
                                                                   [128, 3, 'identity'],
-                                                                  [256, 3, 'upsampling'],
+                                                                  [256, 3, 'downsampling'],
                                                                   [256, 3, 'identity'],
                                                                   [256, 3, 'identity']
                                                                   ], 'value_conv3')
@@ -175,12 +199,14 @@ class Model(ModelDesc):
             tf.placeholder(tf.int32, [None], 'action_in'),
             tf.placeholder(tf.int32, [None], 'mode_in'),
             tf.placeholder(tf.float32, [None], 'history_action_prob_in'),
-            tf.placeholder(tf.float32, [None], 'discounted_return_in')
+            tf.placeholder(tf.float32, [None], 'discounted_return_in'),
+            tf.placeholder(tf.float32, [None, 1024 * 2], 'lstm_state_in')
         ]
 
-    def build_graph(self, role_id, prob_state, value_state, last_cards, action_target, mode, history_action_prob, discounted_return):
+    def build_graph(self, role_id, prob_state, value_state, last_cards, action_target, mode, history_action_prob, discounted_return, lstm_state):
 
-        (active_logits, passive_logits) = self.get_policy(role_id, prob_state, last_cards)
+        active_logits, passive_logits, new_lstm_state = self.get_policy(role_id, prob_state, last_cards, lstm_state)
+        new_lstm_state = tf.identity(new_lstm_state, name='new_lstm_state')
         active_prob = tf.nn.softmax(active_logits, name='active_prob')
         passive_prob = tf.nn.softmax(passive_logits, name='passive_prob')
         mode_out = tf.identity(mode, name='mode_out')
@@ -323,8 +349,8 @@ class MySimulatorMaster(SimulatorMaster, Callback):
         # create predictors on the available predictor GPUs.
         nr_gpu = len(self._gpus)
         predictors = [self.trainer.get_predictor(
-            ['role_id', 'policy_state_in', 'value_state_in', 'last_cards_in', 'mode_in'],
-            ['active_prob', 'passive_prob', 'mode_out'],
+            ['role_id', 'policy_state_in', 'value_state_in', 'last_cards_in', 'mode_in', 'lstm_state_in'],
+            ['active_prob', 'passive_prob', 'mode_out', 'new_lstm_state'],
             self._gpus[k % nr_gpu])
             for k in range(PREDICTOR_THREAD)]
         self.async_predictor = MultiThreadAsyncPredictor(
@@ -333,7 +359,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
     def _before_train(self):
         self.async_predictor.start()
 
-    def _on_state(self, role_id, prob_state, all_state, last_cards_onehot, mask, mode, client):
+    def _on_state(self, role_id, prob_state, all_state, last_cards_onehot, mask, mode, lstm_state, client):
         """
         Launch forward prediction for the new state given by some client.
         """
@@ -344,17 +370,18 @@ class MySimulatorMaster(SimulatorMaster, Callback):
             except CancelledError:
                 logger.info("Client {} cancelled.".format(client.ident))
                 return
-            mode = output[-1]
-            distrib = (output[:-1][mode] + 1e-7) * mask
+            new_lstm_state = output[-1]
+            mode = output[-2]
+            distrib = (output[:-2][mode] + 1e-7) * mask
             assert np.all(np.isfinite(distrib)), distrib
             action = np.random.choice(len(distrib), p=distrib / distrib.sum())
             client.memory[role_id - 1].append(TransitionExperience(
-                prob_state, all_state, action, reward=0,
+                prob_state, all_state, action, reward=0, lstm_state=lstm_state,
                 last_cards_onehot=last_cards_onehot, mode=mode, prob=distrib[action]))
-            self.send_queue.put([client.ident, dumps(action)])
-        self.async_predictor.put_task([role_id, prob_state, all_state, last_cards_onehot, mode], cb)
+            self.send_queue.put([client.ident, dumps((action, new_lstm_state))])
+        self.async_predictor.put_task([role_id, prob_state, all_state, last_cards_onehot, mode, lstm_state], cb)
 
-    def _process_msg(self, client, role_id, prob_state, all_state, last_cards_onehot, mask, mode, reward, isOver):
+    def _process_msg(self, client, role_id, prob_state, all_state, last_cards_onehot, mask, mode, lstm_state, reward, isOver):
         """
         Process a message sent from some client.
         """
@@ -370,7 +397,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
                 client.memory[i][-1].reward = reward if i != 1 else -reward
             self._parse_memory(0, client)
         # feed state and return action
-        self._on_state(role_id, prob_state, all_state, last_cards_onehot, mask, mode, client)
+        self._on_state(role_id, prob_state, all_state, last_cards_onehot, mask, mode, lstm_state, client)
 
     def _parse_memory(self, init_r, client):
         # for each agent's memory
@@ -383,13 +410,13 @@ class MySimulatorMaster(SimulatorMaster, Callback):
             R = float(init_r)
             for idx, k in enumerate(mem):
                 R = np.clip(k.reward, -1, 1) + GAMMA * R
-                self.queue.put([role_id, k.prob_state, k.all_state, k.last_cards_onehot, k.action, k.mode, k.prob, R])
+                self.queue.put([role_id, k.prob_state, k.all_state, k.last_cards_onehot, k.action, k.mode, k.prob, R, k.lstm_state])
 
             client.memory[role_id - 1] = []
 
 
 def train():
-    dirname = os.path.join('train_log', 'a3c_indep_then_fuse')
+    dirname = os.path.join('train_log', 'a3c_lstm')
     logger.set_logger_dir(dirname)
 
     # assign GPUs for training & inference
@@ -435,8 +462,8 @@ def train():
             master,
             StartProcOrThread(master),
             Evaluator(
-                100, ['role_id', 'policy_state_in', 'last_cards_in'],
-                ['active_prob', 'passive_prob'], get_player),
+                100, ['role_id', 'policy_state_in', 'last_cards_in', 'lstm_state_in'],
+                ['active_prob', 'passive_prob', 'new_lstm_state'], get_player),
             SendStat(
                 'export http_proxy=socks5://127.0.0.1:1080 https_proxy=socks5://127.0.0.1:1080 && /home/neil/anaconda3/bin/curl --header "Access-Token: o.CUdAMXqiVz9qXTxLYIXc0XkcAfZMpNGM" -d type=note -d title="doudizhu" '
                 '-d body="lord win rate: {lord_win_rate}\n policy loss: {policy_loss_2}\n value loss: {value_loss_2}\n entropy loss: {entropy_loss_2}\n'

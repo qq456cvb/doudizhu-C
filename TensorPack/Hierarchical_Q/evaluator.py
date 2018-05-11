@@ -236,15 +236,15 @@ class Evaluator(Callback):
         t = time.time() - t
         if t > 10 * 60:  # eval takes too long
             self.eval_episode = int(self.eval_episode * 0.94)
-        self.trainer.monitors.put_scalar('farmer win rate', farmer_win_rate)
-        self.trainer.monitors.put_scalar('lord win rate', 1 - farmer_win_rate)
+        self.trainer.monitors.put_scalar('farmer_win_rate', farmer_win_rate)
+        self.trainer.monitors.put_scalar('lord_win_rate', 1 - farmer_win_rate)
 
 
 if __name__ == '__main__':
     env = Env()
     stat = StatCounter()
-    init_cards = np.arange(52)
-    init_cards = np.append(init_cards[::4], init_cards[1::4])
+    init_cards = np.arange(21)
+    # init_cards = np.append(init_cards[::4], init_cards[1::4])
     for _ in range(1000):
         env.reset()
         env.prepare_manual(init_cards)

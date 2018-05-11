@@ -21,7 +21,7 @@ from utils import pick_main_cards
 import multiprocessing
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-from TensorPack.ResNetBlock import identity_block, upsample_block
+from TensorPack.ResNetBlock import identity_block, upsample_block, downsample_block
 
 
 INPUT_DIM = 60 * 3
@@ -119,18 +119,20 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
                                    kernel_size=[1, 4], stride=[1, 4], padding='SAME')
 
         conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
-        # conv = tf.concat(conv_list, -1)
+        conv = tf.concat(conv_list, -1)
 
-        conv_idens = []
-        for c in conv_list:
-            for i in range(5):
-                c = identity_block(c, 32, 3)
-            conv_idens.append(c)
-        conv = tf.concat(conv_idens, -1)
+        # conv_idens = []
+        # for c in conv_list:
+        #     for i in range(5):
+        #         c = identity_block(c, 32, 3)
+        #     conv_idens.append(c)
+        # conv = tf.concat(conv_idens, -1)
 
         for param in res_params:
             if param[-1] == 'identity':
                 conv = identity_block(conv, param[0], param[1])
+            elif param[-1] == 'downsampling':
+                conv = downsample_block(conv, param[0], param[1])
             elif param[-1] == 'upsampling':
                 conv = upsample_block(conv, param[0], param[1])
             else:
@@ -149,28 +151,28 @@ class Model(ModelDesc):
                 with tf.variable_scope('value_conv'):
                     flattened_1 = conv_block(state[:, :60], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
                                                                       [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'upsampling'],
+                                                                      [32, 128, 5, 'downsampling'],
                                                                       [32, 128, 3, 'identity'],
                                                                       [32, 128, 3, 'identity'],
-                                                                      [64, 256, 3, 'upsampling'],
+                                                                      [64, 256, 3, 'downsampling'],
                                                                       [64, 256, 3, 'identity'],
                                                                       [64, 256, 3, 'identity']
                                                                       ], 'value_conv1')
                     flattened_2 = conv_block(state[:, 60:120], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
                                                                       [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'upsampling'],
+                                                                      [32, 128, 5, 'downsampling'],
                                                                       [32, 128, 3, 'identity'],
                                                                       [32, 128, 3, 'identity'],
-                                                                      [64, 256, 3, 'upsampling'],
+                                                                      [64, 256, 3, 'downsampling'],
                                                                       [64, 256, 3, 'identity'],
                                                                       [64, 256, 3, 'identity']
                                                                       ], 'value_conv2')
                     flattened_3 = conv_block(state[:, 120:], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
                                                                       [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'upsampling'],
+                                                                      [32, 128, 5, 'downsampling'],
                                                                       [32, 128, 3, 'identity'],
                                                                       [32, 128, 3, 'identity'],
-                                                                      [64, 256, 3, 'upsampling'],
+                                                                      [64, 256, 3, 'downsampling'],
                                                                       [64, 256, 3, 'identity'],
                                                                       [64, 256, 3, 'identity']
                                                                       ], 'value_conv3')
