@@ -1,8 +1,9 @@
 #include "dancing_link.h"
 
 
-Object *createHead(const uint8_t *mat, const py::array_t<uint8_t, py::array::c_style | py::array::forcecast> &mask, int rows, int cols) {
+Object *createHead(const uint8_t *mat, const py::array_t<uint8_t, py::array::c_style | py::array::forcecast> &mask, int rows, int cols, vector<Object*> &objs) {
     auto h = new ColumnObject();
+    objs.push_back(h);
     vector<Object*> rows_obj(rows, nullptr);
 
     auto iter_c = h;
@@ -10,6 +11,7 @@ Object *createHead(const uint8_t *mat, const py::array_t<uint8_t, py::array::c_s
     for (int i = 0; i < cols; i++) {
         if (mask_ptr[i] == 0) continue;
         auto c = new ColumnObject();
+        objs.push_back(c);
         iter_c->r = c;
         c->l = iter_c;
         c->c = c;
@@ -20,6 +22,7 @@ Object *createHead(const uint8_t *mat, const py::array_t<uint8_t, py::array::c_s
             if (mat[j * cols + i] > 0) {
                 one_cnt++;
                 auto r = new DataObject();
+                objs.push_back(r);
                 iter_r->d = r;
                 r->u = iter_r;
                 r->c = c;
@@ -130,10 +133,14 @@ void search(Object *head, vector<int> &path, py::list &results) {
 
 py::list get_combinations_nosplit(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> arr, py::array_t<uint8_t, py::array::c_style | py::array::forcecast> mask) {
     const uint8_t *mat = arr.data();
-    ColumnObject *head = static_cast<ColumnObject *>(createHead(mat, mask, arr.shape(0), arr.shape(1)));
+    vector<Object*> objects;
+    ColumnObject *head = static_cast<ColumnObject *>(createHead(mat, mask, arr.shape(0), arr.shape(1), objects));
     vector<int> path;
     py::list results;
     search(head, path, results);
+    for (auto obj : objects) {
+        if (obj) delete obj;
+    }
     return results;
 }
 

@@ -123,7 +123,8 @@ class Model(ModelDesc):
 
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=self.learning_rate, trainable=False)
-        opt = tf.train.AdamOptimizer(lr, epsilon=1e-3)
+        # opt = tf.train.AdamOptimizer(lr, epsilon=1e-3)
+        opt = tf.train.GradientDescentOptimizer(lr)
         return optimizer.apply_grad_processors(
             opt, [gradproc.MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.5)),
                   gradproc.SummaryGradient()])

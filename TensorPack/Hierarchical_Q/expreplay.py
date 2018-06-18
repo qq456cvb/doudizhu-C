@@ -141,8 +141,9 @@ class ExpReplay(DataFlow, Callback):
 
         self.mem = ReplayMemory(memory_size, state_shape)
         self.player.reset()
-        init_cards = np.arange(36)
-        self.player.prepare_manual(init_cards)
+        # init_cards = np.arange(36)
+        # self.player.prepare_manual(init_cards)
+        self.player.prepare()
         # self._current_ob = self.player.get_state_prob()
         self._comb_mask = True
         self._fine_mask = None
@@ -203,9 +204,11 @@ class ExpReplay(DataFlow, Callback):
                 self._fine_mask = None
         return combs
 
-    def subsample_combs(self, combs, num_sample):
-        random.shuffle(combs)
-        return combs[:num_sample]
+    def subsample_combs_masks(self, combs, masks, num_sample):
+        if masks is not None:
+            assert len(combs) == masks.shape[0]
+        idx = np.random.permutation(len(combs))[:num_sample]
+        return [combs[i] for i in idx], (masks[idx] if masks is not None else None)
 
     def get_state_and_action_spaces(self, action=None):
         last_cards_value = self.player.get_last_outcards()
@@ -216,14 +219,15 @@ class ExpReplay(DataFlow, Callback):
                 # we have no larger cards
                 assert last_cards_value.size > 0
             if len(combs) > self.num_actions[0]:
-                combs = self.subsample_combs(combs, self.num_actions[0])
+                combs, self._fine_mask = self.subsample_combs_masks(combs, self._fine_mask, self.num_actions[0])
             # TODO: utilize temporal relations to speedup
             available_actions = [([[]] if last_cards_value.size > 0 else []) + [action_space[idx] for idx in comb] for comb in combs]
+            if last_cards_value.size > 0:
+                self._fine_mask = np.concatenate([np.ones([self._fine_mask.shape[0], 1], dtype=np.bool), self._fine_mask[:, :20]], axis=1)
             if len(combs) == 0:
                 available_actions = [[[]]]
-                tmp = np.zeros([1, self.num_actions[1]], dtype=np.bool)
-                tmp[0, 0] = True
-                self._fine_mask = np.concatenate([self._fine_mask, tmp], 0)
+                self._fine_mask = np.zeros([1, self.num_actions[1]], dtype=np.bool)
+                self._fine_mask[0, 0] = True
             if self._fine_mask is not None:
                 self._fine_mask = self.pad_fine_mask(self._fine_mask)
             self.pad_action_space(available_actions)
@@ -293,6 +297,7 @@ class ExpReplay(DataFlow, Callback):
         """ populate a transition by epsilon-greedy"""
         old_s = self._current_ob
         comb_mask = self._comb_mask
+        last_cards_value = self.player.get_last_outcards()
         if self.rng.rand() <= self.exploration:
             if not self._comb_mask and self._fine_mask is not None:
                 q_values = np.random.rand(self.num_actions[1])
@@ -303,6 +308,7 @@ class ExpReplay(DataFlow, Callback):
         else:
             q_values = self.predictor([old_s[None, :, :, :], np.array([comb_mask])])[0][0]
             if not self._comb_mask and self._fine_mask is not None:
+                q_values = q_values[:self.num_actions[1]]
                 q_values[np.where(np.logical_not(self._fine_mask))[0]] = np.nan
             act = np.nanargmax(q_values)
             # clamp action to valid range
@@ -311,7 +317,14 @@ class ExpReplay(DataFlow, Callback):
             reward = 0
             isOver = False
         else:
+            if last_cards_value.size > 0:
+                if act > 0:
+                    if not CardGroup.to_cardgroup(self._action_space[act]).bigger_than(CardGroup.to_cardgroup(to_char(last_cards_value))):
+                        print('warning, some error happened')
+            # print(to_char(self.player.get_curr_handcards()))
             reward, isOver, _ = self.player.step_manual(to_value(self._action_space[act]))
+
+            # print(self._action_space[act])
 
         # step for AI farmers
         while not isOver and self.player.get_role_ID() != 2:
@@ -321,16 +334,25 @@ class ExpReplay(DataFlow, Callback):
         self._current_game_score.feed(reward)
 
         if isOver:
+            # print('lord wins' if reward > 0 else 'farmer wins')
             self._player_scores.feed(self._current_game_score.sum)
             self.player.reset()
-            init_cards = np.arange(36)
-            self.player.prepare_manual(init_cards)
+            # init_cards = np.arange(36)
+            # self.player.prepare_manual(init_cards)
+            self.player.prepare()
             self._comb_mask = True
             self._current_game_score.reset()
         else:
             self._comb_mask = not self._comb_mask
         self._current_ob, self._action_space = self.get_state_and_action_spaces(act if not self._comb_mask else None)
         self.mem.append(Experience(old_s, act, reward, isOver, comb_mask))
+
+    def debug(self, cnt=100000):
+        with get_tqdm(total=cnt) as pbar:
+            for i in range(cnt):
+                self.mem.append(Experience(np.zeros([self.num_actions[0], self.num_actions[1], 256]), 0, 0, False, True if i % 2 == 0 else False))
+                # self._current_ob, self._action_space = self.get_state_and_action_spaces(None)
+                pbar.update()
 
     def get_data(self):
         # wait for memory to be initialized
@@ -387,25 +409,28 @@ def h():
 
 if __name__ == '__main__':
     def predictor(x):
-        return [np.ones([1, 21])]
+        return [np.random.random([1, 100])]
     player = CEnv()
-    E = expreplay = ExpReplay(
-        predictor_io_names=(['joint_state', 'comb_mask'], ['Qvalue']),
-        player=player,
-        state_shape=180,
-        batch_size=4,
+    E = ExpReplay(
+        predictor_io_names=(['state', 'comb_mask'], ['Qvalue']),
+        player=CEnv(),
+        state_shape=(100, 21, 256),
+        num_actions=[100, 21],
+        batch_size=16,
         memory_size=1e4,
-        init_memory_size=1e3,
-        init_exploration=0.5,
+        init_memory_size=1e4,
+        init_exploration=0.,
         update_frequency=4
     )
     E.predictor = predictor
     E._init_memory()
+    # for k in E.get_data():
+    #     pass
 
-    for k in E.get_data():
-        import IPython as IP
-        IP.embed(config=IP.terminal.ipapp.load_default_config())
-        pass
+    # for k in E.get_data():
+    #     import IPython as IP
+    #     IP.embed(config=IP.terminal.ipapp.load_default_config())
+    #     pass
         # import IPython;
         # IPython.embed(config=IPython.terminal.ipapp.load_default_config())
         # break

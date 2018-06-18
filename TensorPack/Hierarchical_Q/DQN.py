@@ -68,7 +68,7 @@ def res_fc_block(inputs, units, stack=3):
 
 
 BATCH_SIZE = 16
-MAX_NUM_COMBS = 200
+MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
 HIDDEN_STATE_DIM = 256
@@ -156,7 +156,7 @@ def get_config():
         batch_size=BATCH_SIZE,
         memory_size=MEMORY_SIZE,
         init_memory_size=INIT_MEMORY_SIZE,
-        init_exploration=1.0,
+        init_exploration=1.,
         update_frequency=UPDATE_FREQ
     )
 
@@ -177,9 +177,8 @@ def get_config():
                 ObjAttrParam(expreplay, 'exploration'),
                 [(0, 1), (10, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
                 interp='linear'),
-            PeriodicTrigger(Evaluator(
+            Evaluator(
                 EVAL_EPISODE, ['state', 'comb_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
-                every_k_epochs=10),
             HumanHyperParamSetter('learning_rate'),
         ],
         steps_per_epoch=STEPS_PER_EPOCH,
@@ -214,7 +213,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN-36'))
+            os.path.join('train_log', 'DQN-54-SGD'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)

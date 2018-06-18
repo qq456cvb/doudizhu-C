@@ -114,24 +114,25 @@ def play_one_episode(env, func, num_actions):
                 fine_mask = None
         return combs
 
-    def subsample_combs(combs, num_sample):
-        random.shuffle(combs)
-        return combs[:num_sample]
+    def subsample_combs_masks(combs, masks, num_sample):
+        if masks is not None:
+            assert len(combs) == masks.shape[0]
+        idx = np.random.permutation(len(combs))[:num_sample]
+        return [combs[i] for i in idx], (masks[idx] if masks is not None else None)
 
     def get_state_and_action_space(is_comb, cand_state=None, cand_actions=None, action=None):
         nonlocal fine_mask
         if is_comb:
             combs = get_combinations(curr_cards_char, last_cards_value)
             if len(combs) > num_actions[0]:
-                combs = subsample_combs(combs, num_actions[0])
+                combs, fine_mask = subsample_combs_masks(combs, fine_mask, num_actions[0])
             # TODO: utilize temporal relations to speedup
             available_actions = [([[]] if last_cards_value.size > 0 else []) + [action_space[idx] for idx in comb] for
                                  comb in combs]
             if len(combs) == 0:
                 available_actions = [[[]]]
-                tmp = np.zeros([1, num_actions[1]], dtype=np.bool)
-                tmp[0, 0] = True
-                fine_mask = np.concatenate([fine_mask, tmp], 0)
+                fine_mask = np.zeros([1, num_actions[1]], dtype=np.bool)
+                fine_mask[0, 0] = True
             if fine_mask is not None:
                 fine_mask = pad_fine_mask(fine_mask)
             pad_action_space(available_actions)
@@ -156,10 +157,10 @@ def play_one_episode(env, func, num_actions):
         return state, available_actions
 
     env.reset()
-    init_cards = np.arange(36)
+    # init_cards = np.arange(36)
     # init_cards = np.append(init_cards[::4], init_cards[1::4])
-    env.prepare_manual(init_cards)
-    # env.prepare()
+    # env.prepare_manual(init_cards)
+    env.prepare()
     r = 0
     while r == 0:
         role_id = env.get_role_ID()
@@ -181,6 +182,7 @@ def play_one_episode(env, func, num_actions):
             state, available_actions = get_state_and_action_space(False, state, available_actions, action)
             q_values = func([state[None, :, :, :], np.array([False])])[0][0]
             if fine_mask is not None:
+                q_values = q_values[:num_actions[1]]
                 q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
             action = np.nanargmax(q_values)
             # clamp action to valid range
