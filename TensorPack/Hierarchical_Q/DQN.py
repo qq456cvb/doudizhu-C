@@ -71,7 +71,7 @@ BATCH_SIZE = 16
 MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
-HIDDEN_STATE_DIM = 256
+HIDDEN_STATE_DIM = 256 + 120
 STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
 UPDATE_FREQ = 4
@@ -213,7 +213,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN-54-SGD'))
+            os.path.join('train_log', 'DQN-54-AUG-STATE'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)

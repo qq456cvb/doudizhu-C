@@ -143,7 +143,10 @@ def play_one_episode(env, func, num_actions):
                 for comb in combs]
             if len(state) == 0:
                 assert len(combs) == 0
-                state = np.array([[encoding[0]]])
+                state = [np.array([encoding[0]])]
+            prob_state = env.get_state_prob()
+            for i in range(len(state)):
+                state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = pad_state(state)
             assert state.shape[0] == num_actions[0] and state.shape[1] == num_actions[1]
         else:
@@ -297,15 +300,17 @@ class Evaluator(Callback):
 
 
 if __name__ == '__main__':
-    env = Env()
-    stat = StatCounter()
-    init_cards = np.arange(21)
-    # init_cards = np.append(init_cards[::4], init_cards[1::4])
-    for _ in range(1000):
-        env.reset()
-        env.prepare_manual(init_cards)
-        r = 0
-        while r == 0:
-            _, r, _ = env.step_auto()
-        stat.feed(int(r < 0))
-    print('lord win rate: {}'.format(stat.average))
+    encoding = np.load('encoding.npy')
+    print(encoding.shape)
+    # env = Env()
+    # stat = StatCounter()
+    # init_cards = np.arange(21)
+    # # init_cards = np.append(init_cards[::4], init_cards[1::4])
+    # for _ in range(1000):
+    #     env.reset()
+    #     env.prepare_manual(init_cards)
+    #     r = 0
+    #     while r == 0:
+    #         _, r, _ = env.step_auto()
+    #     stat.feed(int(r < 0))
+    # print('lord win rate: {}'.format(stat.average))

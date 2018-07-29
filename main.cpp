@@ -610,9 +610,9 @@ public:
         return result;
     }
 
-    // 输出自己的手牌和另外两个人手牌的概率
-    py::array_t<int> getStateProb() {
-        std::vector<int> state;
+    // 输出另外两个人手牌的概率
+    py::array_t<float> getStateProb() {
+        std::vector<float> state;
         std::vector<int> total(60, 1);
         total[53] = total[54] = total[55] = 0;
         total[57] = total[58] = total[59] = 0;
@@ -634,30 +634,36 @@ public:
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot60(extra_cards);
 
-        vector<int> prob1 = remains;
-        vector<int> prob2 = remains;
+        vector<float> prob1(remains.begin(), remains.end());
+        vector<float> prob2(remains.begin(), remains.end());
+        int size1 = arrHandCardData[(indexID + 1) % 3].color_nHandCardList.size();
+        int size2 = arrHandCardData[(indexID + 2) % 3].color_nHandCardList.size();
+        for (int i = 0; i < remains.size(); i++) {
+            prob1[i] *= float(size1) / (size1 + size2);
+            prob2[i] *= float(size2) / (size1 + size2);
+        }
 
         // divide by the other two
         // for simplicity, scale by two
         for (int i = 0; i < remains.size(); i++) {
             if (indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
                 if (indexID + 1 == clsGameSituation->nDiZhuID) {
-                    prob1[i] = 2;
+                    prob1[i] = 1.f;
                     prob2[i] = 0;
                 } else {
                     prob1[i] = 0;
-                    prob2[i] = 2;
+                    prob2[i] = 1.f;
                 }
             }
         }
 
-        state += self_cards;
+//        state += self_cards;
         state += prob1;
         state += prob2;
 
-        auto result = py::array_t<int>(state.size());
+        auto result = py::array_t<float>(state.size());
         auto buf = result.request();
-        int *ptr = (int*)buf.ptr;
+        float *ptr = (float*)buf.ptr;
 
         for (int i = 0; i < state.size(); ++i)
         {
