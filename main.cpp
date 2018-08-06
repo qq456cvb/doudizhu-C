@@ -375,18 +375,21 @@ public:
 
         // call for lord
         int max_val = 0;
-        for (int i = 0; i < 3; i++)
-        {
-            int val = 0;
-            int  tmpLandScore = LandScore(*clsGameSituation, arrHandCardData[i], val);
-//            py::print("分为：", tmpLandScore, "sep"_a="");
-            if (tmpLandScore >= clsGameSituation->nNowLandScore && val > max_val)
-            {
-                max_val = val;
-                clsGameSituation->nNowLandScore = tmpLandScore;
-                clsGameSituation->nNowDiZhuID = i;
-            }
-        }
+        int val = 0;
+        clsGameSituation->nNowLandScore = LandScore(*clsGameSituation, arrHandCardData[0], val);
+        clsGameSituation->nNowDiZhuID = 0;
+//        for (int i = 0; i < 3; i++)
+//        {
+//            int val = 0;
+//            int  tmpLandScore = LandScore(*clsGameSituation, arrHandCardData[i], val);
+////            py::print("分为：", tmpLandScore, "sep"_a="");
+//            if (tmpLandScore >= clsGameSituation->nNowLandScore && val > max_val)
+//            {
+//                max_val = val;
+//                clsGameSituation->nNowLandScore = tmpLandScore;
+//                clsGameSituation->nNowDiZhuID = i;
+//            }
+//        }
         
         if (clsGameSituation->nNowDiZhuID == -1)
         {

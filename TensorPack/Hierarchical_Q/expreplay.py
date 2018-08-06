@@ -334,11 +334,13 @@ class ExpReplay(DataFlow, Callback):
             _, reward, _ = self.player.step_auto()
             isOver = (reward != 0)
         reward = -reward
+        reward = np.clip(reward, -1, 1)
         self._current_game_score.feed(reward)
 
         if isOver:
             # print('lord wins' if reward > 0 else 'farmer wins')
             self._player_scores.feed(self._current_game_score.sum)
+            # print(self._current_game_score.sum)
             self.player.reset()
             # init_cards = np.arange(36)
             # self.player.prepare_manual(init_cards)

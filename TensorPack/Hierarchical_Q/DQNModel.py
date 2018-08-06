@@ -27,7 +27,7 @@ class Model(ModelDesc):
         # Use a combined state for efficiency.
         # The first h channels are the current state, and the last h channels are the next state.
         return [tf.placeholder(tf.float32,
-                               (None, 2, *self.state_shape),
+                               (None, 2, self.state_shape[0], self.state_shape[1], self.state_shape[2]),
                                'joint_state'),
                 tf.placeholder(tf.int64, (None,), 'action'),
                 tf.placeholder(tf.float32, (None,), 'reward'),
@@ -65,15 +65,15 @@ class Model(ModelDesc):
         q_comb = tf.scatter_nd(comb_mask_idx, q_comb, tf.stack([batch_size, q_comb.shape[1]]))
 
         fine_mask_idx = tf.cast(tf.where(tf.logical_not(comb_mask)), tf.int32)
-        state_fine = tf.concat([tf.tile(tf.expand_dims(global_feature, 2), [1, 1, joint_state.shape[2], 1]), joint_state], -1)
+        state_fine = tf.concat([tf.tile(tf.expand_dims(global_feature, 2), [1, 1, joint_state.shape.as_list()[2], 1]), joint_state], -1)
         state_fine = tf.gather(state_fine[:, 0, :, :], fine_mask_idx[:, 0])
         with tf.variable_scope('dqn_fine'):
             q_fine = self._get_DQN_prediction_fine(state_fine)
         q_fine = tf.squeeze(q_fine, -1)
         q_fine = tf.scatter_nd(fine_mask_idx, q_fine, tf.stack([batch_size, q_fine.shape[1]]))
 
-        larger_dim = max(joint_state.shape[1], joint_state.shape[2])
-        return tf.identity(tf.pad(q_comb, [[0, 0], [0, larger_dim - q_comb.shape[1]]]) + tf.pad(q_fine, [[0, 0], [0, larger_dim - q_fine.shape[1]]]), name='Qvalue')
+        larger_dim = max(joint_state.shape.as_list()[1], joint_state.shape.as_list()[2])
+        return tf.identity(tf.pad(q_comb, [[0, 0], [0, larger_dim - q_comb.shape.as_list()[1]]]) + tf.pad(q_fine, [[0, 0], [0, larger_dim - q_fine.shape.as_list()[1]]]), name='Qvalue')
 
     # input :B * COMB * N * D
     # output : B * COMB * D'

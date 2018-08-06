@@ -67,7 +67,7 @@ def res_fc_block(inputs, units, stack=3):
     return tf.contrib.layers.layer_norm(residual + x, scale=False)
 
 
-BATCH_SIZE = 16
+BATCH_SIZE = 2
 MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
@@ -82,7 +82,7 @@ MEMORY_SIZE = 1e4
 # will consume at least 1e6 * 84 * 84 bytes == 6.6G memory.
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
-EVAL_EPISODE = 50
+EVAL_EPISODE = 200
 
 NUM_ACTIONS = None
 ROM_FILE = None
@@ -101,7 +101,7 @@ class Model(DQNModel):
     # output : B * COMB * D
     # assume N is padded with big negative numbers
     def _get_global_feature(self, joint_state):
-        shape = joint_state.shape
+        shape = joint_state.shape.as_list()
         net = tf.reshape(joint_state, [-1, shape[-1]])
         units = [256, 512, 1024]
         for i, unit in enumerate(units):
@@ -111,7 +111,7 @@ class Model(DQNModel):
         return tf.reduce_max(net, [2])
 
     def _get_DQN_prediction_comb(self, state):
-        shape = state.shape
+        shape = state.shape.as_list()
         net = tf.reshape(state, [-1, shape[-1]])
         units = [512, 256, 128]
         for i, unit in enumerate(units):
@@ -129,7 +129,7 @@ class Model(DQNModel):
         return tf.reshape(Q, [-1, shape[1], 1])
 
     def _get_DQN_prediction_fine(self, state):
-        shape = state.shape
+        shape = state.shape.as_list()
         net = tf.reshape(state, [-1, shape[-1]])
         units = [512, 256, 128]
         for i, unit in enumerate(units):
@@ -175,7 +175,7 @@ def get_config():
                                       [(60, 4e-4), (100, 2e-4)]),
             ScheduledHyperParamSetter(
                 ObjAttrParam(expreplay, 'exploration'),
-                [(0, 1), (10, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
+                [(0, 1), (30, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
                 interp='linear'),
             Evaluator(
                 EVAL_EPISODE, ['state', 'comb_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),

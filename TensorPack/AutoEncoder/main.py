@@ -47,6 +47,7 @@ class Evaluator(Callback):
         print(encoding.shape)
         print('loss: {}'.format(loss))
         np.save('encoding.npy', encoding)
+        print('saved')
 
 
 class Model(ModelDesc):
