@@ -32,6 +32,7 @@ Category2Range = []
 
 def get_action_space():
     actions = [[]]
+    Category2Range.append([0, 1])
     # max_cards = 20
     # single
     temp = len(actions)
@@ -89,7 +90,7 @@ def get_action_space():
     temp = len(actions)
     # double sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 3, int(min(start_v + 20 / 2, Card.to_value('*')))):
+        for end_v in range(start_v + 3, int(min(start_v + 20 / 2 + 1, Card.to_value('*')))):
             seq = range(start_v, end_v)
             actions.append(sorted(Card.to_cards(seq) * 2, key=lambda c: Card.cards.index(c)))
     # print(len(actions))
@@ -97,7 +98,7 @@ def get_action_space():
     temp = len(actions)
     # triple sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 2, int(min(start_v + 20 / 3, Card.to_value('*')))):
+        for end_v in range(start_v + 2, int(min(start_v + 20 // 3 + 1, Card.to_value('*')))):
             seq = range(start_v, end_v)
             actions.append(sorted(Card.to_cards(seq) * 3, key=lambda c: Card.cards.index(c)))
     # print(len(actions))
@@ -105,19 +106,19 @@ def get_action_space():
     temp = len(actions)
     # 3 + 1 sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 2, int(min(start_v + 20 / 4, Card.to_value('*')))):
+        for end_v in range(start_v + 2, int(min(start_v + 20 / 4 + 1, Card.to_value('*')))):
             seq = range(start_v, end_v)
             main = Card.to_cards(seq)
             remains = [card for card in Card.cards if card not in main]
             for extra in list(itertools.combinations(remains, end_v - start_v)):
-                if not ('*' in list(extra) and '$' in list(extra)):
+                if not ('*' in list(extra) and '$' in list(extra) and len(extra) == 2):
                     actions.append(sorted(main * 3, key=lambda c: Card.cards.index(c)) + list(extra))
     # print(len(actions))
     Category2Range.append([temp, len(actions)])
     temp = len(actions)
     # 3 + 2 sequence
     for start_v in range(Card.to_value('3'), Card.to_value('2')):
-        for end_v in range(start_v + 2, int(min(start_v + 20 / 5, Card.to_value('*')))):
+        for end_v in range(start_v + 2, int(min(start_v + 20 / 5 + 1, Card.to_value('*')))):
             seq = range(start_v, end_v)
             main = Card.to_cards(seq)
             remains = [card for card in Card.cards if card not in main and card not in ['*', '$']]
@@ -129,22 +130,27 @@ def get_action_space():
     # bigbang
     actions.append(['*', '$'])
     # print(len(actions))
+    Category2Range.append([temp, len(actions)])
+    temp = len(actions)
     # 4 + 1 + 1
     for main in Card.cards:
         if main != '*' and main != '$':
             remains = [card for card in Card.cards if card != main]
             for extra in list(itertools.combinations(remains, 2)):
-                if not ('*' in list(extra) and '$' in list(extra)):
+                if not ('*' in list(extra) and '$' in list(extra) and len(extra) == 2):
                     actions.append([main] * 4 + list(extra))
+    # print(len(actions))
+    Category2Range.append([temp, len(actions)])
+    temp = len(actions)
     # 4 + 2 + 2
     for main in Card.cards:
         if main != '*' and main != '$':
             remains = [card for card in Card.cards if card != main and card != '*' and card != '$']
             for extra in list(itertools.combinations(remains, 2)):
-                if not ('*' in list(extra) and '$' in list(extra)):
-                    actions.append([main] * 4 + list(extra) * 2)
+                actions.append([main] * 4 + list(extra) * 2)
     # print(len(actions))
     Category2Range.append([temp, len(actions)])
+    temp = len(actions)
     # temp = len(actions)
     # for a in actions:
     #     a.sort(key=lambda c: Card.cards.index(c))
@@ -512,10 +518,10 @@ class CardGroup:
 
 action_space = get_action_space()
 action_space_onehot60 = np.array([Card.char2onehot60(a) for a in action_space])
-action_space_category = [action_space[:1], action_space[1:16], action_space[16:29], action_space[29:42], action_space[42:55], \
-    action_space[55:237], action_space[237:393], action_space[393:429], action_space[429:478], \
-    action_space[478:516], action_space[516:6109], action_space[6109:7914], action_space[7914:7915],
-                         action_space[7915:9085], action_space[9085:]]
+action_space_category = [action_space[:1], action_space[1:16], action_space[16:29], action_space[29:42], action_space[42:55],
+    action_space[55:237], action_space[237:393], action_space[393:429], action_space[429:481],
+    action_space[481:526], action_space[526:8559], action_space[8559:11498], action_space[11498:11499],
+                         action_space[11499:12669], action_space[12669:]]
 
 augment_action_space = action_space + action_space_category[Category.SINGLE][:13] * 3 + action_space_category[Category.DOUBLE]
 
@@ -549,6 +555,9 @@ if __name__ == '__main__':
     pass
     # print(Card.val2onehot60([3, 3, 16, 17]))
     print(len(action_space))
+    for a in action_space:
+        assert len(a) <= 20
+        # print(a)
     # print(action_space_category[Category.SINGLE_LINE.value])
     # print(action_space_category[Category.DOUBLE_LINE.value])
     # print(action_space_category[Category.THREE_ONE.value])

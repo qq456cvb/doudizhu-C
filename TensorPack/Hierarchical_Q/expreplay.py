@@ -112,7 +112,7 @@ class ExpReplay(DataFlow, Callback):
                  memory_size, init_memory_size,
                  init_exploration,
                  update_frequency,
-                 encoding_file='encoding.npy'):
+                 encoding_file='../AutoEncoder/encoding.npy'):
         """
         Args:
             predictor_io_names (tuple of list of str): input/output names to
