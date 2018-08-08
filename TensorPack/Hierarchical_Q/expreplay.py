@@ -222,7 +222,7 @@ class ExpReplay(DataFlow, Callback):
                 combs, self._fine_mask = self.subsample_combs_masks(combs, self._fine_mask, self.num_actions[0])
             # TODO: utilize temporal relations to speedup
             available_actions = [([[]] if last_cards_value.size > 0 else []) + [action_space[idx] for idx in comb] for comb in combs]
-            if last_cards_value.size > 0:
+            if self._fine_mask is not None:
                 self._fine_mask = np.concatenate([np.ones([self._fine_mask.shape[0], 1], dtype=np.bool), self._fine_mask[:, :20]], axis=1)
             if len(combs) == 0:
                 available_actions = [[[]]]

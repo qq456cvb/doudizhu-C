@@ -129,6 +129,8 @@ def play_one_episode(env, func, num_actions):
             # TODO: utilize temporal relations to speedup
             available_actions = [([[]] if last_cards_value.size > 0 else []) + [action_space[idx] for idx in comb] for
                                  comb in combs]
+            if fine_mask is not None:
+                fine_mask = np.concatenate([np.ones([fine_mask.shape[0], 1], dtype=np.bool), fine_mask[:, :20]], axis=1)
             if len(combs) == 0:
                 available_actions = [[[]]]
                 fine_mask = np.zeros([1, num_actions[1]], dtype=np.bool)
@@ -172,7 +174,7 @@ def play_one_episode(env, func, num_actions):
             last_cards_value = env.get_last_outcards()
             is_active = True if last_cards_value.size == 0 else False
             curr_cards_char = to_char(env.get_curr_handcards())
-            print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
+            # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
 
             # first hierarchy
             state, available_actions = get_state_and_action_space(True)
@@ -194,15 +196,15 @@ def play_one_episode(env, func, num_actions):
             # intention
             intention = to_value(available_actions[action])
             r, _, _ = env.step_manual(intention)
-            print('lord gives', to_char(intention))
+            # print('lord gives', to_char(intention))
             assert (intention is not None)
         else:
             intention, r, _ = env.step_auto()
-            print('farmer gives', to_char(intention))
-    if r > 0:
-        print('farmer wins')
-    else:
-        print('lord wins')
+            # print('farmer gives', to_char(intention))
+    # if r > 0:
+    #     print('farmer wins')
+    # else:
+    #     print('lord wins')
     return int(r > 0)
 
 
@@ -301,17 +303,13 @@ class Evaluator(Callback):
 
 
 if __name__ == '__main__':
-    encoding = np.load('encoding.npy')
-    print(encoding.shape)
-    # env = Env()
-    # stat = StatCounter()
-    # init_cards = np.arange(21)
-    # # init_cards = np.append(init_cards[::4], init_cards[1::4])
-    # for _ in range(1000):
-    #     env.reset()
-    #     env.prepare_manual(init_cards)
-    #     r = 0
-    #     while r == 0:
-    #         _, r, _ = env.step_auto()
-    #     stat.feed(int(r < 0))
-    # print('lord win rate: {}'.format(stat.average))
+    # encoding = np.load('encoding.npy')
+    # print(encoding.shape)
+    env = Env()
+    stat = StatCounter()
+    init_cards = np.arange(21)
+    # init_cards = np.append(init_cards[::4], init_cards[1::4])
+    for _ in range(10):
+        fw = play_one_episode(env, lambda b: np.random.rand(1, 1, 100) if b[1][0] else np.random.rand(1, 1, 21), [100, 21])
+        stat.feed(int(fw))
+    print('lord win rate: {}'.format(1. - stat.average))

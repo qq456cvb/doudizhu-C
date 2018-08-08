@@ -31,8 +31,9 @@ Category2Range = []
 
 
 def get_action_space():
-    actions = [[]]
-    Category2Range.append([0, 1])
+    # actions = [[]]
+    actions = []
+    # Category2Range.append([0, 1])
     # max_cards = 20
     # single
     temp = len(actions)
@@ -519,10 +520,10 @@ class CardGroup:
 
 action_space = get_action_space()
 action_space_onehot60 = np.array([Card.char2onehot60(a) for a in action_space])
-action_space_category = [action_space[:1], action_space[1:16], action_space[16:29], action_space[29:42], action_space[42:55],
-    action_space[55:237], action_space[237:393], action_space[393:429], action_space[429:481],
-    action_space[481:526], action_space[526:8559], action_space[8559:11498], action_space[11498:11499],
-                         action_space[11499:12669], action_space[12669:]]
+action_space_category = [action_space[:15], action_space[15:28], action_space[28:41], action_space[41:54],
+    action_space[54:236], action_space[236:392], action_space[392:428], action_space[428:480],
+    action_space[480:525], action_space[525:8558], action_space[8558:11497], action_space[11497:11498],
+                         action_space[11498:12668], action_space[12668:]]
 
 augment_action_space = action_space + action_space_category[Category.SINGLE][:13] * 3 + action_space_category[Category.DOUBLE]
 
