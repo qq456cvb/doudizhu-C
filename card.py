@@ -367,11 +367,12 @@ class CardGroup:
         cards = list(cards)
         candidates = []
 
+        # TODO: this does not rule out Nuke kicker
         counts = Counter(cards)
         if '*' in cards and '$' in cards:
             candidates.append((CardGroup(['*', '$'], 'bigbang', 10000)))
-            cards.remove('*')
-            cards.remove('$')
+            # cards.remove('*')
+            # cards.remove('$')
 
         quadrics = []
         # quadric
@@ -557,6 +558,8 @@ if __name__ == '__main__':
     print(len(action_space))
     for a in action_space:
         assert len(a) <= 20
+        if len(a) > 0:
+            CardGroup.to_cardgroup(a)
         # print(a)
     # print(action_space_category[Category.SINGLE_LINE.value])
     # print(action_space_category[Category.DOUBLE_LINE.value])

@@ -28,7 +28,7 @@ from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mas
 from utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
 
 
-encoding = np.load('encoding.npy')
+encoding = np.load('../AutoEncoder/encoding.npy')
 
 
 def play_one_episode(env, func, num_actions):
@@ -172,7 +172,7 @@ def play_one_episode(env, func, num_actions):
             last_cards_value = env.get_last_outcards()
             is_active = True if last_cards_value.size == 0 else False
             curr_cards_char = to_char(env.get_curr_handcards())
-            # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
+            print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
 
             # first hierarchy
             state, available_actions = get_state_and_action_space(True)
@@ -194,14 +194,15 @@ def play_one_episode(env, func, num_actions):
             # intention
             intention = to_value(available_actions[action])
             r, _, _ = env.step_manual(intention)
-            # print('lord gives', to_char(intention))
+            print('lord gives', to_char(intention))
             assert (intention is not None)
         else:
             intention, r, _ = env.step_auto()
-    # if r > 0:
-    #     print('farmer wins')
-    # else:
-    #     print('lord wins')
+            print('farmer gives', to_char(intention))
+    if r > 0:
+        print('farmer wins')
+    else:
+        print('lord wins')
     return int(r > 0)
 
 
@@ -273,7 +274,7 @@ class Evaluator(Callback):
     def _setup_graph(self):
         # self.lord_win_rate = tf.get_variable('lord_win_rate', shape=[], initializer=tf.constant_initializer(0.),
         #                trainable=False)
-        nr_proc = min(multiprocessing.cpu_count() // 2, 20)
+        nr_proc = min(multiprocessing.cpu_count() // 2, 1)
         self.pred_funcs = [self.trainer.get_predictor(
             self.input_names, self.output_names)] * nr_proc
 
