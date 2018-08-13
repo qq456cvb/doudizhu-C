@@ -191,7 +191,7 @@ if __name__ == '__main__':
     stat = StatCounter()
     init_cards = np.arange(36)
     # init_cards = np.append(init_cards[::4], init_cards[1::4])
-    for _ in range(1000):
+    for _ in range(100):
         env.reset()
         env.prepare_manual(init_cards)
         r = 0

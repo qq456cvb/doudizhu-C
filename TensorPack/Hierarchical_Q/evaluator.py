@@ -66,9 +66,11 @@ def play_one_episode(env, func, num_actions):
             card_mask = Card.char2onehot60(curr_cards_char).astype(np.uint8)
             mask = augment_action_space_onehot60
             a = np.expand_dims(1 - card_mask, 0) * mask
-            row_idx = set(np.where(a > 0)[0])
+            invalid_row_idx = set(np.where(a > 0)[0])
+            if last_cards_value.size == 0:
+                invalid_row_idx.add(0)
 
-            valid_row_idx = [i for i in range(1, len(augment_action_space)) if i not in row_idx]
+            valid_row_idx = [i for i in range(len(augment_action_space)) if i not in invalid_row_idx]
 
             mask = mask[valid_row_idx, :]
             idx_mapping = dict(zip(range(mask.shape[0]), valid_row_idx))
@@ -76,7 +78,7 @@ def play_one_episode(env, func, num_actions):
             # augment mask
             # TODO: known issue: 555444666 will not decompose into 5554 and 66644
             combs = get_combinations_nosplit(mask, card_mask)
-            combs = [[clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
+            combs = [([] if last_cards_value.size == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
 
             if last_cards_value.size > 0:
                 idx_must_be_contained = set(
@@ -95,14 +97,16 @@ def play_one_episode(env, func, num_actions):
                 np.uint8)
             valid = mask.sum(-1) > 0
             cards_target = Card.char2onehot60(curr_cards_char).reshape(-1, 4).sum(-1).astype(np.uint8)
+            # do not feed empty to C++, which will cause infinite loop
             combs = get_combinations_recursive(mask[valid, :], cards_target)
             idx_mapping = dict(zip(range(valid.shape[0]), np.where(valid)[0]))
 
-            combs = [[idx_mapping[idx] for idx in comb] for comb in combs]
+            combs = [([] if last_cards_value.size == 0 else [0]) + [idx_mapping[idx] for idx in comb] for comb in combs]
 
             if last_cards_value.size > 0:
+                valid[0] = True
                 idx_must_be_contained = set(
-                    [idx for idx in range(1, len(action_space)) if valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
+                    [idx for idx in range(len(action_space)) if valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
                         bigger_than(CardGroup.to_cardgroup(to_char(last_cards_value)))])
                 combs = [comb for comb in combs if not idx_must_be_contained.isdisjoint(comb)]
                 fine_mask = np.zeros([len(combs), num_actions[1]], dtype=np.bool)
@@ -127,25 +131,25 @@ def play_one_episode(env, func, num_actions):
             if len(combs) > num_actions[0]:
                 combs, fine_mask = subsample_combs_masks(combs, fine_mask, num_actions[0])
             # TODO: utilize temporal relations to speedup
-            available_actions = [([[]] if last_cards_value.size > 0 else []) + [action_space[idx] for idx in comb] for
+            available_actions = [[action_space[idx] for idx in comb] for
                                  comb in combs]
-            if fine_mask is not None:
-                fine_mask = np.concatenate([np.ones([fine_mask.shape[0], 1], dtype=np.bool), fine_mask[:, :20]], axis=1)
-            if len(combs) == 0:
-                available_actions = [[[]]]
-                fine_mask = np.zeros([1, num_actions[1]], dtype=np.bool)
-                fine_mask[0, 0] = True
+            # if fine_mask is not None:
+            #     fine_mask = np.concatenate([np.ones([fine_mask.shape[0], 1], dtype=np.bool), fine_mask[:, :20]], axis=1)
+            assert len(combs) > 0
+            # if len(combs) == 0:
+            #     available_actions = [[[]]]
+            #     fine_mask = np.zeros([1, num_actions[1]], dtype=np.bool)
+            #     fine_mask[0, 0] = True
             if fine_mask is not None:
                 fine_mask = pad_fine_mask(fine_mask)
             pad_action_space(available_actions)
-            if len(combs) < num_actions[0]:
-                available_actions.extend([available_actions[-1]] * (num_actions[0] - len(combs)))
-            state = [np.stack(
-                ([encoding[0]] if last_cards_value.size > 0 else []) + [encoding[idx] for idx in comb])
-                for comb in combs]
-            if len(state) == 0:
-                assert len(combs) == 0
-                state = [np.array([encoding[0]])]
+            # if len(combs) < num_actions[0]:
+            #     available_actions.extend([available_actions[-1]] * (num_actions[0] - len(combs)))
+            state = [np.stack([encoding[idx] for idx in comb]) for comb in combs]
+            assert len(state) > 0
+            # if len(state) == 0:
+            #     assert len(combs) == 0
+            #     state = [np.array([encoding[0]])]
             prob_state = env.get_state_prob()
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
@@ -305,11 +309,24 @@ class Evaluator(Callback):
 if __name__ == '__main__':
     # encoding = np.load('encoding.npy')
     # print(encoding.shape)
+    # env = Env()
+    # stat = StatCounter()
+    # init_cards = np.arange(21)
+    # # init_cards = np.append(init_cards[::4], init_cards[1::4])
+    # for _ in range(10):
+    #     fw = play_one_episode(env, lambda b: np.random.rand(1, 1, 100) if b[1][0] else np.random.rand(1, 1, 21), [100, 21])
+    #     stat.feed(int(fw))
+    # print('lord win rate: {}'.format(1. - stat.average))
     env = Env()
     stat = StatCounter()
-    init_cards = np.arange(21)
-    # init_cards = np.append(init_cards[::4], init_cards[1::4])
-    for _ in range(10):
-        fw = play_one_episode(env, lambda b: np.random.rand(1, 1, 100) if b[1][0] else np.random.rand(1, 1, 21), [100, 21])
-        stat.feed(int(fw))
-    print('lord win rate: {}'.format(1. - stat.average))
+    for i in range(100):
+        env.reset()
+        print('begin')
+        env.prepare()
+        r = 0
+        while r == 0:
+            role = env.get_role_ID()
+            intention, r, _ = env.step_auto()
+            # print('lord gives' if role == 2 else 'farmer gives', to_char(intention))
+        stat.feed(int(r < 0))
+    print(stat.average)

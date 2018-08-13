@@ -170,7 +170,7 @@ def train():
             # ScheduledHyperParamSetter('entropy_beta', [(80, 0.005)]),
             # HumanHyperParamSetter('learning_rate'),
         ],
-        session_init=SaverRestore('train_log/auto_encoder/model-10000'),
+        session_init=SaverRestore('train_log/auto_encoder/model-8000'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=100,
     )

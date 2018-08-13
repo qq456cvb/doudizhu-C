@@ -163,6 +163,7 @@ def get_config():
     # ds = FakeData([(2, 2, *STATE_SHAPE), [2], [2], [2], [2]], dtype=['float32', 'int64', 'float32', 'bool', 'bool'])
     # ds = PrefetchData(ds, nr_prefetch=6, nr_proc=2)
     return AutoResumeTrainConfig(
+        always_resume=False,
         data=QueueInput(expreplay),
         model=Model(),
         callbacks=[
@@ -172,15 +173,17 @@ def get_config():
                 every_k_steps=1000 // UPDATE_FREQ),    # update target network every 10k steps
             expreplay,
             ScheduledHyperParamSetter('learning_rate',
-                                      [(60, 4e-4), (100, 2e-4)]),
+                                      [(60, 5e-4), (100, 2e-4)]),
             ScheduledHyperParamSetter(
                 ObjAttrParam(expreplay, 'exploration'),
-                [(0, 1), (30, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
+                [(0, 1), (30, 0.5), (60, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
                 interp='linear'),
             Evaluator(
                 EVAL_EPISODE, ['state', 'comb_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
             HumanHyperParamSetter('learning_rate'),
         ],
+        starting_epoch=30,
+        session_init=SaverRestore('train_log/DQN-54-AUG-STATE/model-75000'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=1000,
     )

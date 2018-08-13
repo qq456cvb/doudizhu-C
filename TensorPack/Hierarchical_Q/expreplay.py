@@ -156,9 +156,11 @@ class ExpReplay(DataFlow, Callback):
             card_mask = Card.char2onehot60(curr_cards_char).astype(np.uint8)
             mask = augment_action_space_onehot60
             a = np.expand_dims(1 - card_mask, 0) * mask
-            row_idx = set(np.where(a > 0)[0])
+            invalid_row_idx = set(np.where(a > 0)[0])
+            if last_cards_value.size == 0:
+                invalid_row_idx.add(0)
 
-            valid_row_idx = [i for i in range(1, len(augment_action_space)) if i not in row_idx]
+            valid_row_idx = [i for i in range(len(augment_action_space)) if i not in invalid_row_idx]
 
             mask = mask[valid_row_idx, :]
             idx_mapping = dict(zip(range(mask.shape[0]), valid_row_idx))
@@ -166,7 +168,7 @@ class ExpReplay(DataFlow, Callback):
             # augment mask
             # TODO: known issue: 555444666 will not decompose into 5554 and 66644
             combs = get_combinations_nosplit(mask, card_mask)
-            combs = [[clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
+            combs = [([] if last_cards_value.size == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
 
             if last_cards_value.size > 0:
                 idx_must_be_contained = set(
@@ -188,11 +190,12 @@ class ExpReplay(DataFlow, Callback):
             combs = get_combinations_recursive(mask[valid, :], cards_target)
             idx_mapping = dict(zip(range(valid.shape[0]), np.where(valid)[0]))
 
-            combs = [[idx_mapping[idx] for idx in comb] for comb in combs]
+            combs = [([] if last_cards_value.size == 0 else [0]) + [idx_mapping[idx] for idx in comb] for comb in combs]
 
             if last_cards_value.size > 0:
+                valid[0] = True
                 idx_must_be_contained = set(
-                    [idx for idx in range(1, len(action_space)) if valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
+                    [idx for idx in range(len(action_space)) if valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
                         bigger_than(CardGroup.to_cardgroup(to_char(last_cards_value)))])
                 combs = [comb for comb in combs if not idx_must_be_contained.isdisjoint(comb)]
                 self._fine_mask = np.zeros([len(combs), self.num_actions[1]], dtype=np.bool)
@@ -215,26 +218,16 @@ class ExpReplay(DataFlow, Callback):
         curr_cards_char = to_char(self.player.get_curr_handcards())
         if self._comb_mask:
             combs = self.get_combinations(curr_cards_char, last_cards_value)
-            if len(combs) == 0:
-                # we have no larger cards
-                assert last_cards_value.size > 0
             if len(combs) > self.num_actions[0]:
                 combs, self._fine_mask = self.subsample_combs_masks(combs, self._fine_mask, self.num_actions[0])
             # TODO: utilize temporal relations to speedup
-            available_actions = [([[]] if last_cards_value.size > 0 else []) + [action_space[idx] for idx in comb] for comb in combs]
-            if self._fine_mask is not None:
-                self._fine_mask = np.concatenate([np.ones([self._fine_mask.shape[0], 1], dtype=np.bool), self._fine_mask[:, :20]], axis=1)
-            if len(combs) == 0:
-                available_actions = [[[]]]
-                self._fine_mask = np.zeros([1, self.num_actions[1]], dtype=np.bool)
-                self._fine_mask[0, 0] = True
+            available_actions = [[action_space[idx] for idx in comb] for comb in combs]
+            assert len(combs) > 0
             if self._fine_mask is not None:
                 self._fine_mask = self.pad_fine_mask(self._fine_mask)
             self.pad_action_space(available_actions)
-            state = [np.stack(([self.encoding[0]] if last_cards_value.size > 0 else []) + [self.encoding[idx] for idx in comb]) for comb in combs]
-            if len(state) == 0:
-                assert len(combs) == 0
-                state = [np.array([self.encoding[0]])]
+            state = [np.stack([self.encoding[idx] for idx in comb]) for comb in combs]
+            assert len(state) > 0
             prob_state = self.player.get_state_prob()
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
