@@ -312,12 +312,14 @@ class CardGroup:
             return True
         if g.type == 'bigbang':
             return False
+        if self.type == 'bigbang':
+            return True
         if g.type == 'bomb':
-            if (self.type == 'bomb' and self.value > g.value) or self.type == 'bigbang':
+            if self.type == 'bomb' and self.value > g.value:
                 return True
             else:
                 return False
-        if (self.type == 'bomb' or self.type == 'bigbang') or \
+        if self.type == 'bomb' or \
                 (self.type == g.type and len(self) == len(g) and self.value > g.value):
             return True
         else:
@@ -377,7 +379,7 @@ class CardGroup:
         # TODO: this does not rule out Nuke kicker
         counts = Counter(cards)
         if '*' in cards and '$' in cards:
-            candidates.append((CardGroup(['*', '$'], 'bigbang', 10000)))
+            candidates.append((CardGroup(['*', '$'], 'bigbang', 100)))
             # cards.remove('*')
             # cards.remove('$')
 
@@ -410,13 +412,13 @@ class CardGroup:
                     cnt += 1
                 else:
                     if cnt >= 5:
-                        candidates.append(CardGroup(cand, 'single_seq', Card.to_value(cand[-1])))
+                        candidates.append(CardGroup(cand, 'single_seq', Card.to_value(cand[0])))
                         # for c in cand:
                         #     cards.remove(c)
                     cand = [singles[i]]
                     cnt = 1
             if cnt >= 5:
-                candidates.append(CardGroup(cand, 'single_seq', Card.to_value(cand[-1])))
+                candidates.append(CardGroup(cand, 'single_seq', Card.to_value(cand[0])))
                 # for c in cand:
                 #     cards.remove(c)
 
@@ -431,14 +433,14 @@ class CardGroup:
                     cnt += 1
                 else:
                     if cnt >= 3:
-                        candidates.append(CardGroup(cand, 'double_seq', Card.to_value(cand[-1])))
+                        candidates.append(CardGroup(cand, 'double_seq', Card.to_value(cand[0])))
                         # for c in cand:
                             # if c in cards:
                             #     cards.remove(c)
                     cand = [doubles[i]] * 2
                     cnt = 1
             if cnt >= 3:
-                candidates.append(CardGroup(cand, 'double_seq', Card.to_value(cand[-1])))
+                candidates.append(CardGroup(cand, 'double_seq', Card.to_value(cand[0])))
                 # for c in cand:
                     # if c in cards:
                     #     cards.remove(c)
@@ -454,14 +456,14 @@ class CardGroup:
                     cnt += 1
                 else:
                     if cnt >= 2:
-                        candidates.append(CardGroup(cand, 'triple_seq', Card.to_value(cand[-1])))
+                        candidates.append(CardGroup(cand, 'triple_seq', Card.to_value(cand[0])))
                         # for c in cand:
                         #     if c in cards:
                         #         cards.remove(c)
                     cand = [triples[i]] * 3
                     cnt = 1
             if cnt >= 2:
-                candidates.append(CardGroup(cand, 'triple_seq', Card.to_value(cand[-1])))
+                candidates.append(CardGroup(cand, 'triple_seq', Card.to_value(cand[0])))
                 # for c in cand:
                 #     if c in cards:
                 #         cards.remove(c)
@@ -487,20 +489,20 @@ class CardGroup:
             for s in singles:
                 if s not in triple:
                     candidates.append(CardGroup(triple + [s], 'triple+single',
-                                                Card.to_value(c) * 1000 + Card.to_value(s)))
+                                                Card.to_value(c)))
             for d in doubles:
                 if d not in triple:
                     candidates.append(CardGroup(triple + [d] * 2, 'triple+double',
-                                                Card.to_value(c) * 1000 + Card.to_value(d)))
+                                                Card.to_value(c)))
 
         # 4 + 2
         for c in quadrics:
             for extra in list(itertools.combinations(singles, 2)):
                 candidates.append(CardGroup([c] * 4 + list(extra), 'quadric+singles',
-                                            Card.to_value(c) * 1000 + Card.to_value(list(extra))))
+                                            Card.to_value(c)))
             for extra in list(itertools.combinations(doubles, 2)):
                 candidates.append(CardGroup([c] * 4 + list(extra) * 2, 'quadric+doubles',
-                                            Card.to_value(c) * 1000 + Card.to_value(list(extra))))
+                                            Card.to_value(c)))
         # 3 * n + n, 3 * n + 2 * n
         triple_seq = [c.cards for c in candidates if c.type == 'triple_seq']
         for cand in triple_seq:
@@ -508,13 +510,13 @@ class CardGroup:
             for extra in list(itertools.combinations(singles, cnt)):
                 candidates.append(
                     CardGroup(cand + list(extra), 'triple_seq+singles',
-                              Card.to_value(cand[-1]) * 1000 + Card.to_value(list(extra))))
+                              Card.to_value(cand[0])))
             for extra in list(itertools.combinations(doubles, cnt)):
                 candidates.append(
                     CardGroup(cand + list(extra) * 2, 'triple_seq+doubles',
-                              Card.to_value(cand[-1]) * 1000 + Card.to_value(list(extra))))
+                              Card.to_value(cand[0])))
 
-        importance = ['single', 'double', 'double_seq', 'single_seq', 'triple+single',
+        importance = ['empty', 'single', 'double', 'double_seq', 'single_seq', 'triple+single',
                       'triple+double', 'triple_seq+singles', 'triple_seq+doubles',
                       'triple_seq', 'triple', 'quadric+singles', 'quadric+doubles',
                       'bomb', 'bigbang']
@@ -561,6 +563,7 @@ if __name__ == '__main__':
     # print(Card.val2onehot60([3, 3, 16, 17]))
     # print(Category2Range)
     print(len(action_space_category))
+    print(CardGroup.to_cardgroup(['6', '6', 'Q', 'Q', 'Q']).value)
 
     # print(len(action_space))
     # for a in action_space:

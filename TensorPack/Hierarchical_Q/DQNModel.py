@@ -15,7 +15,7 @@ assert tensorpack.tfutils.common.get_tf_version_number() >= 1.2
 
 
 class Model(ModelDesc):
-    learning_rate = 1e-3
+    learning_rate = 1e-4
 
     def __init__(self, state_shape, method, num_actions, gamma):
         self.state_shape = state_shape
@@ -124,7 +124,7 @@ class Model(ModelDesc):
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=self.learning_rate, trainable=False)
         # opt = tf.train.AdamOptimizer(lr, epsilon=1e-3)
-        opt = tf.train.GradientDescentOptimizer(lr)
+        opt = tf.train.AdamOptimizer(lr)
         return optimizer.apply_grad_processors(
             opt, [gradproc.MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.5)),
                   gradproc.SummaryGradient()])

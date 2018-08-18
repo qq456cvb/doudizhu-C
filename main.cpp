@@ -649,7 +649,7 @@ public:
         // divide by the other two
         // for simplicity, scale by two
         for (int i = 0; i < remains.size(); i++) {
-            if (indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
+            if (remains[i] > 0 && indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
                 if (indexID + 1 == clsGameSituation->nDiZhuID) {
                     prob1[i] = 1.f;
                     prob2[i] = 0;

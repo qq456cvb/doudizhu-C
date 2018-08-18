@@ -67,16 +67,16 @@ def res_fc_block(inputs, units, stack=3):
     return tf.contrib.layers.layer_norm(residual + x, scale=False)
 
 
-BATCH_SIZE = 2
+BATCH_SIZE = 8
 MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
 HIDDEN_STATE_DIM = 256 + 120
 STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
-UPDATE_FREQ = 4
+UPDATE_FREQ = 2
 
-GAMMA = 0.99
+GAMMA = 1.0
 
 MEMORY_SIZE = 1e4
 # will consume at least 1e6 * 84 * 84 bytes == 6.6G memory.
@@ -163,7 +163,7 @@ def get_config():
     # ds = FakeData([(2, 2, *STATE_SHAPE), [2], [2], [2], [2]], dtype=['float32', 'int64', 'float32', 'bool', 'bool'])
     # ds = PrefetchData(ds, nr_prefetch=6, nr_proc=2)
     return AutoResumeTrainConfig(
-        always_resume=False,
+        # always_resume=False,
         data=QueueInput(expreplay),
         model=Model(),
         callbacks=[
@@ -172,8 +172,8 @@ def get_config():
                 RunOp(DQNModel.update_target_param, verbose=True),
                 every_k_steps=1000 // UPDATE_FREQ),    # update target network every 10k steps
             expreplay,
-            ScheduledHyperParamSetter('learning_rate',
-                                      [(60, 5e-4), (100, 2e-4)]),
+            # ScheduledHyperParamSetter('learning_rate',
+            #                           [(60, 5e-5), (100, 2e-5)]),
             ScheduledHyperParamSetter(
                 ObjAttrParam(expreplay, 'exploration'),
                 [(0, 1), (30, 0.5), (60, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
@@ -182,8 +182,8 @@ def get_config():
                 EVAL_EPISODE, ['state', 'comb_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
             HumanHyperParamSetter('learning_rate'),
         ],
-        starting_epoch=30,
-        session_init=SaverRestore('train_log/DQN-54-AUG-STATE/model-75000'),
+        # starting_epoch=30,
+        # session_init=SaverRestore('train_log/DQN-54-AUG-STATE/model-75000'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=1000,
     )
@@ -216,7 +216,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN-54-AUG-STATE'))
+            os.path.join('train_log', 'DQN-54-AUG-STATE-8-13'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)
