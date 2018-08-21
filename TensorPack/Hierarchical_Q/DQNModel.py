@@ -73,7 +73,7 @@ class Model(ModelDesc):
         q_fine = tf.scatter_nd(fine_mask_idx, q_fine, tf.stack([batch_size, q_fine.shape[1]]))
 
         larger_dim = max(joint_state.shape.as_list()[1], joint_state.shape.as_list()[2])
-        return tf.identity(tf.pad(q_comb, [[0, 0], [0, larger_dim - q_comb.shape.as_list()[1]]]) + tf.pad(q_fine, [[0, 0], [0, larger_dim - q_fine.shape.as_list()[1]]]), name='Qvalue')
+        return tf.identity(tf.pad(q_comb, [[0, 0], [0, larger_dim - q_comb.shape.as_list()[1]]], constant_values=-10000) + tf.pad(q_fine, [[0, 0], [0, larger_dim - q_fine.shape.as_list()[1]]], constant_values=-10000), name='Qvalue')
 
     # input :B * COMB * N * D
     # output : B * COMB * D'
