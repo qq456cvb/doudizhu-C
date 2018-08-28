@@ -62,10 +62,11 @@ def res_fc_block(inputs, units, stack=3):
     for i in range(stack):
         residual = FullyConnected('fc%d' % i, residual, units, activation=tf.nn.relu)
     x = inputs
-    if inputs.shape[1].value != units:
-        x = FullyConnected('fc', x, units, activation=tf.nn.relu)
-    return tf.contrib.layers.layer_norm(residual + x, scale=False)
-
+    x = FullyConnected('fc', x, units, activation=tf.nn.relu)
+    # if inputs.shape[1].value != units:
+    #     x = FullyConnected('fc', x, units, activation=tf.nn.relu)
+    return tf.contrib.layers.layer_norm(residual + x, scale=True)
+    # return residual + x
 
 BATCH_SIZE = 8
 MAX_NUM_COMBS = 100
@@ -74,9 +75,9 @@ ATTEN_STATE_SHAPE = 60
 HIDDEN_STATE_DIM = 256 + 120
 STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
-UPDATE_FREQ = 2
+UPDATE_FREQ = 4
 
-GAMMA = 1.0
+GAMMA = 0.99
 
 MEMORY_SIZE = 1e4
 # will consume at least 1e6 * 84 * 84 bytes == 6.6G memory.
@@ -103,7 +104,7 @@ class Model(DQNModel):
     def _get_global_feature(self, joint_state):
         shape = joint_state.shape.as_list()
         net = tf.reshape(joint_state, [-1, shape[-1]])
-        units = [256, 512, 1024]
+        units = [256, 256, 256]
         for i, unit in enumerate(units):
             with tf.variable_scope('block%i' % i):
                 net = res_fc_block(net, unit)
@@ -113,7 +114,7 @@ class Model(DQNModel):
     def _get_DQN_prediction_comb(self, state):
         shape = state.shape.as_list()
         net = tf.reshape(state, [-1, shape[-1]])
-        units = [512, 256, 128]
+        units = [256, 128, 64, 32]
         for i, unit in enumerate(units):
             with tf.variable_scope('block%i' % i):
                 net = res_fc_block(net, unit)
@@ -170,13 +171,13 @@ def get_config():
             ModelSaver(),
             PeriodicTrigger(
                 RunOp(DQNModel.update_target_param, verbose=True),
-                every_k_steps=1000 // UPDATE_FREQ),    # update target network every 10k steps
+                every_k_steps=STEPS_PER_EPOCH // 10),    # update target network every 10k steps
             expreplay,
             # ScheduledHyperParamSetter('learning_rate',
             #                           [(60, 5e-5), (100, 2e-5)]),
             ScheduledHyperParamSetter(
                 ObjAttrParam(expreplay, 'exploration'),
-                [(0, 1), (30, 0.5), (60, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
+                [(0, 1), (30, 0.5), (120, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
                 interp='linear'),
             Evaluator(
                 EVAL_EPISODE, ['state', 'comb_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
@@ -216,7 +217,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN-54-AUG-STATE-8-13'))
+            os.path.join('train_log', 'DQN-54-AUG-STATE-RAW'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)

@@ -11,11 +11,12 @@ from tensorpack.utils import logger
 from tensorpack.tfutils import (
     varreplace, summary, get_current_tower_context, optimizer, gradproc)
 from tensorpack.tfutils.scope_utils import auto_reuse_variable_scope
+from tensorflow.contrib.layers import l2_regularizer
 assert tensorpack.tfutils.common.get_tf_version_number() >= 1.2
 
 
 class Model(ModelDesc):
-    learning_rate = 1e-4
+    learning_rate = 1e-5
 
     def __init__(self, state_shape, method, num_actions, gamma):
         self.state_shape = state_shape
@@ -54,26 +55,27 @@ class Model(ModelDesc):
     # output : B * A
     @auto_reuse_variable_scope
     def get_DQN_prediction(self, joint_state, comb_mask):
-        batch_size = tf.shape(joint_state)[0]
-        with tf.variable_scope('dqn_global'):
-            global_feature = self.get_global_feature(joint_state)
+        with tensorpack.argscope([tensorpack.FullyConnected], kernel_initializer=tf.contrib.layers.xavier_initializer()):
+            batch_size = tf.shape(joint_state)[0]
+            with tf.variable_scope('dqn_global'):
+                global_feature = self.get_global_feature(joint_state)
 
-        comb_mask_idx = tf.cast(tf.where(comb_mask), tf.int32)
-        with tf.variable_scope('dqn_comb'):
-            q_comb = self._get_DQN_prediction_comb(tf.gather(global_feature, comb_mask_idx[:, 0]))
-        q_comb = tf.squeeze(q_comb, -1)
-        q_comb = tf.scatter_nd(comb_mask_idx, q_comb, tf.stack([batch_size, q_comb.shape[1]]))
+            comb_mask_idx = tf.cast(tf.where(comb_mask), tf.int32)
+            with tf.variable_scope('dqn_comb'):
+                q_comb = self._get_DQN_prediction_comb(tf.gather(global_feature, comb_mask_idx[:, 0]))
+            q_comb = tf.squeeze(q_comb, -1)
+            q_comb = tf.scatter_nd(comb_mask_idx, q_comb, tf.stack([batch_size, q_comb.shape[1]]))
 
-        fine_mask_idx = tf.cast(tf.where(tf.logical_not(comb_mask)), tf.int32)
-        state_fine = tf.concat([tf.tile(tf.expand_dims(global_feature, 2), [1, 1, joint_state.shape.as_list()[2], 1]), joint_state], -1)
-        state_fine = tf.gather(state_fine[:, 0, :, :], fine_mask_idx[:, 0])
-        with tf.variable_scope('dqn_fine'):
-            q_fine = self._get_DQN_prediction_fine(state_fine)
-        q_fine = tf.squeeze(q_fine, -1)
-        q_fine = tf.scatter_nd(fine_mask_idx, q_fine, tf.stack([batch_size, q_fine.shape[1]]))
+            fine_mask_idx = tf.cast(tf.where(tf.logical_not(comb_mask)), tf.int32)
+            state_fine = tf.concat([tf.tile(tf.expand_dims(global_feature, 2), [1, 1, joint_state.shape.as_list()[2], 1]), joint_state], -1)
+            state_fine = tf.gather(state_fine[:, 0, :, :], fine_mask_idx[:, 0])
+            with tf.variable_scope('dqn_fine'):
+                q_fine = self._get_DQN_prediction_fine(state_fine)
+            q_fine = tf.squeeze(q_fine, -1)
+            q_fine = tf.scatter_nd(fine_mask_idx, q_fine, tf.stack([batch_size, q_fine.shape[1]]))
 
-        larger_dim = max(joint_state.shape.as_list()[1], joint_state.shape.as_list()[2])
-        return tf.identity(tf.pad(q_comb, [[0, 0], [0, larger_dim - q_comb.shape.as_list()[1]]], constant_values=-10000) + tf.pad(q_fine, [[0, 0], [0, larger_dim - q_fine.shape.as_list()[1]]], constant_values=-10000), name='Qvalue')
+            larger_dim = max(joint_state.shape.as_list()[1], joint_state.shape.as_list()[2])
+            return tf.identity(tf.pad(q_comb, [[0, 0], [0, larger_dim - q_comb.shape.as_list()[1]]], constant_values=-1e5) + tf.pad(q_fine, [[0, 0], [0, larger_dim - q_fine.shape.as_list()[1]]], constant_values=-1e5), name='Qvalue')
 
     # input :B * COMB * N * D
     # output : B * COMB * D'
@@ -114,10 +116,10 @@ class Model(ModelDesc):
 
         target = reward + (1.0 - tf.cast(isOver, tf.float32)) * self.gamma * tf.stop_gradient(best_v)
 
-        cost = tf.losses.huber_loss(
-            target, pred_action_value, reduction=tf.losses.Reduction.MEAN)
-        # summary.add_param_summary(('conv.*/W', ['histogram', 'rms']),
-        #                           ('fc.*/W', ['histogram', 'rms']))   # monitor all W
+        cost = tf.losses.mean_squared_error(target, pred_action_value) + tensorpack.regularize_cost('dqn.*W{1}', l2_regularizer(1e-3))
+        # cost = tf.losses.huber_loss(
+        #                 target, pred_action_value, reduction=tf.losses.Reduction.MEAN)
+        summary.add_param_summary(('.*/W', ['histogram', 'rms']))   # monitor all W
         summary.add_moving_summary(cost)
         return cost
 
