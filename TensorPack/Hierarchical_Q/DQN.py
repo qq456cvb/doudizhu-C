@@ -13,9 +13,9 @@ from tensorpack import *
 import sys
 import os
 if os.name == 'nt':
-    sys.path.insert(0, '../../build/Release')
+    sys.path.insert(0, 'D:/doudizhu-C/build/Release')
 else:
-    sys.path.insert(0, '../../build.linux')
+    sys.path.insert(0, 'D:/doudizhu-C/build.linux')
 sys.path.insert(0, '../..')
 from TensorPack.Hierarchical_Q.DQNModel import Model as DQNModel
 from env import Env as CEnv

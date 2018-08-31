@@ -17,7 +17,7 @@ from tensorpack.utils.stats import StatCounter
 from tensorpack.utils.concurrency import LoopThread, ShareSessionThread
 from tensorpack.callbacks.base import Callback
 from card import action_space, Card, CardGroup, augment_action_space_onehot60, clamp_action_idx, augment_action_space
-from utils import to_value, to_char, get_mask_onehot60
+from utils import to_char, to_value, get_mask_onehot60
 import sys
 import os
 if os.name == 'nt':

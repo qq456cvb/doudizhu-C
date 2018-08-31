@@ -1,4 +1,4 @@
-from simulator.utils import *
+from simulator.tools import *
 import ctypes
 import threading
 from simulator.predictor import Predictor
@@ -93,10 +93,24 @@ class Simulator:
                     intention = self.predictor.predict(handcards, last_cards, prob_state)
                     self.history[0].extend(intention)
                     print('intention is: ', intention)
+                    intention.sort(key=lambda k: Card.cards_to_value[k], reverse=True)
                     if len(intention) == 0:
                         self.click(act['buchu'])
                     else:
-                        for
+                        i = 0
+                        j = 0
+                        to_click = []
+                        while j < len(intention):
+                            if handcards[i] == intention[j]:
+                                to_click.append(bboxes[i])
+                                i += 1
+                                j += 1
+                            else:
+                                i += 1
+                        for bbox in to_click:
+                            self.click(bbox)
+                            time.sleep(0.1)
+                        self.click(act['chupai'])
             time.sleep(1.)
 
 
