@@ -31,7 +31,7 @@ import random
 __all__ = ['ExpReplay']
 
 Experience = namedtuple('Experience',
-                        ['joint_state', 'action', 'reward', 'isOver', 'comb_mask'])
+                        ['joint_state', 'action', 'reward', 'isOver', 'comb_mask', 'fine_mask'])
 
 
 class ReplayMemory(object):
@@ -44,6 +44,7 @@ class ReplayMemory(object):
         self.reward = np.zeros((self.max_size,), dtype='float32')
         self.isOver = np.zeros((self.max_size,), dtype='bool')
         self.comb_mask = np.zeros((self.max_size,), dtype='bool')
+        self.fine_mask = np.zeros((self.max_size, max(state_shape[0], state_shape[1])), dtype='bool')
 
         self._curr_size = 0
         self._curr_pos = 0
@@ -71,10 +72,12 @@ class ReplayMemory(object):
         comb_mask = self.comb_mask[idx]
         if idx + 2 <= self._curr_size:
             state = self.state[idx:idx+2]
+            fine_mask = self.fine_mask[idx:idx+2]
         else:
             end = idx + 2 - self._curr_size
             state = self._slice(self.state, idx, end)
-        return state, action, reward, isOver, comb_mask
+            fine_mask = self._slice(self.fine_mask, idx, end)
+        return state, action, reward, isOver, comb_mask, fine_mask
 
     def _slice(self, arr, start, end):
         s1 = arr[start:]
@@ -90,6 +93,7 @@ class ReplayMemory(object):
         self.reward[pos] = exp.reward
         self.isOver[pos] = exp.isOver
         self.comb_mask[pos] = exp.comb_mask
+        self.fine_mask[pos] = exp.fine_mask
 
 
 class ExpReplay(DataFlow, Callback):
@@ -293,20 +297,31 @@ class ExpReplay(DataFlow, Callback):
         """ populate a transition by epsilon-greedy"""
         old_s = self._current_ob
         comb_mask = self._comb_mask
+        if not self._comb_mask and self._fine_mask is not None:
+            fine_mask = self._fine_mask if self._fine_mask.shape[0] == max(self.num_actions[0], self.num_actions[1]) \
+                else np.pad(self._fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - self._fine_mask.shape[0]), 'constant', constant_values=(0, 0))
+        else:
+            fine_mask = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         last_cards_value = self.player.get_last_outcards()
         if self.rng.rand() <= self.exploration:
             if not self._comb_mask and self._fine_mask is not None:
                 q_values = np.random.rand(self.num_actions[1])
                 q_values[np.where(np.logical_not(self._fine_mask))[0]] = np.nan
                 act = np.nanargmax(q_values)
+                # print(q_values)
+                # print(act)
             else:
                 act = self.rng.choice(range(self.num_actions[0 if comb_mask else 1]))
         else:
-            q_values = self.predictor([old_s[None, :, :, :], np.array([comb_mask])])[0][0]
+            q_values = self.predictor([old_s[None, :, :, :], np.array([comb_mask]), np.array([fine_mask])])[0][0]
             if not self._comb_mask and self._fine_mask is not None:
                 q_values = q_values[:self.num_actions[1]]
+                assert np.all(q_values[np.where(np.logical_not(self._fine_mask))[0]] < -100)
                 q_values[np.where(np.logical_not(self._fine_mask))[0]] = np.nan
             act = np.nanargmax(q_values)
+            assert act < self.num_actions[0 if comb_mask else 1]
+            # print(q_values)
+            # print(act)
             # clamp action to valid range
             act = min(act, self.num_actions[0 if comb_mask else 1] - 1)
         if comb_mask:
@@ -343,7 +358,7 @@ class ExpReplay(DataFlow, Callback):
         else:
             self._comb_mask = not self._comb_mask
         self._current_ob, self._action_space = self.get_state_and_action_spaces(act if not self._comb_mask else None)
-        self.mem.append(Experience(old_s, act, reward, isOver, comb_mask))
+        self.mem.append(Experience(old_s, act, reward, isOver, comb_mask, fine_mask))
 
     def debug(self, cnt=100000):
         with get_tqdm(total=cnt) as pbar:
@@ -372,7 +387,8 @@ class ExpReplay(DataFlow, Callback):
         reward = np.asarray([e[2] for e in batch_exp], dtype='float32')
         isOver = np.asarray([e[3] for e in batch_exp], dtype='bool')
         comb_mask = np.asarray([e[4] for e in batch_exp], dtype='bool')
-        return [state, action, reward, isOver, comb_mask]
+        fine_mask = np.asarray([e[5] for e in batch_exp], dtype='bool')
+        return [state, action, reward, isOver, comb_mask, fine_mask]
 
     def _setup_graph(self):
         self.predictor = self.trainer.get_predictor(*self.predictor_io_names)

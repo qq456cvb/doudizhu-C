@@ -181,21 +181,27 @@ def play_one_episode(env, func, num_actions):
             is_active = True if last_cards_value.size == 0 else False
 
             # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
-
+            fine_mask_input = np.ones([max(num_actions[0], num_actions[1])], dtype=np.bool)
             # first hierarchy
             state, available_actions = get_state_and_action_space(True)
-            q_values = func([state[None, :, :, :], np.array([True])])[0][0]
+            q_values = func([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
             action = np.argmax(q_values)
+            assert action < num_actions[0]
             # clamp action to valid range
             action = min(action, num_actions[0] - 1)
 
             # second hierarchy
             state, available_actions = get_state_and_action_space(False, state, available_actions, action)
-            q_values = func([state[None, :, :, :], np.array([False])])[0][0]
+            if fine_mask is not None:
+                fine_mask_input = fine_mask if fine_mask.shape[0] == max(num_actions[0], num_actions[1]) \
+                    else np.pad(fine_mask, (0, max(num_actions[0], num_actions[1]) - fine_mask.shape[0]), 'constant', constant_values=(0, 0))
+            q_values = func([state[None, :, :, :], np.array([False]), np.array([fine_mask_input])])[0][0]
             if fine_mask is not None:
                 q_values = q_values[:num_actions[1]]
+                assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
                 q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
             action = np.nanargmax(q_values)
+            assert action < num_actions[1]
             # clamp action to valid range
             action = min(action, num_actions[1] - 1)
 

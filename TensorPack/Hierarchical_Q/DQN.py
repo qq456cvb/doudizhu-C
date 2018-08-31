@@ -62,10 +62,10 @@ def res_fc_block(inputs, units, stack=3):
     for i in range(stack):
         residual = FullyConnected('fc%d' % i, residual, units, activation=tf.nn.relu)
     x = inputs
-    x = FullyConnected('fc', x, units, activation=tf.nn.relu)
-    # if inputs.shape[1].value != units:
-    #     x = FullyConnected('fc', x, units, activation=tf.nn.relu)
-    return tf.contrib.layers.layer_norm(residual + x, scale=True)
+    # x = FullyConnected('fc', x, units, activation=tf.nn.relu)
+    if inputs.shape[1].value != units:
+        x = FullyConnected('fc', x, units, activation=tf.nn.relu)
+    return tf.contrib.layers.layer_norm(residual + x, scale=False)
     # return residual + x
 
 BATCH_SIZE = 8
@@ -83,7 +83,7 @@ MEMORY_SIZE = 1e4
 # will consume at least 1e6 * 84 * 84 bytes == 6.6G memory.
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
-EVAL_EPISODE = 200
+EVAL_EPISODE = 100
 
 NUM_ACTIONS = None
 ROM_FILE = None
@@ -104,7 +104,7 @@ class Model(DQNModel):
     def _get_global_feature(self, joint_state):
         shape = joint_state.shape.as_list()
         net = tf.reshape(joint_state, [-1, shape[-1]])
-        units = [256, 256, 256]
+        units = [256, 512, 1024]
         for i, unit in enumerate(units):
             with tf.variable_scope('block%i' % i):
                 net = res_fc_block(net, unit)
@@ -114,7 +114,7 @@ class Model(DQNModel):
     def _get_DQN_prediction_comb(self, state):
         shape = state.shape.as_list()
         net = tf.reshape(state, [-1, shape[-1]])
-        units = [256, 128, 64, 32]
+        units = [512, 256, 128]
         for i, unit in enumerate(units):
             with tf.variable_scope('block%i' % i):
                 net = res_fc_block(net, unit)
@@ -150,7 +150,7 @@ class Model(DQNModel):
 
 def get_config():
     expreplay = ExpReplay(
-        predictor_io_names=(['state', 'comb_mask'], ['Qvalue']),
+        predictor_io_names=(['state', 'comb_mask', 'fine_mask'], ['Qvalue']),
         player=get_player(),
         state_shape=STATE_SHAPE,
         num_actions=[MAX_NUM_COMBS, MAX_NUM_GROUPS],
@@ -177,10 +177,10 @@ def get_config():
             #                           [(60, 5e-5), (100, 2e-5)]),
             ScheduledHyperParamSetter(
                 ObjAttrParam(expreplay, 'exploration'),
-                [(0, 1), (30, 0.5), (120, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
+                [(0, 1), (30, 0.5), (60, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
                 interp='linear'),
             Evaluator(
-                EVAL_EPISODE, ['state', 'comb_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
+                EVAL_EPISODE, ['state', 'comb_mask', 'fine_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
             HumanHyperParamSetter('learning_rate'),
         ],
         # starting_epoch=30,
