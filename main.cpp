@@ -648,6 +648,7 @@ public:
 
         // divide by the other two
         // for simplicity, scale by two
+        // not correct with regard to the history information
         for (int i = 0; i < remains.size(); i++) {
             if (remains[i] > 0 && indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
                 if (indexID + 1 == clsGameSituation->nDiZhuID) {
