@@ -187,7 +187,7 @@ def compare_color(truth_color, compared_color):
     """
     cnt = 0
     for idx in range(cf.channels):
-        if np.abs(int(truth_color[idx]) - int(compared_color[idx])) <= cf.max_pixel_difference:
+        if np.abs(truth_color[idx] - compared_color[idx]) <= cf.max_pixel_difference:
             cnt += 1
     if cnt == 3:
         return True
@@ -197,13 +197,15 @@ def compare_color(truth_color, compared_color):
 
 def find_all_buttons(effective_band, truth_colors):
     """
-    find all the yellow buttons
+    find all the buttons
     :param truth_colors: yellow and blue ([**, **, **])
     :param effective_band: the band to be scanned
     :return: a list formed by the start position of all the buttons, if no button is found, return []
     """
     yellow_bbox = []
     blue_bbox = []
+    end_bbox = []
+    end_continue_bbox = []
     idx = 0
     while idx < cf.img_size[1]:
         if compare_color(truth_colors[0], effective_band[idx]):
@@ -212,19 +214,46 @@ def find_all_buttons(effective_band, truth_colors):
         elif compare_color(truth_colors[1], effective_band[idx]):
             blue_bbox.append([idx, cf.button_up_margin, idx + cf.two_words_button_width, cf.button_down_margin])
             idx += cf.two_words_button_width
+        elif compare_color(truth_colors[2], effective_band[idx]):
+            end_bbox.append([idx, cf.end_line_y - cf.button_height // 2, idx + cf.end_button_width,
+                             cf.end_line_y + cf.button_height // 2])
+            idx += cf.end_button_width
+        # elif compare_color(truth_colors[3], effective_band[idx]):
+        #     end_continue_bbox.append([idx, cf.end_line_y - cf.button_height // 2, idx + cf.end_button_width,
+        #                      cf.end_line_y + cf.button_height // 2])
+        #     idx += cf.end_button_width
         else:
             idx += 1
-    return [yellow_bbox, blue_bbox]
+    return [yellow_bbox, blue_bbox, end_bbox, end_continue_bbox]
 
 
 def identify_current_button(effective_band, start_x, standard_array):
     cnt = 0
-    assert standard_array.shape[0] == cf.two_words_button_width
+    temp = effective_band[start_x]
+    assert standard_array.shape[0] == cf.two_words_button_width or standard_array.shape[0] == cf.end_button_width
     while cnt < cf.two_words_button_width:
         if not compare_color(standard_array[cnt], effective_band[start_x + cnt]):
             return False
         cnt += 1
     return True
+
+
+def draw_bounding_box(image, bbox):
+    """
+    draw a bounding box of an image
+    :param image:
+    :param bbox:
+    :return:
+    """
+    start_x = bbox[0]
+    start_y = bbox[1]
+    end_x = bbox[2]
+    end_y = bbox[3]
+    image[start_y, start_x:end_x, :] = 255
+    image[end_y, start_x:end_x, :] = 255
+    image[start_y:end_y, start_x, :] = 255
+    image[start_y:end_y, end_x, :] = 255
+    return image
 
 
 def get_current_button_action(current_img):
@@ -242,6 +271,38 @@ def get_current_button_action(current_img):
             if specific_color:
                 for bbox in specific_color:
                     start_x = bbox[0]     # the start x coordinate value
+                    for action in cf.actions:
+                        if identify_current_button(
+                                effective_band=effective_band,
+                                start_x=start_x,
+                                standard_array=cf.actions[action]
+                        ):
+                            res_actions[action] = bbox
+                            break
+    # non-continuous end
+    effective_band = current_img[cf.end_line_y, :, :]
+    buttons = find_all_buttons(effective_band=effective_band, truth_colors=cf.colors)
+    if buttons:
+        for specific_color in buttons:
+            if specific_color:
+                for bbox in specific_color:
+                    start_x = bbox[0]  # the start x coordinate value
+                    for action in cf.actions:
+                        if identify_current_button(
+                                effective_band=effective_band,
+                                start_x=start_x,
+                                standard_array=cf.actions[action]
+                        ):
+                            res_actions[action] = bbox
+                            break
+    # continuous end
+    effective_band = current_img[cf.end_continue_line_y, :, :]
+    buttons = find_all_buttons(effective_band=effective_band, truth_colors=cf.colors)
+    if buttons:
+        for specific_color in buttons:
+            if specific_color:
+                for bbox in specific_color:
+                    start_x = bbox[0]  # the start x coordinate value
                     for action in cf.actions:
                         if identify_current_button(
                                 effective_band=effective_band,
