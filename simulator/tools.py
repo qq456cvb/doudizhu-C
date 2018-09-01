@@ -10,7 +10,7 @@ Author : Yang You & Liangwei Li
 """
 import cv2
 import numpy as np
-import pytesseract
+
 from skimage import data, segmentation, color, measure
 from skimage.future import graph
 from matplotlib import pyplot as plt
@@ -183,7 +183,7 @@ def show_img(img_array):
     cv2.destroyAllWindows()
 
 
-def compare_color(truth_color, compared_color):
+def compare_color(truth_color, compared_color, difference=cf.max_pixel_difference):
     """
     judge whether a pixel belongs to a specific color
     :param truth_color: the standard color ([**, **, **])
@@ -192,7 +192,7 @@ def compare_color(truth_color, compared_color):
     """
     cnt = 0
     for idx in range(cf.channels):
-        if np.abs(truth_color[idx] - compared_color[idx]) <= cf.max_pixel_difference:
+        if np.abs(truth_color[idx] - compared_color[idx]) <= difference:
             cnt += 1
     if cnt == 3:
         return True
@@ -319,6 +319,22 @@ def get_current_button_action(current_img):
     return res_actions
 
 
+def who_is_lord(image):
+    """
+    judge which player is lord
+    :param image: current image
+    :return: 0: self is lord, 1: left side player is lord, 2:right side player is lord, -1:no one is lord
+    """
+    if compare_color(image[cf.self_lord_y, cf.self_lord_x, :], cf.self_lord_color, 0):
+        return 0
+    elif compare_color(image[cf.left_lord_y, cf.left_lord_x, :], cf.left_lord_color, 0):
+        return 1
+    elif compare_color(image[cf.right_lord_y, cf.right_lord_x, :], cf.right_lord_color, 0):
+        return 2
+    else:
+        return -1
+
+
 def get_window_rect():
     hwnd = win32gui.FindWindow(None, 'BlueStacks App Player')
     rect = win32gui.GetWindowRect(hwnd)
@@ -372,7 +388,7 @@ def get_opponent_cnts(img, templates):
 
 
 if __name__ == '__main__':
-    img = cv2.imread('./photo/frame7.bmp')
+    img = cv2.imread('./photo/load_right.png')
     # tiny_templates = load_tiny_templates()
     # print(parse_card_cnt(tiny_templates, img, [301, 371, 336, 398], True))
     # print(parse_card_cnt(tiny_templates, img, [954, 371, 988, 398], True))
@@ -390,26 +406,31 @@ if __name__ == '__main__':
     # cv2.imshow('s', s)
     # cv2.waitKey(0)
     # exit()
-    bboxes_self = locate_cards_position(img, 44, 1257, 518, 502, 554, False, 170)
 
-    bboxes_left = locate_cards_position(img, 280, 645, 240, 180, 215, True, 170)
-    bboxes_left += locate_cards_position(img, 280, 645, 310, 245, 281, True, 170)
+    # bboxes_self = locate_cards_position(img, 44, 1257, 518, 502, 554, False, 170)
+    #
+    # bboxes_left = locate_cards_position(img, 280, 645, 240, 180, 215, True, 170)
+    # bboxes_left += locate_cards_position(img, 280, 645, 310, 245, 281, True, 170)
+    #
+    # bboxes_right = locate_cards_position(img, 645, 1000, 240, 180, 215, True, 200)
+    # bboxes_right += locate_cards_position(img, 645, 1000, 310, 245, 281, True, 200)
+    # templates = load_templates()
+    # mini_templates = dict()
+    # for t in templates:
+    #     if t == 'Joker':
+    #         mini_templates[t] = cv2.imread('./templates/Joker_mini.png', cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
+    # for bbox in bboxes_self:
+    #     pass
+    #     print(parse_card_type(templates, img, bbox), end=', ')
+    # print('')
+    # for bbox in bboxes_left:
+    #     print(parse_card_type(mini_templates, img, bbox), end=', ')
+    # print('')
+    # for bbox in bboxes_right:
+    #     print(parse_card_type(mini_templates, img, bbox), end=', ')
 
-    bboxes_right = locate_cards_position(img, 645, 1000, 240, 180, 215, True, 200)
-    bboxes_right += locate_cards_position(img, 645, 1000, 310, 245, 281, True, 200)
-    templates = load_templates()
-    mini_templates = dict()
-    for t in templates:
-        if t == 'Joker':
-            mini_templates[t] = cv2.imread('./templates/Joker_mini.png', cv2.IMREAD_GRAYSCALE)
-        else:
-            mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
-    for bbox in bboxes_self:
-        pass
-        print(parse_card_type(templates, img, bbox), end=', ')
-    print('')
-    for bbox in bboxes_left:
-        print(parse_card_type(mini_templates, img, bbox), end=', ')
-    print('')
-    for bbox in bboxes_right:
-        print(parse_card_type(mini_templates, img, bbox), end=', ')
+    img[251, :, :] = 255
+    img[:, 1210, :] = 255
+    show_img(img)

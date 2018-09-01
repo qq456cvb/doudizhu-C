@@ -62,6 +62,7 @@ class Configuration:
         self.alone_chupai = np.load(self.array_path + 'alone_chupai' + '.npy')
         self.end = np.load(self.array_path + 'end' + '.npy')
         self.cend = np.load(self.array_path + 'continous_end' + '.npy')
+        self.ming_chupai = np.load(self.array_path + 'ming_chupai' + '.npy')
         self.actions = {
             'jiaodizhu': self.jiaodizhu,
             'bujiao': self.bujiao,
@@ -74,21 +75,23 @@ class Configuration:
             'yaobuqi': self.yaobuqi,
             'alone_chupai': self.alone_chupai,
             'end': self.end,
-             'continous_end': self.cend
+             'continous_end': self.cend,
+            'ming_chupai': self.ming_chupai
         }
 
         # some parameters defining the load mark
         # self is load
-        self.self_load_x = 250
-        self.self_load_y = 488
-        self.self_load_color = np.array([106, 196, 15])
+        self.self_lord_x = 250
+        self.self_lord_y = 488
+        self.self_lord_color = np.array([106, 196, 15])
         # left player is load
-        self.left_load_x = 78
-        self.left_load_y = 251
-        self.left_load_color = np.array([95, 157, 33])
+        self.left_lord_x = 78
+        self.left_lord_y = 251
+        self.left_lord_color = np.array([95, 157, 33])
         # right player is load
-
-        # some parameters judging whether one episode is end
+        self.right_lord_x = 1210
+        self.right_lord_y = 280
+        self.right_lord_color = np.array([96, 181, 114])
 
 
 if __name__ == '__main__':
