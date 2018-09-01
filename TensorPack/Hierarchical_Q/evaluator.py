@@ -27,7 +27,7 @@ from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mas
 from utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
 
 
-encoding = np.load('../AutoEncoder/encoding.npy')
+encoding = np.load('D:/doudizhu-C/TensorPack/AutoEncoder/encoding.npy')
 
 
 def play_one_episode(env, func, num_actions):

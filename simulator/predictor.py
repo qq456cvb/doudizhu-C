@@ -2,6 +2,7 @@
 from TensorPack.Hierarchical_Q.DQN import Model
 from tensorpack import *
 import numpy as np
+import os, sys
 if os.name == 'nt':
     sys.path.insert(0, '../../build/Release')
 else:
@@ -167,7 +168,7 @@ class Predictor:
         action = min(action, self.num_actions[0] - 1)
 
         # second hierarchy
-        state, available_actions, _ = self.get_state_and_action_space(False, cand_state=state, cand_actions=available_actions, action=action)
+        state, available_actions, fine_mask = self.get_state_and_action_space(False, cand_state=state, cand_actions=available_actions, action=action, fine_mask=fine_mask)
         if fine_mask is not None:
             fine_mask_input = fine_mask if fine_mask.shape[0] == max(self.num_actions[0], self.num_actions[1]) \
                 else np.pad(fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - fine_mask.shape[0]), 'constant',

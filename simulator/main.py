@@ -3,6 +3,12 @@ import ctypes
 import threading
 from simulator.predictor import Predictor
 from card import Card
+import os, sys
+if os.name == 'nt':
+    sys.path.insert(0, '../../build/Release')
+else:
+    sys.path.insert(0, '../../build.linux')
+from env import Env
 
 toggle = False
 
@@ -10,7 +16,7 @@ toggle = False
 def esc_pressed():
     global toggle
     toggle = not toggle
-    print("Escape was pressed.")
+    print("toggle changed to ", toggle)
 
 
 class Simulator:
@@ -42,11 +48,36 @@ class Simulator:
         act = dict()
         while not act:
             time.sleep(0.2)
+            self.current_screen = grab_screen()
+            cv2.imwrite('debug.png', self.current_screen)
             act = get_current_button_action(self.current_screen)
         return act
 
     def click(self, bbox):
         click((bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2, (self.window_rect[0], self.window_rect[1]))
+
+    def discard(self, act, bboxes, idxs):
+        def diff(idxs, cards):
+            res = []
+            for i in range(len(cards)):
+                if cards[i] is not None:
+                    if i in idxs:
+                        res.append(i)
+                else:
+                    if i not in idxs:
+                        res.append(i)
+            return res
+
+        differences = diff(idxs, get_cards_bboxes(grab_screen(), self.templates)[0])
+        print(differences)
+        while len(differences) > 0:
+            for d in differences:
+                self.click(bboxes[d])
+                time.sleep(0.1)
+            time.sleep(0.5)
+            differences = diff(idxs, get_cards_bboxes(grab_screen(), self.templates)[0])
+
+        self.click(act['chupai'] if 'chupai' in act else act['alone_chupai'])
 
     def main_loop(self):
         global toggle
@@ -61,35 +92,44 @@ class Simulator:
                 if 'chupai' in act or 'alone_chupai' in act or 'yaobuqi' in act:
                     self.state = Simulator.State.PLAYING
                     continue
+                print('calling', act)
+                handcards, _ = get_cards_bboxes(self.current_screen, self.templates, 0)
+                cards_value, _ = Env.get_cards_value(Card.char2color(handcards))
+                print('cards value: ', cards_value)
                 if 'qiangdizhu' in act:
-                    self.click(act['buqiang'])
+                    self.click(act['buqiang']) if cards_value < 10 else self.click(act['qiangdizhu'])
                 else:
                     assert 'jiaodizhu' in act
-                    self.click(act['bujiao'])
+                    self.click(act['bujiao']) if cards_value < 10 else self.click(act['jiaodizhu'])
             elif self.state == Simulator.State.PLAYING:
+                print('playing', act)
                 left_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 1)
                 right_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 2)
+                assert None not in left_cards
+                assert None not in right_cards
                 self.history[1].extend(right_cards)
                 self.history[2].extend(left_cards)
                 if 'yaobuqi' in act:
+                    print(act['yaobuqi'])
                     self.click(act['yaobuqi'])
                 else:
                     last_cards = left_cards
                     if not left_cards:
-                        assert len(right_cards) > 0
                         last_cards = right_cards
+                    print('last cards', last_cards)
                     total_cards = np.ones([60])
                     remain_cards = total_cards - Card.char2onehot60(self.history[0] + self.history[1] + self.history[2])
                     handcards, bboxes = get_cards_bboxes(self.current_screen, self.templates, 0)
                     print('current handcards: ', handcards)
                     left_cnt, right_cnt = get_opponent_cnts(self.current_screen, self.tiny_templates)
                     print('left cnt: ', left_cnt, 'right cnt: ', right_cnt)
+                    assert left_cnt > 0 and right_cnt > 0
                     # to be the same as C++ side, right comes before left
 
                     right_prob_state = remain_cards * (right_cnt / (left_cnt + right_cnt))
                     left_prob_state = remain_cards * (left_cnt / (left_cnt + right_cnt))
                     prob_state = np.concatenate([right_prob_state, left_prob_state])
-                    assert prob_state.size == 60
+                    assert prob_state.size == 120
                     intention = self.predictor.predict(handcards, last_cards, prob_state)
                     self.history[0].extend(intention)
                     print('intention is: ', intention)
@@ -100,17 +140,20 @@ class Simulator:
                         i = 0
                         j = 0
                         to_click = []
+                        to_click_idxs = []
                         while j < len(intention):
                             if handcards[i] == intention[j]:
+                                to_click_idxs.append(i)
                                 to_click.append(bboxes[i])
                                 i += 1
                                 j += 1
                             else:
                                 i += 1
-                        for bbox in to_click:
-                            self.click(bbox)
-                            time.sleep(0.1)
-                        self.click(act['chupai'])
+                        self.discard(act, bboxes, to_click_idxs)
+                        # for bbox in to_click:
+                        #     self.click(bbox)
+                        #     time.sleep(0.1)
+                        # self.click(act['chupai'] if 'chupai' in act else act['alone_chupai'])
             time.sleep(1.)
 
 

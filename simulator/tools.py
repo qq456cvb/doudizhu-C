@@ -23,24 +23,28 @@ import skimage.measure
 import win32api, win32con
 cf = Configuration()
 
+DEBUG = False
+
 
 def locate_cards_position(img, x_left, x_right, y, y_up, y_bottom, mini=False, thresh=200):
     while not (np.all(img[y, x_left] > thresh) and np.var(img[y, x_left]) < 40):
         x_left += 1
     while not np.all(img[y, x_right] > thresh):
         x_right -= 1
-    n_cards = int(round((x_right - x_left - (74 if mini else 140)) / (30 if mini else 55.1)) + 1)
+    n_cards = int(round((x_right - x_left - (74 if mini else 140)) / (33 if mini else 55.1)) + 1)
     if n_cards == 1:
-        spacing = 30 if mini else 55
+        spacing = 33 if mini else 55
     else:
         spacing = (x_right - x_left - (74 if mini else 140)) / (n_cards - 1)
+    # print(n_cards)
     # print(x_left)
-    # print(np.var(img[730, x_left]), np.var(img[730, x_right]))
-    # cv2.line(img, (x_left, y_up), (x_left, y_bottom), (0, 255, 0), 3)
-    # cv2.line(img, (x_right, y_up), (x_right, y_bottom), (0, 0, 255), 3)
-    # cv2.imshow('test', img)
-    # cv2.waitKey(0)
-    if x_left > x_right or x_right - x_left < (74 if mini else 140):
+    # # print(np.var(img[730, x_left]), np.var(img[730, x_right]))
+    if DEBUG:
+        cv2.line(img, (x_left, y_up), (x_left, y_bottom), (0, 255, 0), 3)
+        cv2.line(img, (x_right, y_up), (x_right, y_bottom), (0, 0, 255), 3)
+        cv2.imshow('test', img)
+        cv2.waitKey(0)
+    if x_left > x_right or x_right - x_left < (64 if mini else 130):
         return []
     bboxes = []
     for i in range(n_cards):
@@ -101,8 +105,9 @@ def parse_card_type(templates, img, bbox, binarize=True, recursive=True):
         mask = subimg
     max_response = 0.
     max_t = None
-    # cv2.imshow('subimg', mask)
-    # cv2.waitKey(0)
+    if DEBUG:
+        cv2.imshow('subimg', mask)
+        cv2.waitKey(0)
     for t in templates:
         if templates[t] is not None:
             if mask.shape[0] < templates[t].shape[0] or mask.shape[1] < templates[t].shape[1]:
@@ -112,7 +117,7 @@ def parse_card_type(templates, img, bbox, binarize=True, recursive=True):
             if max_val > max_response:
                 max_response = max_val
                 max_t = t
-    if max_response < 0.7:
+    if max_response < 0.65:
         return None
     # filter joker
     if max_t == 'Joker' and recursive:
