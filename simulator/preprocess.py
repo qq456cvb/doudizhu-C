@@ -28,7 +28,7 @@ if __name__ == '__main__':
             mini_templates[t] = cv2.imread('./templates/Joker_mini.png', cv2.IMREAD_GRAYSCALE)
         else:
             mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
-    cards, _ = get_cards_bboxes(cv2.imread('debug.png'), mini_templates, 1)
+    cards, _ = get_cards_bboxes(cv2.imread('debug3.png'), mini_templates, 1)
     print(cards)
     # print_screen('test.png')
     # img = cv2.imread('train.png', cv2.IMREAD_GRAYSCALE)

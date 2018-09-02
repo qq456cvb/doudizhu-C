@@ -23,13 +23,13 @@ import skimage.measure
 import win32api, win32con
 cf = Configuration()
 
-DEBUG = False
+DEBUG = True
 
 
 def locate_cards_position(img, x_left, x_right, y, y_up, y_bottom, mini=False, thresh=200):
     while not (np.all(img[y, x_left] > thresh) and np.var(img[y, x_left]) < 40):
         x_left += 1
-    while not np.all(img[y, x_right] > thresh):
+    while not (np.all(img[y, x_right] > thresh) and np.var(img[y, x_right]) < 40):
         x_right -= 1
     n_cards = int(round((x_right - x_left - (74 if mini else 140)) / (33 if mini else 55.1)) + 1)
     if n_cards == 1:

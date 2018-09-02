@@ -18,7 +18,7 @@ class Configuration:
     def __init__(self):
         # path information
         self.img_root_path = 'photo/'
-        self.video_root_path = 'video_/'
+        self.video_root_path = 'video/'
         self.img_path = [self.img_root_path + path for path in os.listdir(self.img_root_path)]
         self.video_path = [self.video_root_path + path for path in os.listdir(self.video_root_path)]
         self.video_path.sort(key=lambda x: int(re.findall('[0-9].*', x.split('.')[0])[0]))

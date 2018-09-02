@@ -74,10 +74,14 @@ class Simulator:
             for d in differences:
                 self.click(bboxes[d])
                 time.sleep(0.1)
-            time.sleep(0.5)
+            time.sleep(0.75)
             differences = diff(idxs, get_cards_bboxes(grab_screen(), self.templates)[0])
-
-        self.click(act['chupai'] if 'chupai' in act else act['alone_chupai'])
+        if 'chupai' in act:
+            self.click(act['chupai'])
+        elif 'alone_chupai' in act:
+            self.click(act['alone_chupai'])
+        elif 'ming_chupai' in act:
+            self.click(act['ming_chupai'])
 
     def main_loop(self):
         global toggle
@@ -89,7 +93,7 @@ class Simulator:
             act = self.spin_lock_on_button()
             if self.state == Simulator.State.CALLING:
                 # state has changed
-                if 'chupai' in act or 'alone_chupai' in act or 'yaobuqi' in act:
+                if 'chupai' in act or 'alone_chupai' in act or 'ming_chupai' in act or 'yaobuqi' in act:
                     self.state = Simulator.State.PLAYING
                     continue
                 print('calling', act)
@@ -102,6 +106,12 @@ class Simulator:
                     assert 'jiaodizhu' in act
                     self.click(act['bujiao']) if cards_value < 10 else self.click(act['jiaodizhu'])
             elif self.state == Simulator.State.PLAYING:
+                if 'end' in act or 'continous_end' in act:
+                    time.sleep(1.)
+                    self.click(act['end'] if 'end' in act else act['continous_end'])
+                    time.sleep(1.)
+                    self.state = Simulator.State.CALLING
+                    continue
                 print('playing', act)
                 left_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 1)
                 right_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 2)
@@ -118,8 +128,8 @@ class Simulator:
                         last_cards = right_cards
                     print('last cards', last_cards)
                     total_cards = np.ones([60])
-                    remain_cards = total_cards - Card.char2onehot60(self.history[0] + self.history[1] + self.history[2])
                     handcards, bboxes = get_cards_bboxes(self.current_screen, self.templates, 0)
+                    remain_cards = total_cards - Card.char2onehot60(handcards + self.history[0] + self.history[1] + self.history[2])
                     print('current handcards: ', handcards)
                     left_cnt, right_cnt = get_opponent_cnts(self.current_screen, self.tiny_templates)
                     print('left cnt: ', left_cnt, 'right cnt: ', right_cnt)
@@ -130,6 +140,8 @@ class Simulator:
                     left_prob_state = remain_cards * (left_cnt / (left_cnt + right_cnt))
                     prob_state = np.concatenate([right_prob_state, left_prob_state])
                     assert prob_state.size == 120
+                    assert np.all(prob_state < 1.) and np.all(prob_state >= 0.)
+                    # print(prob_state)
                     intention = self.predictor.predict(handcards, last_cards, prob_state)
                     self.history[0].extend(intention)
                     print('intention is: ', intention)
@@ -150,10 +162,6 @@ class Simulator:
                             else:
                                 i += 1
                         self.discard(act, bboxes, to_click_idxs)
-                        # for bbox in to_click:
-                        #     self.click(bbox)
-                        #     time.sleep(0.1)
-                        # self.click(act['chupai'] if 'chupai' in act else act['alone_chupai'])
             time.sleep(1.)
 
 
@@ -172,6 +180,17 @@ def hook():
 
 
 if __name__ == '__main__':
+    # pred = Predictor()
+    # handcards = ['K', 'K', 'J', 'J', '9', '9']
+    #
+    # right_handcards = ['$', '*', '10', '10', '6', '5', '5']
+    # left_handcards = ['A', 'K', 'Q', 'J', '10', '9', '7', '6', '5', '4', '3']
+    # remain_cards = Card.char2onehot60(left_handcards + right_handcards)
+    # prob_state = np.concatenate([remain_cards * len(right_handcards) / (len(left_handcards) + len(right_handcards)),
+    #                              remain_cards * len(left_handcards) / (len(left_handcards) + len(right_handcards))])
+    # last_cards = []
+    # intention = pred.predict(handcards, last_cards, prob_state)
+    # print(intention)
     t = threading.Thread(target=hook, args=())
     t.start()
     sim = Simulator()
