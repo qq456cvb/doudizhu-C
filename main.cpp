@@ -648,18 +648,18 @@ public:
 
         // divide by the other two
         // for simplicity, scale by two
-        // not correct with regard to the history information
-        for (int i = 0; i < remains.size(); i++) {
-            if (remains[i] > 0 && indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
-                if (indexID + 1 == clsGameSituation->nDiZhuID) {
-                    prob1[i] = 1.f;
-                    prob2[i] = 0;
-                } else {
-                    prob1[i] = 0;
-                    prob2[i] = 1.f;
-                }
-            }
-        }
+        // not correct with regard to the history information, disabled now
+//        for (int i = 0; i < remains.size(); i++) {
+//            if (remains[i] > 0 && indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
+//                if (indexID + 1 == clsGameSituation->nDiZhuID) {
+//                    prob1[i] = 1.f;
+//                    prob2[i] = 0;
+//                } else {
+//                    prob1[i] = 0;
+//                    prob2[i] = 1.f;
+//                }
+//            }
+//        }
 
 //        state += self_cards;
         state += prob1;

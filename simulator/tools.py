@@ -23,7 +23,7 @@ import skimage.measure
 import win32api, win32con
 cf = Configuration()
 
-DEBUG = True
+DEBUG = False
 
 
 def locate_cards_position(img, x_left, x_right, y, y_up, y_bottom, mini=False, thresh=200):

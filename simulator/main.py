@@ -51,6 +51,7 @@ class Simulator:
             self.current_screen = grab_screen()
             cv2.imwrite('debug.png', self.current_screen)
             act = get_current_button_action(self.current_screen)
+
         return act
 
     def click(self, bbox):
@@ -90,7 +91,9 @@ class Simulator:
                 time.sleep(0.2)
                 continue
             self.current_screen = grab_screen()
+
             act = self.spin_lock_on_button()
+            print(act)
             if self.state == Simulator.State.CALLING:
                 # state has changed
                 if 'chupai' in act or 'alone_chupai' in act or 'ming_chupai' in act or 'yaobuqi' in act:
@@ -128,6 +131,8 @@ class Simulator:
                         last_cards = right_cards
                     print('last cards', last_cards)
                     total_cards = np.ones([60])
+                    total_cards[53:56] = 0
+                    total_cards[57:60] = 0
                     handcards, bboxes = get_cards_bboxes(self.current_screen, self.templates, 0)
                     remain_cards = total_cards - Card.char2onehot60(handcards + self.history[0] + self.history[1] + self.history[2])
                     print('current handcards: ', handcards)
