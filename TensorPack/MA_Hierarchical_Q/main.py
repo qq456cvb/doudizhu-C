@@ -10,7 +10,7 @@ BATCH_SIZE = 8
 MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
-HIDDEN_STATE_DIM = 256 + 120
+HIDDEN_STATE_DIM = 256 + 120 + 60
 STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
 UPDATE_FREQ = 4
@@ -18,7 +18,7 @@ UPDATE_FREQ = 4
 GAMMA = 0.99
 
 MEMORY_SIZE = 3e3
-INIT_MEMORY_SIZE = MEMORY_SIZE // 20
+INIT_MEMORY_SIZE = MEMORY_SIZE // 10
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
 EVAL_EPISODE = 100
 
@@ -48,7 +48,7 @@ def get_config():
     model = Model(agent_names, STATE_SHAPE, METHOD, NUM_ACTIONS, GAMMA)
     exps = [ExpReplay(
         # model=model,
-        agent_name=name, player=Env(agent_names),
+        agent_name=name, player=Env(list(reversed(agent_names))),
         state_shape=STATE_SHAPE,
         num_actions=[MAX_NUM_COMBS, MAX_NUM_GROUPS],
         batch_size=BATCH_SIZE,
@@ -118,6 +118,6 @@ if __name__ == '__main__':
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)
-        trainer = SimpleTrainer().get_predictor() if nr_gpu == 1 else AsyncMultiGPUTrainer(train_tower)
+        trainer = SimpleTrainer() if nr_gpu == 1 else AsyncMultiGPUTrainer(train_tower)
         launch_train_with_config(config, trainer)
 

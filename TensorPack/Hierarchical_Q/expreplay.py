@@ -233,8 +233,11 @@ class ExpReplay(DataFlow, Callback):
             state = [np.stack([self.encoding[idx] for idx in comb]) for comb in combs]
             assert len(state) > 0
             prob_state = self.player.get_state_prob()
+
+            # add last cards to state to distinguish q values between active and passive conditions
+            extra_state = np.concatenate([prob_state, Card.val2onehot60(last_cards_value)])
             for i in range(len(state)):
-                state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
+                state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
             assert state.shape[0] == self.num_actions[0] and state.shape[1] == self.num_actions[1]
         else:

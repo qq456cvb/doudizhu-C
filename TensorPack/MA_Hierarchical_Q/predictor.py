@@ -136,8 +136,9 @@ class Predictor:
             # if len(state) == 0:
             #     assert len(combs) == 0
             #     state = [np.array([encoding[0]])]
+            extra_state = np.concatenate([prob_state, Card.char2onehot60(last_cards_char)])
             for i in range(len(state)):
-                state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
+                state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
             assert state.shape[0] == self.num_actions[0] and state.shape[1] == self.num_actions[1]
         else:
@@ -154,7 +155,9 @@ class Predictor:
         # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
         fine_mask_input = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         # first hierarchy
+        # print(handcards, last_cards)
         state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_cards_char=last_cards, prob_state=prob_state)
+        # print(available_actions)
         q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
         action = np.argmax(q_values)
         assert action < self.num_actions[0]

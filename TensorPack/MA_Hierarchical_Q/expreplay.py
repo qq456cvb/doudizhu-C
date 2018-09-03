@@ -213,11 +213,14 @@ class ExpReplay(DataFlow, Callback):
         last_cards_char = self.player.get_last_outcards()
         curr_cards_char = self.player.get_curr_handcards()
         if self._comb_mask:
+            # print(curr_cards_char, last_cards_char)
             combs = self.get_combinations(curr_cards_char, last_cards_char)
             if len(combs) > self.num_actions[0]:
                 combs, self._fine_mask = self.subsample_combs_masks(combs, self._fine_mask, self.num_actions[0])
             # TODO: utilize temporal relations to speedup
             available_actions = [[action_space[idx] for idx in comb] for comb in combs]
+            # print(available_actions)
+            # print('-------------------------------------------')
             assert len(combs) > 0
             if self._fine_mask is not None:
                 self._fine_mask = self.pad_fine_mask(self._fine_mask)
@@ -225,8 +228,9 @@ class ExpReplay(DataFlow, Callback):
             state = [np.stack([self.encoding[idx] for idx in comb]) for comb in combs]
             assert len(state) > 0
             prob_state = self.player.get_state_prob()
+            extra_state = np.concatenate([prob_state, Card.char2onehot60(last_cards_char)])
             for i in range(len(state)):
-                state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
+                state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
             assert state.shape[0] == self.num_actions[0] and state.shape[1] == self.num_actions[1]
         else:
@@ -324,7 +328,8 @@ class ExpReplay(DataFlow, Callback):
             if len(last_cards_char) > 0:
                 if act > 0:
                     if not CardGroup.to_cardgroup(self._action_space[act]).bigger_than(CardGroup.to_cardgroup(last_cards_char)):
-                        print('warning, some error happened')
+                        print('warning, some error happened, ', self._action_space[act], last_cards_char)
+                        raise Exception("card comparison error")
             # print(to_char(self.player.get_curr_handcards()))
             winner, isOver = self.player.step(self._action_space[act])
 
@@ -347,8 +352,8 @@ class ExpReplay(DataFlow, Callback):
             self._player_scores.feed(self._current_game_score.sum)
             self.player.reset()
             self.player.prepare()
-            self.prestart()
             self._comb_mask = True
+            self.prestart()
             self._current_game_score.reset()
         else:
             self._comb_mask = not self._comb_mask
@@ -361,7 +366,10 @@ class ExpReplay(DataFlow, Callback):
             last_cards = self.player.get_last_outcards()
             prob_state = self.player.get_state_prob()
             action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
+
+            n = self.player.get_curr_agent_name()
             self.player.step(action)
+        self._current_ob, self._action_space = self.get_state_and_action_spaces()
 
     def get_data(self):
         # wait for memory to be initialized

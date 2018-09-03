@@ -150,8 +150,10 @@ def play_one_episode(env, func, num_actions):
             #     assert len(combs) == 0
             #     state = [np.array([encoding[0]])]
             prob_state = env.get_state_prob()
+            # add last cards to state to distinguish q values between active and passive conditions
+            extra_state = np.concatenate([prob_state, Card.val2onehot60(last_cards_value)])
             for i in range(len(state)):
-                state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
+                state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = pad_state(state)
             assert state.shape[0] == num_actions[0] and state.shape[1] == num_actions[1]
         else:

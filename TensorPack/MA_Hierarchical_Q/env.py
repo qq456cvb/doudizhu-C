@@ -30,9 +30,9 @@ class Env:
         cards = Env.total_cards.copy()
         np.random.shuffle(cards)
         self.extra_cards = cards[17:20]
-        self.player_cards[self.agent_names[0]] = cards[:20]
-        self.player_cards[self.agent_names[1]] = cards[20:37]
-        self.player_cards[self.agent_names[2]] = cards[37:]
+        self.player_cards[self.agent_names[0]] = sorted(cards[:20], key=lambda k: Card.cards_to_value[k])
+        self.player_cards[self.agent_names[1]] = sorted(cards[20:37], key=lambda k: Card.cards_to_value[k])
+        self.player_cards[self.agent_names[2]] = sorted(cards[37:], key=lambda k: Card.cards_to_value[k])
         self.lord = self.agent_names[0]
         self.controller = self.lord
         self.curr_player = self.lord
@@ -48,7 +48,7 @@ class Env:
                 self.player_cards[self.curr_player].remove(card)
 
             self.histories[self.curr_player].extend(intention)
-            if len(self.player_cards) == 0:
+            if len(self.player_cards[self.curr_player]) == 0:
                 return self.curr_player, True
             else:
                 self.curr_player = self.agent_names[
@@ -56,10 +56,10 @@ class Env:
                 return self.curr_player, False
 
     def get_last_outcards(self):
-        return self.last_cards_char if self.curr_player != self.controller else []
+        return self.last_cards_char.copy() if self.curr_player != self.controller else []
 
     def get_curr_handcards(self):
-        return self.player_cards[self.curr_player]
+        return self.player_cards[self.curr_player].copy()
 
     def get_state_prob(self):
         total_cards = np.ones([60])

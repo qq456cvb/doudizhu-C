@@ -106,6 +106,10 @@ class Simulator:
                 if 'qiangdizhu' in act:
                     self.click(act['buqiang']) if cards_value < 10 else self.click(act['qiangdizhu'])
                 else:
+                    if 'bujiabei' in act:
+                        self.click(act['bujiabei'])
+                        time.sleep(1.)
+                        continue
                     assert 'jiaodizhu' in act
                     self.click(act['bujiao']) if cards_value < 10 else self.click(act['jiaodizhu'])
             elif self.state == Simulator.State.PLAYING:
