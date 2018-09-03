@@ -155,7 +155,7 @@ class Model(ModelDesc):
                 fine_mask = tf.identity(joint_fine_mask[:, 0, :], name='fine_mask')
                 self.predict_value = self.get_DQN_prediction(state, comb_mask, fine_mask)
                 if not get_current_tower_context().is_training:
-                    return
+                    continue
 
                 reward = tf.clip_by_value(reward, -1, 1)
                 next_state = tf.identity(joint_state[:, 1, :, :, :], name='next_state')
@@ -195,6 +195,8 @@ class Model(ModelDesc):
                 summary.add_param_summary((name + '.*/W', ['histogram', 'rms']))   # monitor all W
                 summary.add_moving_summary(cost)
                 costs.append(cost)
+        if not get_current_tower_context().is_training:
+            return
         return tf.add_n([costs[i] * self.cost_weights[i] for i in range(3)])
 
     def optimizer(self):

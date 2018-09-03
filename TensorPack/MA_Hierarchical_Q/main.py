@@ -17,7 +17,7 @@ UPDATE_FREQ = 4
 
 GAMMA = 0.99
 
-MEMORY_SIZE = 1e2
+MEMORY_SIZE = 3e3
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
 EVAL_EPISODE = 100
@@ -59,7 +59,6 @@ def get_config():
     ) for name in agent_names]
 
     df = MyDataFLow(exps)
-
 
     return AutoResumeTrainConfig(
         # always_resume=False,
@@ -119,6 +118,6 @@ if __name__ == '__main__':
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)
-        trainer = SimpleTrainer() if nr_gpu == 1 else AsyncMultiGPUTrainer(train_tower)
+        trainer = SimpleTrainer().get_predictor() if nr_gpu == 1 else AsyncMultiGPUTrainer(train_tower)
         launch_train_with_config(config, trainer)
 

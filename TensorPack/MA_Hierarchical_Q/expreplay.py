@@ -347,6 +347,7 @@ class ExpReplay(DataFlow, Callback):
             self._player_scores.feed(self._current_game_score.sum)
             self.player.reset()
             self.player.prepare()
+            self.prestart()
             self._comb_mask = True
             self._current_game_score.reset()
         else:
@@ -354,12 +355,13 @@ class ExpReplay(DataFlow, Callback):
         self._current_ob, self._action_space = self.get_state_and_action_spaces(act if not self._comb_mask else None)
         self.mem.append(Experience(old_s, act, reward, isOver, comb_mask, fine_mask))
 
-    def debug(self, cnt=100000):
-        with get_tqdm(total=cnt) as pbar:
-            for i in range(cnt):
-                self.mem.append(Experience(np.zeros([self.num_actions[0], self.num_actions[1], 256]), 0, 0, False, True if i % 2 == 0 else False))
-                # self._current_ob, self._action_space = self.get_state_and_action_spaces(None)
-                pbar.update()
+    def prestart(self):
+        while self.player.get_curr_agent_name() != self.agent_name:
+            handcards = self.player.get_curr_handcards()
+            last_cards = self.player.get_last_outcards()
+            prob_state = self.player.get_state_prob()
+            action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
+            self.player.step(action)
 
     def get_data(self):
         # wait for memory to be initialized
@@ -385,19 +387,15 @@ class ExpReplay(DataFlow, Callback):
         return [state, action, reward, isOver, comb_mask, fine_mask]
 
     def _setup_graph(self):
-        self.predictors = {n: Predictor(OnlinePredictor([n + '/state:0', n + '_comb_mask:0', n + '/fine_mask:0'], [n + '/Qvalue:0'])) for n in self.player.get_all_agent_names()}
+        self.predictors = {n: Predictor(self.trainer.get_predictor([n + '/state:0', n + '_comb_mask:0', n + '/fine_mask:0'], [n + '/Qvalue:0'])) for n in self.player.get_all_agent_names()}
 
     def _before_train(self):
+        self.prestart()
+
         self._init_memory()
         self._simulator_th = self.get_simulator_thread()
         self._simulator_th.start()
-        # init game state
-        while self.player.get_curr_agent_name() != self.agent_name:
-            handcards = self.player.get_curr_handcards()
-            last_cards = self.player.get_last_outcards()
-            prob_state = self.player.get_state_prob()
-            action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
-            self.player.step(action)
+
 
     def _trigger(self):
         v = self._player_scores
