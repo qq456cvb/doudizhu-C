@@ -13,9 +13,9 @@ from tensorpack import *
 import sys
 import os
 if os.name == 'nt':
-    sys.path.insert(0, 'D:/doudizhu-C/build/Release')
+    sys.path.insert(0, '../../build/Release')
 else:
-    sys.path.insert(0, 'D:/doudizhu-C/build.linux')
+    sys.path.insert(0, '../../build.linux')
 sys.path.insert(0, '../..')
 from TensorPack.Hierarchical_Q.DQNModel import Model as DQNModel
 from env import Env as CEnv
@@ -72,7 +72,7 @@ BATCH_SIZE = 8
 MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
-HIDDEN_STATE_DIM = 256 + 120 + 60
+HIDDEN_STATE_DIM = 256 + 256 + 120
 STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
 UPDATE_FREQ = 4
@@ -217,7 +217,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN-54-AUG-STATE-RAW'))
+            os.path.join('train_log', 'DQN-9-3-LASTCARDS'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)

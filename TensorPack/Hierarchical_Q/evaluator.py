@@ -19,7 +19,7 @@ else:
     sys.path.insert(0, '../../build.linux')
 from env import Env, get_combinations_nosplit, get_combinations_recursive
 from logger import Logger
-from card import Card, action_space, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
+from card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
 import numpy as np
 import tensorflow as tf
 from utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
@@ -27,7 +27,7 @@ from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mas
 from utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
 
 
-encoding = np.load('D:/doudizhu-C/TensorPack/AutoEncoder/encoding.npy')
+encoding = np.load('../AutoEncoder/encoding.npy')
 
 
 def play_one_episode(env, func, num_actions):
@@ -151,7 +151,11 @@ def play_one_episode(env, func, num_actions):
             #     state = [np.array([encoding[0]])]
             prob_state = env.get_state_prob()
             # add last cards to state to distinguish q values between active and passive conditions
-            extra_state = np.concatenate([prob_state, Card.val2onehot60(last_cards_value)])
+            test = action_space_onehot60 == Card.val2onehot60(last_cards_value)
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            assert target.size == 1
+            extra_state = np.concatenate([encoding[target[0]], prob_state])
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = pad_state(state)

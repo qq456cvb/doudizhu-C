@@ -17,7 +17,7 @@ from tensorpack.utils.utils import get_tqdm, get_rng
 from tensorpack.utils.stats import StatCounter
 from tensorpack.utils.concurrency import LoopThread, ShareSessionThread
 from tensorpack.callbacks.base import Callback
-from card import action_space, Card, CardGroup, augment_action_space_onehot60, clamp_action_idx, augment_action_space
+from card import action_space, action_space_onehot60, Card, CardGroup, augment_action_space_onehot60, clamp_action_idx, augment_action_space
 from utils import to_char, to_value, get_mask_onehot60
 import sys
 import os
@@ -228,7 +228,11 @@ class ExpReplay(DataFlow, Callback):
             state = [np.stack([self.encoding[idx] for idx in comb]) for comb in combs]
             assert len(state) > 0
             prob_state = self.player.get_state_prob()
-            extra_state = np.concatenate([prob_state, Card.char2onehot60(last_cards_char)])
+            test = action_space_onehot60 == Card.char2onehot60(last_cards_char)
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            assert target.size == 1
+            extra_state = np.concatenate([self.encoding[target[0]], prob_state])
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
