@@ -176,12 +176,12 @@ def play_one_episode(env, func, num_actions):
     # env.prepare_manual(init_cards)
     env.prepare()
     r = 0
-    f = open('evaluate_record.txt', 'a+')
+    # f = open('evaluate_record.txt', 'a+')
     while r == 0:
         role_id = env.get_role_ID()
         curr_cards_char = to_char(env.get_curr_handcards())
-        print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char, file=f)
-        if role_id == 2:
+        # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char, file=f)
+        if role_id == 3:
             last_cards_value = env.get_last_outcards()
             is_active = True if last_cards_value.size == 0 else False
 
@@ -213,16 +213,16 @@ def play_one_episode(env, func, num_actions):
             # intention
             intention = to_value(available_actions[action])
             r, _, _ = env.step_manual(intention)
-            print('lord gives', to_char(intention), file=f)
+            # print('lord gives', to_char(intention), file=f)
             assert (intention is not None)
         else:
             intention, r, _ = env.step_auto()
-            print('farmer gives', to_char(intention), file=f)
-    if r > 0:
-        print('farmer wins', file=f)
-    else:
-        print('lord wins', file=f)
-    f.close()
+            # print('farmer gives', to_char(intention), file=f)
+    # if r > 0:
+    #     print('farmer wins', file=f)
+    # else:
+    #     print('lord wins', file=f)
+    # f.close()
     return int(r > 0)
 
 

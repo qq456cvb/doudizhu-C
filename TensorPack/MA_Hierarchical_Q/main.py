@@ -48,7 +48,7 @@ def get_config():
     model = Model(agent_names, STATE_SHAPE, METHOD, NUM_ACTIONS, GAMMA)
     exps = [ExpReplay(
         # model=model,
-        agent_name=name, player=Env(list(reversed(agent_names))),
+        agent_name=name, player=Env(agent_names),
         state_shape=STATE_SHAPE,
         num_actions=[MAX_NUM_COMBS, MAX_NUM_GROUPS],
         batch_size=BATCH_SIZE,

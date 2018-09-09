@@ -344,11 +344,11 @@ class ExpReplay(DataFlow, Callback):
 
             # print(self._action_space[act])
 
-        # step for AI farmers
-        while not isOver and self.player.get_role_ID() != 2:
+        # step for AI
+        while not isOver and self.player.get_role_ID() != 3:
             _, reward, _ = self.player.step_auto()
             isOver = (reward != 0)
-        reward = -reward
+        # reward = -reward
         reward = np.clip(reward, -1, 1)
         self._current_game_score.feed(reward)
 
@@ -356,11 +356,24 @@ class ExpReplay(DataFlow, Callback):
             # print('lord wins' if reward > 0 else 'farmer wins')
             self._player_scores.feed(self._current_game_score.sum)
             # print(self._current_game_score.sum)
-            self.player.reset()
-            # init_cards = np.arange(36)
-            # self.player.prepare_manual(init_cards)
-            self.player.prepare()
-            self._comb_mask = True
+            while True:
+                self.player.reset()
+                # init_cards = np.arange(36)
+                # self.player.prepare_manual(init_cards)
+                self.player.prepare()
+                self._comb_mask = True
+                early_stop = False
+                while self.player.get_role_ID() != 3:
+                    _, reward, _ = self.player.step_auto()
+                    isOver = (reward != 0)
+                    if isOver:
+                        print('prestart ends too early! now resetting env')
+                        early_stop = True
+                        break
+                if early_stop:
+                    continue
+                self._current_ob, self._action_space = self.get_state_and_action_spaces()
+                break
             self._current_game_score.reset()
         else:
             self._comb_mask = not self._comb_mask
@@ -401,6 +414,9 @@ class ExpReplay(DataFlow, Callback):
         self.predictor = self.trainer.get_predictor(*self.predictor_io_names)
 
     def _before_train(self):
+        while self.player.get_role_ID() != 3:
+            self.player.step_auto()
+            self._current_ob, self._action_space = self.get_state_and_action_spaces()
         self._init_memory()
         self._simulator_th = self.get_simulator_thread()
         self._simulator_th.start()

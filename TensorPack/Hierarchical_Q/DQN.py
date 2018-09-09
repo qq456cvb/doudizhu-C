@@ -217,7 +217,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN-9-3-LASTCARDS'))
+            os.path.join('train_log', 'DQN-9-7-LASTCARDS-FARMER-3'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)
