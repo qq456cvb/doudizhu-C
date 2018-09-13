@@ -2,15 +2,23 @@ from tensorpack import *
 from TensorPack.MA_Hierarchical_Q.expreplay import ExpReplay
 from TensorPack.MA_Hierarchical_Q.env import Env
 from TensorPack.MA_Hierarchical_Q.DQNModel import Model
+from TensorPack.MA_Hierarchical_Q.evaluator import Evaluator
+from TensorPack.MA_Hierarchical_Q.baseline_evaluator import BLEvaluator
 import argparse
 import os
+import sys
+if os.name == 'nt':
+    sys.path.insert(0, '../../build/Release')
+else:
+    sys.path.insert(0, '../../build.linux')
+from env import Env as CEnv
 
 
 BATCH_SIZE = 8
 MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
-HIDDEN_STATE_DIM = 256 + 120 + 60
+HIDDEN_STATE_DIM = 256 + 256 + 120
 STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
 UPDATE_FREQ = 4
@@ -20,7 +28,7 @@ GAMMA = 0.99
 MEMORY_SIZE = 3e3
 INIT_MEMORY_SIZE = MEMORY_SIZE // 10
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
-EVAL_EPISODE = 100
+EVAL_EPISODE = 50
 
 NUM_ACTIONS = None
 METHOD = None
@@ -31,16 +39,12 @@ class MyDataFLow(DataFlow):
         self.exps = exps
 
     def get_data(self):
+        gens = [e.get_data() for e in self.exps]
         while True:
             batch = []
-            for e in self.exps:
-                batch.extend(next(e.get_data()))
+            for g in gens:
+                batch.extend(next(g))
             yield batch
-
-# class Agent:
-#     def __init__(self, model, exp):
-#         self.model = model
-#         self.exp = exp
 
 
 def get_config():
@@ -60,6 +64,10 @@ def get_config():
 
     df = MyDataFLow(exps)
 
+    bl_evaluators = [BLEvaluator(EVAL_EPISODE, agent_names[0], 2, lambda: CEnv()),
+                     BLEvaluator(EVAL_EPISODE, agent_names[1], 3, lambda: CEnv()),
+                     BLEvaluator(EVAL_EPISODE, agent_names[2], 1, lambda: CEnv())]
+
     return AutoResumeTrainConfig(
         # always_resume=False,
         data=QueueInput(df),
@@ -74,13 +82,15 @@ def get_config():
             #                           [(60, 5e-5), (100, 2e-5)]),
             *[ScheduledHyperParamSetter(
                 ObjAttrParam(exp, 'exploration'),
-                [(0, 1), (30, 0.5), (60, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
+                [(0, 1), (30, 0.5), (100, 0.3), (320, 0.1)],   # 1->0.1 in the first million steps
                 interp='linear') for exp in exps],
-            # Evaluator(
-            #     EVAL_EPISODE, ['state', 'comb_mask', 'fine_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
+            *bl_evaluators,
+            Evaluator(EVAL_EPISODE, agent_names, lambda: Env(agent_names)),
             HumanHyperParamSetter('learning_rate'),
         ],
-        # starting_epoch=30,
+        session_init=ChainInit([SaverRestore('../Hierarchical_Q/train_log/DQN-9-3-LASTCARDS/model-240000', 'agent1'),
+                               SaverRestore('./train_log/DQN-60-MA/model-355000')]),
+        # starting_epoch=0,
         # session_init=SaverRestore('train_log/DQN-54-AUG-STATE/model-75000'),
         steps_per_epoch=STEPS_PER_EPOCH,
         max_epoch=1000,
@@ -114,7 +124,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN-60-MA'))
+            os.path.join('train_log', 'DQN-60-MA-SELF_PLAY'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)

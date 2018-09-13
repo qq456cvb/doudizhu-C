@@ -177,7 +177,7 @@ class Predictor:
         q_values = self.predictor([state[None, :, :, :], np.array([False]), np.array([fine_mask_input])])[0][0]
         if fine_mask is not None:
             q_values = q_values[:self.num_actions[1]]
-            assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
+            # assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
             q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
         action = np.nanargmax(q_values)
         assert action < self.num_actions[1]

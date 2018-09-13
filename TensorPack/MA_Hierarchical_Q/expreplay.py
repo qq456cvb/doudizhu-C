@@ -313,7 +313,7 @@ class ExpReplay(DataFlow, Callback):
             else:
                 act = self.rng.choice(range(self.num_actions[0 if comb_mask else 1]))
         else:
-            q_values = self.predictor([old_s[None, :, :, :], np.array([comb_mask]), np.array([fine_mask])])[0][0]
+            q_values = self.curr_predictor([old_s[None, :, :, :], np.array([comb_mask]), np.array([fine_mask])])[0][0]
             if not self._comb_mask and self._fine_mask is not None:
                 q_values = q_values[:self.num_actions[1]]
                 assert np.all(q_values[np.where(np.logical_not(self._fine_mask))[0]] < -100)
@@ -334,10 +334,7 @@ class ExpReplay(DataFlow, Callback):
                     if not CardGroup.to_cardgroup(self._action_space[act]).bigger_than(CardGroup.to_cardgroup(last_cards_char)):
                         print('warning, some error happened, ', self._action_space[act], last_cards_char)
                         raise Exception("card comparison error")
-            # print(to_char(self.player.get_curr_handcards()))
             winner, isOver = self.player.step(self._action_space[act])
-
-            # print(self._action_space[act])
 
         # step for AI farmers
         while not isOver and self.player.get_curr_agent_name() != self.agent_name:
@@ -358,7 +355,6 @@ class ExpReplay(DataFlow, Callback):
         self._current_game_score.feed(reward)
 
         if isOver:
-            # print('lord wins' if reward > 0 else 'farmer wins')
             self._player_scores.feed(self._current_game_score.sum)
             self.player.reset()
             self.player.prepare()
@@ -377,7 +373,6 @@ class ExpReplay(DataFlow, Callback):
             prob_state = self.player.get_state_prob()
             action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
 
-            n = self.player.get_curr_agent_name()
             self.player.step(action)
         self._current_ob, self._action_space = self.get_state_and_action_spaces()
 
@@ -405,6 +400,7 @@ class ExpReplay(DataFlow, Callback):
         return [state, action, reward, isOver, comb_mask, fine_mask]
 
     def _setup_graph(self):
+        self.curr_predictor = self.trainer.get_predictor([self.agent_name + '/state:0', self.agent_name + '_comb_mask:0', self.agent_name + '/fine_mask:0'], [self.agent_name + '/Qvalue:0'])
         self.predictors = {n: Predictor(self.trainer.get_predictor([n + '/state:0', n + '_comb_mask:0', n + '/fine_mask:0'], [n + '/Qvalue:0'])) for n in self.player.get_all_agent_names()}
 
     def _before_train(self):
@@ -414,7 +410,6 @@ class ExpReplay(DataFlow, Callback):
         self._simulator_th = self.get_simulator_thread()
         self._simulator_th.start()
 
-
     def _trigger(self):
         v = self._player_scores
         try:
@@ -422,7 +417,7 @@ class ExpReplay(DataFlow, Callback):
             self.trainer.monitors.put_scalar('expreplay/mean_score', mean)
             self.trainer.monitors.put_scalar('expreplay/max_score', max)
         except Exception:
-            logger.exception("Cannot log training scores.")
+            logger.exception(self.agent_name + " Cannot log training scores.")
         v.reset()
 
 

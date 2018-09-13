@@ -1,5 +1,7 @@
+from datetime import datetime
 import numpy as np
 from card import Card, Category
+from TensorPack.MA_Hierarchical_Q.predictor import Predictor
 from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
     get_mask, action_space_single, action_space_pair, get_category_idx, normalize
 
@@ -8,6 +10,8 @@ class Env:
     total_cards = sorted(to_char(np.arange(3, 16)) * 4 + ['*', '$'], key=lambda k: Card.cards_to_value[k])
 
     def __init__(self, agent_names):
+        seed = (id(self) + int(datetime.now().strftime("%Y%m%d%H%M%S%f"))) % 4294967295
+        np.random.seed(seed)
         self.agent_names = agent_names
         self.reset()
 
@@ -75,4 +79,20 @@ class Env:
         left_prob_state = remain_cards * (next_next_cnt / (next_cnt + next_next_cnt))
         prob_state = np.concatenate([right_prob_state, left_prob_state])
         return prob_state
+
+
+if __name__ == '__main__':
+    env = Env(['1', '2', '3'])
+    predictors = {n: Predictor(lambda x: [np.random.rand(1, 21)]) for n in env.get_all_agent_names()}
+    for _ in range(1000):
+        env.reset()
+        env.prepare()
+        done = False
+        while not done:
+            handcards = env.get_curr_handcards()
+            last_cards = env.get_last_outcards()
+            prob_state = env.get_state_prob()
+            action = predictors[env.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
+            _, done = env.step(action)
+
 
