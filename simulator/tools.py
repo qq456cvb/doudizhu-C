@@ -341,6 +341,17 @@ def get_window_rect():
     return rect
 
 
+def is_win(image):
+    zone_chosen = image[cf.winning_start_y:cf.winning_start_y + cf.winning_square,
+                  cf.winning_start_x:cf.winning_start_x + cf.winning_square, :]
+    red_chnnel_sum = np.sum(zone_chosen[:, :, 2])
+    blue_channel_sum = np.sum(zone_chosen[:, :, 0])
+    if red_chnnel_sum > blue_channel_sum:
+        return 1
+    else:
+        return 0
+
+
 def grab_screen():
     # base_time = time.time()
     # while True:
@@ -450,3 +461,5 @@ if __name__ == '__main__':
     # img[251, :, :] = 255
     # img[:, 1210, :] = 255
     # show_img(img)
+    img = cv2.imread('./photo/end_no.png')
+    print(is_win(img))
