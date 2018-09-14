@@ -21,15 +21,15 @@ def print_screen(name):
 
 
 if __name__ == '__main__':
-    templates = load_templates()
-    mini_templates = dict()
-    for t in templates:
-        if t == 'Joker':
-            mini_templates[t] = cv2.imread('./templates/Joker_mini.png', cv2.IMREAD_GRAYSCALE)
-        else:
-            mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
-    cards, _ = get_cards_bboxes(cv2.imread('debug3.png'), mini_templates, 1)
-    print(cards)
+    # templates = load_templates()
+    # mini_templates = dict()
+    # for t in templates:
+    #     if t == 'Joker':
+    #         mini_templates[t] = cv2.imread('./templates/Joker_mini.png', cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
+    # cards, _ = get_cards_bboxes(cv2.imread('debug3.png'), mini_templates, 1)
+    # print(cards)
     # print_screen('test.png')
     # img = cv2.imread('train.png', cv2.IMREAD_GRAYSCALE)
     # img = 255 - img
@@ -50,6 +50,7 @@ if __name__ == '__main__':
     #     cv2.imwrite('1.png', labelMask)
     #     cv2.imshow('test', labelMask)
     #     cv2.waitKey(0)
+    print_screen('./photo/2.png')
     # i = 0
     # while True:
     #     time.sleep(0.2)

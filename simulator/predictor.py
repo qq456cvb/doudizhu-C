@@ -1,5 +1,5 @@
 
-from TensorPack.Hierarchical_Q.DQN import Model
+from TensorPack.MA_Hierarchical_Q.DQNModel import Model
 from tensorpack import *
 import numpy as np
 import os, sys
@@ -15,15 +15,11 @@ import numpy as np
 import tensorflow as tf
 from utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
 from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter, get_mask_onehot60
+from tensorpack.utils.serialize import dumps, loads
 
 
 class Predictor:
     def __init__(self):
-        self.predictor = OfflinePredictor(PredictConfig(
-            model=Model(),
-            session_init=SaverRestore('../Tensorpack/Hierarchical_Q/train_log/DQN-54-AUG-STATE-RAW/model-335000'),
-            input_names=['state', 'comb_mask', 'fine_mask'],
-            output_names=['Qvalue']))
         self.num_actions = [100, 21]
         self.encoding = np.load('../Tensorpack/AutoEncoder/encoding.npy')
         print('predictor loaded')
@@ -156,16 +152,24 @@ class Predictor:
             assert state.shape[0] == self.num_actions[0] and state.shape[1] == self.num_actions[1]
         return state, available_actions, fine_mask
 
-    def predict(self, handcards, last_cards, prob_state):
+    def predict(self, handcards, last_cards, prob_state, simulator, sim2coord, coord2sim):
         # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
         fine_mask_input = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         # first hierarchy
         state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_cards_char=last_cards, prob_state=prob_state)
-        q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
+
+        # push to coordinator
+        sim2coord.send(dumps([simulator.name, simulator.agent_names[simulator.current_lord_pos], state[None, :, :, :], np.array([True]), np.array([fine_mask_input])]))
+        # q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
+        q_values = dumps(coord2sim.recv(copy=False).bytes)
+
         action = np.argmax(q_values)
         assert action < self.num_actions[0]
         # clamp action to valid range
         action = min(action, self.num_actions[0] - 1)
+
+        # prepare buffer for expreplay
+        buff_comb = [state, action, fine_mask_input]
 
         # second hierarchy
         state, available_actions, fine_mask = self.get_state_and_action_space(False, cand_state=state, cand_actions=available_actions, action=action, fine_mask=fine_mask)
@@ -173,14 +177,25 @@ class Predictor:
             fine_mask_input = fine_mask if fine_mask.shape[0] == max(self.num_actions[0], self.num_actions[1]) \
                 else np.pad(fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - fine_mask.shape[0]), 'constant',
                             constant_values=(0, 0))
-        q_values = self.predictor([state[None, :, :, :], np.array([False]), np.array([fine_mask_input])])[0][0]
+        # push to coordinator
+        sim2coord.send(dumps(
+            [simulator.name, simulator.agent_names[simulator.current_lord_pos], state[None, :, :, :],
+             np.array([False]), np.array([fine_mask_input])]))
+        # q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
+        q_values = dumps(coord2sim.recv(copy=False).bytes)
+
         if fine_mask is not None:
             q_values = q_values[:self.num_actions[1]]
             assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
             q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
         action = np.nanargmax(q_values)
+
         assert action < self.num_actions[1]
         # clamp action to valid range
         action = min(action, self.num_actions[1] - 1)
         intention = available_actions[action]
-        return intention
+
+        # prepare buffer for expreplay
+        buff_fine = [state, action, fine_mask_input]
+
+        return intention, buff_comb, buff_fine

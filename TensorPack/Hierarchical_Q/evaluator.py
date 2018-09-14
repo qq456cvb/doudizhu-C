@@ -27,7 +27,7 @@ from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mas
 from utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
 
 
-encoding = np.load('../AutoEncoder/encoding.npy')
+encoding = None
 
 
 def play_one_episode(env, func, num_actions):
@@ -285,6 +285,9 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, num_actions, verbose=Fal
 
 class Evaluator(Callback):
     def __init__(self, nr_eval, input_names, output_names, num_actions, get_player_fn):
+        global encoding
+        if encoding is None:
+            encoding = np.load('../AutoEncoder/encoding.npy')
         self.eval_episode = nr_eval
         self.input_names = input_names
         self.output_names = output_names

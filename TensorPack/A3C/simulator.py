@@ -329,7 +329,7 @@ class SimulatorMaster(threading.Thread):
 
     def __init__(self, pipe_c2s, pipe_s2c):
         super(SimulatorMaster, self).__init__()
-        assert os.name != 'nt', "Doesn't support windows!"
+        # assert os.name != 'nt', "Doesn't support windows!"
         self.daemon = True
         self.name = 'SimulatorMaster'
 
@@ -451,8 +451,9 @@ if __name__ == '__main__':
             client.memory = []
             client.state = 0
 
-    name = 'ipc://c2s'
-    name2 = 'ipc://s2c'
+
+    name = 'tcp://127.0.0.1:5555'
+    name2 = 'tcp://127.0.0.1:6666'
     procs = [NaiveSimulator(k, name, name2) for k in range(20)]
     [k.start() for k in procs]
 

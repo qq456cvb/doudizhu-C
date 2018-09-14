@@ -387,8 +387,24 @@ def get_opponent_cnts(img, templates):
             parse_card_cnt(templates, img, [954, 371, 988, 398], True))
 
 
+import multiprocessing
+class A(multiprocessing.Process):
+    def __init__(self):
+        super(A, self).__init__()
+
+    def set_test(self):
+        self.test = 'TEST'
+        self.start()
+
+    def run(self):
+        print(self.test)
+
+
 if __name__ == '__main__':
-    img = cv2.imread('./photo/load_right.png')
+    a = A()
+    a.set_test()
+    a.join()
+    # img = cv2.imread('./photo/load_right.png')
     # tiny_templates = load_tiny_templates()
     # print(parse_card_cnt(tiny_templates, img, [301, 371, 336, 398], True))
     # print(parse_card_cnt(tiny_templates, img, [954, 371, 988, 398], True))
@@ -431,6 +447,6 @@ if __name__ == '__main__':
     # for bbox in bboxes_right:
     #     print(parse_card_type(mini_templates, img, bbox), end=', ')
 
-    img[251, :, :] = 255
-    img[:, 1210, :] = 255
-    show_img(img)
+    # img[251, :, :] = 255
+    # img[:, 1210, :] = 255
+    # show_img(img)

@@ -75,7 +75,7 @@ class Configuration:
             'yaobuqi': self.yaobuqi,
             'alone_chupai': self.alone_chupai,
             'end': self.end,
-             'continous_end': self.cend,
+            'continous_end': self.cend,
             'ming_chupai': self.ming_chupai
         }
 
