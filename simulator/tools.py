@@ -341,6 +341,17 @@ def get_window_rect():
     return rect
 
 
+def is_win(image):
+    zone_chosen = image[cf.winning_start_y:cf.winning_start_y + cf.winning_square,
+                  cf.winning_start_x:cf.winning_start_x + cf.winning_square, :]
+    red_chnnel_sum = np.sum(zone_chosen[:, :, 2])
+    blue_channel_sum = np.sum(zone_chosen[:, :, 0])
+    if red_chnnel_sum > blue_channel_sum:
+        return 1
+    else:
+        return 0
+
+
 def grab_screen():
     # base_time = time.time()
     # while True:
@@ -388,49 +399,5 @@ def get_opponent_cnts(img, templates):
 
 
 if __name__ == '__main__':
-    img = cv2.imread('./photo/load_right.png')
-    # tiny_templates = load_tiny_templates()
-    # print(parse_card_cnt(tiny_templates, img, [301, 371, 336, 398], True))
-    # print(parse_card_cnt(tiny_templates, img, [954, 371, 988, 398], True))
-    # exit()
-    # cv2.imshow('img', subimg)
-    # cv2.waitKey(0)
-    # 4,30 - 1284, 750
-    # hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    # s = hsv[:, :, 1]
-    # v = hsv[:, :, 2]
-    # s[s < 20] = 0
-    # s[s >= 20] = 255
-    # v = cv2.Canny(v, 70, 140)
-    # cv2.imshow('v', v)
-    # cv2.imshow('s', s)
-    # cv2.waitKey(0)
-    # exit()
-
-    # bboxes_self = locate_cards_position(img, 44, 1257, 518, 502, 554, False, 170)
-    #
-    # bboxes_left = locate_cards_position(img, 280, 645, 240, 180, 215, True, 170)
-    # bboxes_left += locate_cards_position(img, 280, 645, 310, 245, 281, True, 170)
-    #
-    # bboxes_right = locate_cards_position(img, 645, 1000, 240, 180, 215, True, 200)
-    # bboxes_right += locate_cards_position(img, 645, 1000, 310, 245, 281, True, 200)
-    # templates = load_templates()
-    # mini_templates = dict()
-    # for t in templates:
-    #     if t == 'Joker':
-    #         mini_templates[t] = cv2.imread('./templates/Joker_mini.png', cv2.IMREAD_GRAYSCALE)
-    #     else:
-    #         mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
-    # for bbox in bboxes_self:
-    #     pass
-    #     print(parse_card_type(templates, img, bbox), end=', ')
-    # print('')
-    # for bbox in bboxes_left:
-    #     print(parse_card_type(mini_templates, img, bbox), end=', ')
-    # print('')
-    # for bbox in bboxes_right:
-    #     print(parse_card_type(mini_templates, img, bbox), end=', ')
-
-    img[251, :, :] = 255
-    img[:, 1210, :] = 255
-    show_img(img)
+    img = cv2.imread('./photo/end_no.png')
+    print(is_win(img))

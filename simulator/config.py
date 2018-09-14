@@ -48,6 +48,9 @@ class Configuration:
         self.colors = np.array([self.start_color_yellow, self.start_color_blue, self.start_end_button_color,
                                 self.start_continue_end_button_color])
         self.chupai_start_position_yellow = 518
+        self.winning_start_x = 978
+        self.winning_start_y = 254
+        self.winning_square = 20
 
         # define the actions represented by buttons
         self.jiaodizhu = np.load(self.array_path + 'jiaodizhu' + '.npy')
@@ -92,6 +95,7 @@ class Configuration:
         self.right_lord_x = 1210
         self.right_lord_y = 280
         self.right_lord_color = np.array([96, 181, 114])
+
 
 
 if __name__ == '__main__':
