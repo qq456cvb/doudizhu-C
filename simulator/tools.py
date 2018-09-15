@@ -11,16 +11,16 @@ Author : Yang You & Liangwei Li
 import cv2
 import numpy as np
 
-from skimage import data, segmentation, color, measure
-from skimage.future import graph
-from matplotlib import pyplot as plt
+# from skimage import data, segmentation, color, measure
+# from skimage.future import graph
+# from matplotlib import pyplot as plt
 import os
 from simulator.config import Configuration
 import time
-from PIL import ImageGrab
-import win32gui
-import skimage.measure
-import win32api, win32con
+# from PIL import ImageGrab
+# import win32gui
+# import skimage.measure
+# import win32api, win32con
 cf = Configuration()
 
 DEBUG = False
@@ -399,5 +399,7 @@ def get_opponent_cnts(img, templates):
 
 
 if __name__ == '__main__':
-    img = cv2.imread('./photo/end_no.png')
-    print(is_win(img))
+    img = cv2.imread('./photo/self_lord.png')
+    print(img[cf.self_lord_y, cf.self_lord_x, :])
+    print(who_is_lord(img))
+    # show_img(img)
