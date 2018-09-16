@@ -50,7 +50,11 @@ if __name__ == '__main__':
     #     cv2.imwrite('1.png', labelMask)
     #     cv2.imshow('test', labelMask)
     #     cv2.waitKey(0)
-    print_screen('./photo/2.png')
+    i = 0
+    while os.path.exists('./photo/%d.png' % i):
+        i += 1
+    print(who_is_lord(cv2.imread('./photo/%d.png' % 9)))
+    # print_screen('./photo/%d.png' % i)
     # i = 0
     # while True:
     #     time.sleep(0.2)

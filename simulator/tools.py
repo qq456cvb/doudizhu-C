@@ -192,7 +192,7 @@ def compare_color(truth_color, compared_color, difference=cf.max_pixel_differenc
     """
     cnt = 0
     for idx in range(cf.channels):
-        if np.abs(truth_color[idx] - compared_color[idx]) <= difference:
+        if np.abs(int(truth_color[idx]) - int(compared_color[idx])) <= difference:
             cnt += 1
     if cnt == 3:
         return True
@@ -364,7 +364,7 @@ def grab_screen():
     img = ImageGrab.grab(bbox=(rect[0], rect[1], rect[2], rect[3]))
     frame = np.array(img)
     frame = frame[:, :, [2, 1, 0]]
-    # cv2.imshow('frame', frame)
+    cv2.imwrite('test.png', frame)
     # cv2.imwrite(name, frame)
     return frame
 

@@ -151,7 +151,7 @@ class Model(ModelDesc):
         for i, name in enumerate(self.agent_names):
             joint_state, action, reward, isOver, comb_mask, joint_fine_mask = args[i * 6:(i + 1) * 6]
             with tf.variable_scope(name):
-                with conditional(name is None, varreplace.freeze_variables(skip_collection=True)):
+                with conditional(name is None, varreplace.freeze_variables()):
                     state = tf.identity(joint_state[:, 0, :, :, :], name='state')
                     fine_mask = tf.identity(joint_fine_mask[:, 0, :], name='fine_mask')
                     self.predict_value = self.get_DQN_prediction(state, comb_mask, fine_mask)

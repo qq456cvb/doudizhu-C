@@ -126,6 +126,7 @@ class ExpReplay(DataFlow, Callback):
                  init_exploration,
                  update_frequency,
                  pipe_c2s='ipc://sim-c2s', pipe_s2c='ipc://sim-s2c'):
+        logger.info('starting expreplay {}'.format(agent_name))
         init_memory_size = int(init_memory_size)
 
         self.context = zmq.Context()
@@ -136,24 +137,8 @@ class ExpReplay(DataFlow, Callback):
 
         self.s2c_socket = self.context.socket(zmq.DEALER)
         self.s2c_socket.setsockopt(zmq.IDENTITY, agent_name.encode('utf-8'))
-        self.s2c_socket.bind(pipe_s2c)
+        self.s2c_socket.connect(pipe_s2c)
         self.queue = queue.Queue(maxsize=100)
-
-        # self.c2s_socket.send(agent_name.encode('utf-8'))
-
-        def f():
-            msg = loads(self.s2c_socket.recv(copy=False).bytes)
-            print('received msg')
-            try:
-                self.queue.put_nowait(msg)
-            except Exception:
-                logger.info('put queue failed!')
-            # send response
-            # self.c2s_socket.send(dumps((self.agent_name, 'received')))
-
-        self.recv_thread = LoopThread(f)
-        self.recv_thread.daemon = True
-        self.recv_thread.start()
 
         # self.model = model
 
@@ -175,6 +160,23 @@ class ExpReplay(DataFlow, Callback):
         # self._current_ob, self._action_space = self.get_state_and_action_spaces()
         self._player_scores = StatCounter()
         self._current_game_score = StatCounter()
+
+    def get_recv_thread(self):
+        def f():
+            msg = self.s2c_socket.recv(copy=False).bytes
+            msg = loads(msg)
+            print('{}: received msg'.format(self.agent_name))
+            try:
+                self.queue.put_nowait(msg)
+            except Exception:
+                logger.info('put queue failed!')
+            # send response
+            # self.c2s_socket.send(dumps((self.agent_name, 'received')))
+
+        recv_thread = LoopThread(f, pausable=False)
+        # recv_thread.daemon = True
+        recv_thread.name = "recv thread"
+        return recv_thread
 
     def get_simulator_thread(self):
         # spawn a separate thread to run policy
@@ -205,8 +207,6 @@ class ExpReplay(DataFlow, Callback):
             if isOver:
                 self._player_scores.feed(self._current_game_score.sum)
                 self._current_game_score.reset()
-            else:
-                self._comb_mask = not self._comb_mask
             self.mem.append(Experience(np.stack(state), action, reward, isOver, comb_mask, np.stack(fine_mask)))
             return True
         except queue.Empty:
@@ -240,9 +240,12 @@ class ExpReplay(DataFlow, Callback):
         # self.curr_predictor = self.trainer.get_predictor([self.agent_name + '/state:0', self.agent_name + '_comb_mask:0', self.agent_name + '/fine_mask:0'], [self.agent_name + '/Qvalue:0'])
 
     def _before_train(self):
-        self.prestart()
+        self._recv_th = self.get_recv_thread()
+        self._recv_th.start()
+        logger.info('{}-receive thread started'.format(self.agent_name))
 
         self._init_memory()
+
         self._simulator_th = self.get_simulator_thread()
         self._simulator_th.start()
 

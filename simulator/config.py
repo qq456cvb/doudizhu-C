@@ -88,13 +88,13 @@ class Configuration:
         self.self_lord_y = 488
         self.self_lord_color = np.array([106, 196, 15])
         # left player is load
-        self.left_lord_x = 78
-        self.left_lord_y = 251
-        self.left_lord_color = np.array([95, 157, 33])
+        self.left_lord_x = 77
+        self.left_lord_y = 285
+        self.left_lord_color = np.array([99, 185, 31])
         # right player is load
-        self.right_lord_x = 1210
-        self.right_lord_y = 280
-        self.right_lord_color = np.array([96, 181, 114])
+        self.right_lord_x = 1204
+        self.right_lord_y = 282
+        self.right_lord_color = np.array([85, 160, 24])
 
 
 

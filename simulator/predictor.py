@@ -10,7 +10,7 @@ else:
 from env import Env, get_combinations_nosplit, get_combinations_recursive
 from logger import Logger
 from utils import to_char
-from card import Card, action_space, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
+from card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
 import numpy as np
 import tensorflow as tf
 from utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
@@ -138,8 +138,13 @@ class Predictor:
             # if len(state) == 0:
             #     assert len(combs) == 0
             #     state = [np.array([encoding[0]])]
+            test = action_space_onehot60 == Card.char2onehot60(last_cards_char)
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            assert target.size == 1
+            extra_state = np.concatenate([self.encoding[target[0]], prob_state])
             for i in range(len(state)):
-                state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
+                state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
             assert state.shape[0] == self.num_actions[0] and state.shape[1] == self.num_actions[1]
         else:
@@ -159,9 +164,9 @@ class Predictor:
         state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_cards_char=last_cards, prob_state=prob_state)
 
         # push to coordinator
-        sim2coord.send(dumps([simulator.name, simulator.agent_names[simulator.current_lord_pos], state[None, :, :, :], np.array([True]), np.array([fine_mask_input])]))
+        sim2coord.send(dumps([simulator.name, simulator.agent_names[simulator.current_lord_pos], state, True, fine_mask_input]))
         # q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
-        q_values = dumps(coord2sim.recv(copy=False).bytes)
+        q_values = loads(coord2sim.recv(copy=False).bytes)
 
         action = np.argmax(q_values)
         assert action < self.num_actions[0]
@@ -179,10 +184,10 @@ class Predictor:
                             constant_values=(0, 0))
         # push to coordinator
         sim2coord.send(dumps(
-            [simulator.name, simulator.agent_names[simulator.current_lord_pos], state[None, :, :, :],
-             np.array([False]), np.array([fine_mask_input])]))
+            [simulator.name, simulator.agent_names[simulator.current_lord_pos], state,
+             False, fine_mask_input]))
         # q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
-        q_values = dumps(coord2sim.recv(copy=False).bytes)
+        q_values = loads(coord2sim.recv(copy=False).bytes)
 
         if fine_mask is not None:
             q_values = q_values[:self.num_actions[1]]
