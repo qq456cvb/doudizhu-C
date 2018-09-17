@@ -17,6 +17,7 @@ import zmq
 from tensorpack.utils.serialize import dumps, loads
 from env import Env as CEnv
 from tensorpack.utils.stats import StatCounter
+from simulator.manager import SimulatorManager
 
 
 class Simulator(multiprocessing.Process):
@@ -35,9 +36,10 @@ class Simulator(multiprocessing.Process):
             mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
     tiny_templates = load_tiny_templates()
 
-    def __init__(self, name, pipe_c2s, pipe_s2c, pipe_sim2coord, pipe_coord2sim, pipe_sim2mgr, pipe_mgr2sim, agent_names, exploration, toggle):
+    def __init__(self, idx, hwnd, pipe_c2s, pipe_s2c, pipe_sim2coord, pipe_coord2sim, pipe_sim2mgr, pipe_mgr2sim, agent_names, exploration, toggle):
         super(Simulator, self).__init__()
-        self.name = name
+        self.name = 'simulator-{}'.format(idx)
+
         self.c2s = pipe_c2s
         self.s2c = pipe_s2c
         self.sim2coord = pipe_sim2coord
@@ -46,10 +48,10 @@ class Simulator(multiprocessing.Process):
         self.mgr2sim = pipe_mgr2sim
         self.agent_names = agent_names
 
-        # self.grab_screen = grab_screen()
-
         # instance specific property
-        self.window_rect = get_window_rect()
+        self.window_rect = get_window_rect(hwnd)
+        print(self.window_rect)
+        self.cxt = [18 + self.window_rect[0], 764 + self.window_rect[1]]
         self.current_screen = None
         self.win_rates = {n: StatCounter() for n in self.agent_names}
 
@@ -69,46 +71,8 @@ class Simulator(multiprocessing.Process):
         # for compatibility use the order, self, right, left
         self.history = [[], [], []]
 
-    def spin_lock_on_button(self):
-        act = dict()
-        while not act:
-            time.sleep(0.2)
-            self.current_screen = grab_screen()
-            cv2.imwrite('debug.png', self.current_screen)
-            act = get_current_button_action(self.current_screen)
-
-        return act
-
-    def click(self, bbox):
-        click((bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2, (self.window_rect[0], self.window_rect[1]))
-
-    def discard(self, act, bboxes, idxs):
-        def diff(idxs, cards):
-            res = []
-            for i in range(len(cards)):
-                if cards[i] is not None:
-                    if i in idxs:
-                        res.append(i)
-                else:
-                    if i not in idxs:
-                        res.append(i)
-            return res
-
-        differences = diff(idxs, get_cards_bboxes(grab_screen(), self.templates)[0])
-        print(differences)
-        while len(differences) > 0:
-            for d in differences:
-                self.click(bboxes[d])
-                time.sleep(0.1)
-            time.sleep(0.75)
-            differences = diff(idxs, get_cards_bboxes(grab_screen(), self.templates)[0])
-            print(differences)
-        if 'chupai' in act:
-            self.click(act['chupai'])
-        elif 'alone_chupai' in act:
-            self.click(act['alone_chupai'])
-        elif 'ming_chupai' in act:
-            self.click(act['ming_chupai'])
+    # def click(self, bbox):
+    #     click((bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2, (self.window_rect[0], self.window_rect[1]))
 
     def run(self):
         print('simulator main loop')
@@ -150,21 +114,71 @@ class Simulator(multiprocessing.Process):
             # sim2coord_socket.send(dumps([self.name, self.agent_names[0], np.arange(10)]))
 
         def request_screen():
-            sim2mgr_socket.send(dumps([self.name, 'screen']))
+            sim2mgr_socket.send(dumps([self.name, SimulatorManager.MSG_TYPE.SCREEN, []]))
             return loads(mgr2sim_socket.recv(copy=False).bytes)
 
         def request_click(bbox):
-            sim2mgr_socket.send(dumps([self.name, [(bbox[0] + bbox[2]) // 2 + self.window_rect[0], (bbox[1] + bbox[3]) // 2 + self.window_rect[1]]]))
+            sim2mgr_socket.send(dumps([self.name, SimulatorManager.MSG_TYPE.CLICK, [(bbox[0] + bbox[2]) // 2 + self.window_rect[0], (bbox[1] + bbox[3]) // 2 + self.window_rect[1]]]))
             return loads(mgr2sim_socket.recv(copy=False).bytes)
+
+        def request_lock():
+            sim2mgr_socket.send(dumps([self.name, SimulatorManager.MSG_TYPE.LOCK, []]))
+            return loads(mgr2sim_socket.recv(copy=False).bytes)
+
+        def request_unlock():
+            sim2mgr_socket.send(dumps([self.name, SimulatorManager.MSG_TYPE.UNLOCK, []]))
+            return loads(mgr2sim_socket.recv(copy=False).bytes)
+
+        def spin_lock_on_button():
+            act = dict()
+            while not act:
+                self.current_screen = request_screen()
+                cv2.imwrite('debug.png', self.current_screen)
+                act = get_current_button_action(self.current_screen)
+                if self.toggle.value == 0:
+                    break
+
+            return act
+
+        def discard(act, bboxes, idxs):
+            def diff(idxs, cards):
+                res = []
+                for i in range(len(cards)):
+                    if cards[i] is not None:
+                        if i in idxs:
+                            res.append(i)
+                    else:
+                        if i not in idxs:
+                            res.append(i)
+                return res
+
+            differences = diff(idxs, get_cards_bboxes(request_screen(), self.templates)[0])
+            print(differences)
+            request_lock()
+            while len(differences) > 0:
+                for d in differences:
+                    request_click(bboxes[d])
+                time.sleep(0.5)
+                differences = diff(idxs, get_cards_bboxes(request_screen(), self.templates)[0])
+                print(differences)
+            if 'chupai' in act:
+                request_click(act['chupai'])
+            elif 'alone_chupai' in act:
+                request_click(act['alone_chupai'])
+            elif 'ming_chupai' in act:
+                request_click(act['ming_chupai'])
+            request_unlock()
 
         while True:
             if self.toggle.value == 0:
                 time.sleep(0.2)
                 continue
             print('new round')
-            self.current_screen = grab_screen()
+            self.current_screen = request_screen()
 
-            act = self.spin_lock_on_button()
+            act = spin_lock_on_button()
+            if not act:
+                continue
             print(act)
             if self.state == Simulator.State.CALLING:
                 # state has changed
@@ -172,29 +186,30 @@ class Simulator(multiprocessing.Process):
                     self.state = Simulator.State.PLAYING
                     self.current_lord_pos = who_is_lord(self.current_screen)
                     while self.current_lord_pos < 0:
-                        self.current_screen = grab_screen()
+                        self.current_screen = request_screen()
                         self.current_lord_pos = who_is_lord(self.current_screen)
                         print('current lord pos ', self.current_lord_pos)
-                        time.sleep(0.2)
+                        if self.toggle.value == 0:
+                            break
                     continue
                 print('calling', act)
                 handcards, _ = get_cards_bboxes(self.current_screen, self.templates, 0)
                 cards_value, _ = CEnv.get_cards_value(Card.char2color(handcards))
                 print('cards value: ', cards_value)
                 if 'qiangdizhu' in act:
-                    self.click(act['buqiang']) if cards_value < 10 else self.click(act['qiangdizhu'])
+                    request_click(act['buqiang']) if cards_value < 10 else request_click(act['qiangdizhu'])
                 else:
                     if 'bujiabei' in act:
-                        self.click(act['bujiabei'])
+                        request_click(act['bujiabei'])
                         time.sleep(1.)
                         continue
                     # assert 'jiaodizhu' in act
-                    self.click(act['bujiao']) if cards_value < 10 else self.click(act['jiaodizhu'])
+                    request_click(act['bujiao']) if cards_value < 10 else request_click(act['jiaodizhu'])
             elif self.state == Simulator.State.PLAYING:
                 if 'end' in act or 'continous_end' in act:
-                    time.sleep(1.)
-                    self.click(act['end'] if 'end' in act else act['continous_end'])
-                    time.sleep(1.)
+                    time.sleep(0.5)
+                    request_click(act['end'] if 'end' in act else act['continous_end'])
+                    time.sleep(0.5)
                     if self.cached_msg is None:
                         print('other player wins in one step!!!')
                         continue
@@ -256,7 +271,7 @@ class Simulator(multiprocessing.Process):
                 print('intention is: ', intention)
                 intention.sort(key=lambda k: Card.cards_to_value[k], reverse=True)
                 if len(intention) == 0:
-                    self.click(act['buchu']) if 'buchu' in act else self.click(act['yaobuqi'])
+                    request_click(act['buchu']) if 'buchu' in act else request_click(act['yaobuqi'])
                 else:
                     i = 0
                     j = 0
@@ -270,5 +285,17 @@ class Simulator(multiprocessing.Process):
                             j += 1
                         else:
                             i += 1
-                    self.discard(act, bboxes, to_click_idxs)
+                    discard(act, bboxes, to_click_idxs)
             time.sleep(1.)
+
+if __name__ == '__main__':
+    a = 3
+    b = 4
+    c = 4
+    res = set()
+    for x in range(1, a + 1):
+        for y in range(1, b + 1):
+            for z in range(1, c + 1):
+                if x + y > z and x + z > y and y + z > x:
+                    res.add((x, y, z))
+    print(len(res))

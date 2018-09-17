@@ -24,7 +24,7 @@ from abc import abstractmethod, ABCMeta
 from tensorpack import *
 from tensorpack.utils.stats import StatCounter
 import argparse
-from simulator.simulator import Simulator
+from simulator.sim import Simulator
 from simulator.manager import SimulatorManager
 
 toggle = multiprocessing.Value('i', 0)
@@ -73,8 +73,6 @@ def hook():
         ctypes.windll.user32.UnregisterHotKey(None, 1)
 
 
-
-
 class MyDataFLow(DataFlow):
     def __init__(self, exps):
         self.exps = exps
@@ -90,16 +88,38 @@ class MyDataFLow(DataFlow):
 
 
 if __name__ == '__main__':
+    window_name = 'BlueStacks App Player'
+
+    def callback(h, extra):
+        if window_name in win32gui.GetWindowText(h):
+            extra.append(h)
+        return True
+
+
+    hwnds = []
+    win32gui.EnumWindows(callback, hwnds)
+
     namec2s = 'tcp://127.0.0.1:1234'
     names2c = 'tcp://127.0.0.1:2234'
     name_sim2coord = 'tcp://127.0.0.1:3234'
     name_coord2sim = 'tcp://127.0.0.1:4234'
+    name_sim2mgr = 'tcp://127.0.0.1:5234'
+    name_mgr2sim = 'tcp://127.0.0.1:6234'
 
     agent_names = ['agent%d' % i for i in range(1, 4)]
 
-    sim = Simulator(name='simulator-1', pipe_c2s=namec2s, pipe_s2c=names2c, pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
-                    agent_names=agent_names, exploration=0.05, toggle=toggle)
-    manager = SimulatorManager([sim])
+    sims = [Simulator(idx=i, hwnd=hwnds[i], pipe_c2s=namec2s + str(i), pipe_s2c=names2c + str(i), pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
+                    pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
+                    agent_names=agent_names, exploration=0.05, toggle=toggle) for i in range(3)]
+
+    # sim = Simulator(idx=0, hwnd=hwnds[0], pipe_c2s=namec2s, pipe_s2c=names2c, pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
+    #                 pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
+    #                 agent_names=agent_names, exploration=0.05, toggle=toggle)
+    # sim2 = Simulator(idx=1, hwnd=hwnds[1], pipe_c2s=namec2s, pipe_s2c=names2c, pipe_sim2coord=name_sim2coord,
+    #                 pipe_coord2sim=name_coord2sim,
+    #                 pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
+    #                 agent_names=agent_names, exploration=0.05, toggle=toggle)
+    manager = SimulatorManager(sims, pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim)
 
     coordinator = Coordinator(agent_names, sim2coord=name_sim2coord, coord2sim=name_coord2sim)
 

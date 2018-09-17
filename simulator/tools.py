@@ -335,8 +335,7 @@ def who_is_lord(image):
         return -1
 
 
-def get_window_rect():
-    hwnd = win32gui.FindWindow(None, 'BlueStacks App Player')
+def get_window_rect(hwnd):
     rect = win32gui.GetWindowRect(hwnd)
     return rect
 
