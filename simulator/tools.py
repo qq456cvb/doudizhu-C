@@ -361,7 +361,9 @@ def grab_screen():
     rect = win32gui.GetWindowRect(hwnd)
     # rect = [r * 1.5 for r in rect]
     img = ImageGrab.grab(bbox=(rect[0], rect[1], rect[2], rect[3]))
+
     frame = np.array(img)
+    frame = frame[16:-15, 2:-2, :]
     frame = frame[:, :, [2, 1, 0]]
     cv2.imwrite('test.png', frame)
     # cv2.imwrite(name, frame)

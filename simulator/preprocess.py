@@ -14,7 +14,9 @@ def print_screen(name):
     rect = win32gui.GetWindowRect(hwnd)
     # rect = [r * 1.5 for r in rect]
     img = ImageGrab.grab(bbox=(rect[0], rect[1], rect[2], rect[3]))
+
     frame = np.array(img)
+    frame = frame[16:-15, 2:-2, :]
     frame = frame[:, :, [2, 1, 0]]
     # cv2.imshow('frame', frame)
     cv2.imwrite(name, frame)
@@ -53,8 +55,8 @@ if __name__ == '__main__':
     i = 0
     while os.path.exists('./photo/%d.png' % i):
         i += 1
-    print(who_is_lord(cv2.imread('./photo/%d.png' % 9)))
-    # print_screen('./photo/%d.png' % i)
+    # print(who_is_lord(cv2.imread('./photo/%d.png' % 9)))
+    print_screen('./photo/%d.png' % i)
     # i = 0
     # while True:
     #     time.sleep(0.2)
