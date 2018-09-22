@@ -106,7 +106,7 @@ class Simulator(multiprocessing.Process):
         mgr2sim_socket.set_hwm(20)
         mgr2sim_socket.connect(self.mgr2sim)
 
-        print('main loop')
+        # print('main loop')
         # while True:
         #     time.sleep(0.3)
         #     msg = loads(coord2sim_socket.recv(copy=False).bytes)
@@ -156,9 +156,10 @@ class Simulator(multiprocessing.Process):
             print(differences)
             request_lock()
             while len(differences) > 0:
-                for d in differences:
-                    request_click(bboxes[d])
-                time.sleep(0.5)
+                # for d in differences:
+                #     request_click(bboxes[d])
+                request_click(bboxes[differences[0]])
+                time.sleep(0.3)
                 differences = diff(idxs, get_cards_bboxes(request_screen(), self.templates)[0])
                 print(differences)
             if 'chupai' in act:
@@ -171,6 +172,7 @@ class Simulator(multiprocessing.Process):
 
         while True:
             if self.toggle.value == 0:
+
                 time.sleep(0.2)
                 continue
             print('new round')
@@ -180,6 +182,14 @@ class Simulator(multiprocessing.Process):
             if not act:
                 continue
             print(act)
+            if 'addict_window' in act:
+                request_click(act['addict_window'])
+                time.sleep(1.)
+                continue
+            if 'chuntian_window' in act:
+                request_click(act['chuntian_window'])
+                time.sleep(1.)
+                continue
             if self.state == Simulator.State.CALLING:
                 # state has changed
                 if 'chupai' in act or 'alone_chupai' in act or 'ming_chupai' in act or 'yaobuqi' in act:
@@ -191,6 +201,7 @@ class Simulator(multiprocessing.Process):
                         print('current lord pos ', self.current_lord_pos)
                         if self.toggle.value == 0:
                             break
+                    time.sleep(1.5)
                     continue
                 print('calling', act)
                 handcards, _ = get_cards_bboxes(self.current_screen, self.templates, 0)
@@ -206,9 +217,9 @@ class Simulator(multiprocessing.Process):
                     # assert 'jiaodizhu' in act
                     request_click(act['bujiao']) if cards_value < 10 else request_click(act['jiaodizhu'])
             elif self.state == Simulator.State.PLAYING:
-                if 'end' in act or 'continous_end' in act:
+                if 'end' in act or 'continous_end' in act or 'fail_end' in act:
                     time.sleep(0.5)
-                    request_click(act['end'] if 'end' in act else act['continous_end'])
+                    request_click(act['end'] if 'end' in act else (act['continous_end'] if 'continous_end' in act else act['fail_end']))
                     time.sleep(0.5)
                     if self.cached_msg is None:
                         print('other player wins in one step!!!')
@@ -229,9 +240,11 @@ class Simulator(multiprocessing.Process):
                 print('playing', act)
                 left_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 1)
                 right_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 2)
+                left_cards = [card for card in left_cards if card is not None]
+                right_cards = [card for card in right_cards if card is not None]
 
-                assert None not in left_cards
-                assert None not in right_cards
+                # assert None not in left_cards
+                # assert None not in right_cards
                 self.history[1].extend(right_cards)
                 self.history[2].extend(left_cards)
                 last_cards = left_cards
@@ -242,18 +255,23 @@ class Simulator(multiprocessing.Process):
                 total_cards[53:56] = 0
                 total_cards[57:60] = 0
                 handcards, bboxes = get_cards_bboxes(self.current_screen, self.templates, 0)
+                handcards = [card for card in handcards if card is not None]
                 remain_cards = total_cards - Card.char2onehot60(handcards + self.history[0] + self.history[1] + self.history[2])
                 print('current handcards: ', handcards)
                 left_cnt, right_cnt = get_opponent_cnts(self.current_screen, self.tiny_templates)
                 print('left cnt: ', left_cnt, 'right cnt: ', right_cnt)
-                assert left_cnt > 0 and right_cnt > 0
+                if left_cnt <= 0:
+                    left_cnt = 1
+                if right_cnt <= 0:
+                    right_cnt = 1
+                # assert left_cnt > 0 and right_cnt > 0
                 # to be the same as C++ side, right comes before left
 
                 right_prob_state = remain_cards * (right_cnt / (left_cnt + right_cnt))
                 left_prob_state = remain_cards * (left_cnt / (left_cnt + right_cnt))
                 prob_state = np.concatenate([right_prob_state, left_prob_state])
-                assert prob_state.size == 120
-                assert np.all(prob_state < 1.) and np.all(prob_state >= 0.)
+                # assert prob_state.size == 120
+                # assert np.all(prob_state < 1.) and np.all(prob_state >= 0.)
                 # print(prob_state)
                 intention, buffer_comb, buffer_fine = self.predictor.predict(handcards, last_cards, prob_state, self, sim2coord_socket, coord2sim_socket)
                 if self.cached_msg is not None:

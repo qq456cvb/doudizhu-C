@@ -108,9 +108,10 @@ if __name__ == '__main__':
 
     agent_names = ['agent%d' % i for i in range(1, 4)]
 
+    # no exploration now
     sims = [Simulator(idx=i, hwnd=hwnds[i], pipe_c2s=namec2s + str(i), pipe_s2c=names2c + str(i), pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
                     pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
-                    agent_names=agent_names, exploration=0.05, toggle=toggle) for i in range(3)]
+                    agent_names=agent_names, exploration=0., toggle=toggle) for i in range(1)]
 
     # sim = Simulator(idx=0, hwnd=hwnds[0], pipe_c2s=namec2s, pipe_s2c=names2c, pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
     #                 pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,

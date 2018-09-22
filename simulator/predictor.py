@@ -172,6 +172,8 @@ class Predictor:
         assert action < self.num_actions[0]
         # clamp action to valid range
         action = min(action, self.num_actions[0] - 1)
+        if np.random.rand() < simulator.exploration:
+            action = np.random.randint(self.num_actions[0])
 
         # prepare buffer for expreplay
         buff_comb = [state, action, fine_mask_input]
@@ -192,12 +194,16 @@ class Predictor:
         if fine_mask is not None:
             q_values = q_values[:self.num_actions[1]]
             assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
-            q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
+            # q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
         action = np.nanargmax(q_values)
 
         assert action < self.num_actions[1]
         # clamp action to valid range
         action = min(action, self.num_actions[1] - 1)
+        if np.random.rand() < simulator.exploration:
+            action = np.random.randint(self.num_actions[1])
+            while q_values[action] < -100:
+                action = np.random.randint(self.num_actions[1])
         intention = available_actions[action]
 
         # prepare buffer for expreplay

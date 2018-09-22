@@ -20,8 +20,8 @@ class Configuration:
         self.img_root_path = 'photo/'
         self.video_root_path = 'video/'
         self.img_path = [self.img_root_path + path for path in os.listdir(self.img_root_path)]
-        self.video_path = [self.video_root_path + path for path in os.listdir(self.video_root_path)]
-        self.video_path.sort(key=lambda x: int(re.findall('[0-9].*', x.split('.')[0])[0]))
+        self.video_path = [self.video_root_path + '/' + path for path in os.listdir(self.video_root_path)]
+        # self.video_path.sort(key=lambda x: int(re.findall('[0-9].*', x.split('.')[0])[0]))
         self.array_path = 'array/'
 
         # some global parameters
@@ -30,7 +30,7 @@ class Configuration:
 
         # some parameters of one yellow button
         self.button_height = 74
-        self.button_up_margin = 365
+        self.button_up_margin = 365 - 2
         self.button_down_margin = 439
         self.two_words_button_width = 151
         self.three_words_button_width = 152
@@ -51,6 +51,17 @@ class Configuration:
         self.winning_start_x = 978
         self.winning_start_y = 254
         self.winning_square = 20
+        # push a window (chuntian)
+        self.push_window_left = 1132
+        self.push_window_top = 74
+        self.push_window_width = 48
+        self.push_window_height = 33
+        self.push_window_color = np.array([0, 85, 247])
+        # avoid addict
+        self.addict_left = 544
+        self.addict_top = 155
+        self.addict_width = 201
+        # self.addict_color = np.array([16, 73, 173])
 
         # define the actions represented by buttons
         self.jiaodizhu = np.load(self.array_path + 'jiaodizhu' + '.npy')
@@ -66,6 +77,8 @@ class Configuration:
         self.end = np.load(self.array_path + 'end' + '.npy')
         self.cend = np.load(self.array_path + 'continous_end' + '.npy')
         self.ming_chupai = np.load(self.array_path + 'ming_chupai' + '.npy')
+        self.fail_end = np.load(self.array_path + 'fail_end' + '.npy')
+        self.addict_window = np.load(self.array_path + 'addict_window' + '.npy')
         self.actions = {
             'jiaodizhu': self.jiaodizhu,
             'bujiao': self.bujiao,
@@ -78,23 +91,34 @@ class Configuration:
             'yaobuqi': self.yaobuqi,
             'alone_chupai': self.alone_chupai,
             'end': self.end,
-            'continous_end': self.cend,
-            'ming_chupai': self.ming_chupai
+             # 'continous_end': self.end,
+            'ming_chupai': self.ming_chupai,
+            'fail_end': self.fail_end
         }
 
         # some parameters defining the load mark
         # self is load
         self.self_lord_x = 250
         self.self_lord_y = 488
-        self.self_lord_color = np.array([106, 196, 15])
+        self.self_lord_color = np.array([115, 211, 16])
         # left player is load
         self.left_lord_x = 77
         self.left_lord_y = 285
-        self.left_lord_color = np.array([99, 185, 31])
+        self.left_lord_color = np.array([107, 195, 49])
         # right player is load
         self.right_lord_x = 1204
         self.right_lord_y = 282
-        self.right_lord_color = np.array([85, 160, 24])
+        self.right_lord_color = np.array([16, 60, 148])
+
+        ''' x position
+        jiaodizhu = 436
+        bujiao = 703
+        qiangdizhu = 436
+        buqiang = 703
+        buchu = 350
+        tishi = 603
+        chupai = 774
+        '''
 
 
 
@@ -102,4 +126,4 @@ if __name__ == '__main__':
     cf = Configuration()
     print(cf.cend)
     print(cf.jiaodizhu[0])
-
+    print(cf.mid_line)

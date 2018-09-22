@@ -26,10 +26,24 @@ cf = Configuration()
 DEBUG = False
 
 
-def locate_cards_position(img, x_left, x_right, y, y_up, y_bottom, mini=False, thresh=200):
-    while not (np.all(img[y, x_left] > thresh) and np.var(img[y, x_left]) < 40):
+def whether_addic(img):
+    useful_band = img[cf.addict_top, cf.addict_left:cf.addict_left + cf.addict_width, :]
+    for i in range(cf.addict_width):
+        compared = useful_band[i]
+        tru_color = cf.addict_window[i]
+        if not compare_color(tru_color, compared):
+            return False
+    return True
+
+
+def locate_cards_position(img, x_left, x_right, y, y_up, y_bottom, mini=False, thresh=210):
+    while not (np.all(img[y, x_left] > thresh) and np.all(img[y - 5, x_left] > thresh) and np.max(img[y, x_left]) - np.min(img[y, x_left]) < 15):
+        if x_left == img.shape[1] - 1:
+            break
         x_left += 1
-    while not (np.all(img[y, x_right] > thresh) and np.var(img[y, x_right]) < 40):
+    while not (np.all(img[y, x_right] > thresh) and np.all(img[y - 5, x_right] > thresh) and np.max(img[y, x_right]) - np.min(img[y, x_right]) < 15):
+        if x_right == 0:
+            break
         x_right -= 1
     n_cards = int(round((x_right - x_left - (74 if mini else 140)) / (33 if mini else 55.1)) + 1)
     if n_cards == 1:
@@ -37,7 +51,6 @@ def locate_cards_position(img, x_left, x_right, y, y_up, y_bottom, mini=False, t
     else:
         spacing = (x_right - x_left - (74 if mini else 140)) / (n_cards - 1)
     # print(n_cards)
-    # print(x_left)
     # # print(np.var(img[730, x_left]), np.var(img[730, x_right]))
     if DEBUG:
         cv2.line(img, (x_left, y_up), (x_left, y_bottom), (0, 255, 0), 3)
@@ -260,7 +273,6 @@ def draw_bounding_box(image, bbox):
     image[start_y:end_y, end_x, :] = 255
     return image
 
-
 def get_current_button_action(current_img):
     """
     get the action represented by the buttons shown in the current image
@@ -316,6 +328,13 @@ def get_current_button_action(current_img):
                         ):
                             res_actions[action] = bbox
                             break
+    # whether push a window (chuntian)
+    if whether_push_a_window(current_img):
+        res_actions['chuntian_window'] = [cf.push_window_left, cf.push_window_top, cf.push_window_left + cf.push_window_width,
+                                      cf.push_window_top + cf.push_window_height]
+    # whether avoid addiction window
+    if whether_addic(current_img):
+        res_actions['addict_window'] = [989, 149, 1018, 170]
     return res_actions
 
 
@@ -333,6 +352,14 @@ def who_is_lord(image):
         return 2
     else:
         return -1
+
+
+def whether_push_a_window(img):
+    color = img[cf.push_window_top, cf.push_window_left, :]
+    if compare_color(cf.push_window_color, color, difference=0):
+        return True
+    else:
+        return False
 
 
 def get_window_rect(hwnd):

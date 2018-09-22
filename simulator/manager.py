@@ -52,7 +52,6 @@ class SimulatorManager(Callback):
     def get_recv_thread(self):
         def f():
             msg = loads(self.sim2mgr_socket.recv(copy=False).bytes)
-            # print('manager received request from {}'.format(msg[0]))
             self.queue.put(msg)
 
         recv_thread = LoopThread(f, pausable=False)
@@ -87,6 +86,7 @@ class SimulatorManager(Callback):
                 screen = grab_screen()
                 self.mgr2sim_socket.send_multipart([sim_name.encode('utf-8'), dumps(screen)])
             elif msg[1] == SimulatorManager.MSG_TYPE.CLICK:
+                # print('need to click')
                 click(msg[2][0], msg[2][1])
                 self.mgr2sim_socket.send_multipart([sim_name.encode('utf-8'), dumps('click')])
 

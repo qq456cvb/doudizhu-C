@@ -23,6 +23,7 @@ def print_screen(name):
 
 
 if __name__ == '__main__':
+    pass
     # templates = load_templates()
     # mini_templates = dict()
     # for t in templates:
@@ -30,7 +31,8 @@ if __name__ == '__main__':
     #         mini_templates[t] = cv2.imread('./templates/Joker_mini.png', cv2.IMREAD_GRAYSCALE)
     #     else:
     #         mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
-    # cards, _ = get_cards_bboxes(cv2.imread('debug3.png'), mini_templates, 1)
+    #
+    # cards, _ = get_cards_bboxes(cv2.imread('test.png'), mini_templates, 1)
     # print(cards)
     # print_screen('test.png')
     # img = cv2.imread('train.png', cv2.IMREAD_GRAYSCALE)
@@ -55,12 +57,17 @@ if __name__ == '__main__':
     i = 0
     while os.path.exists('./photo/%d.png' % i):
         i += 1
+    # print(get_current_button_action(cv2.imread('./photo/%d.png' % (i - 1))))
     # print(who_is_lord(cv2.imread('./photo/%d.png' % 9)))
+    # print(get_current_button_action(cv2.imread('./video/f%d.png' % 37)))
     print_screen('./photo/%d.png' % i)
+    # get_current_button_action(cv2.imread('./photo/%d.png' % i))
+    # print_screen('./video/f%d.png' % 901)
     # i = 0
     # while True:
     #     time.sleep(0.2)
     #     print_screen('./video/f%d.png' % i)
+    #     print(i)
     #     i += 1
     # # print(rect)
     # img = cv2.imread('fzcvt.png')
