@@ -41,8 +41,8 @@ UPDATE_FREQ = 4
 
 GAMMA = 0.99
 
-MEMORY_SIZE = 3e2
-INIT_MEMORY_SIZE = MEMORY_SIZE // 10
+MEMORY_SIZE = 3e3
+INIT_MEMORY_SIZE = MEMORY_SIZE // 50
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
 EVAL_EPISODE = 100
 
@@ -99,27 +99,23 @@ if __name__ == '__main__':
     hwnds = []
     win32gui.EnumWindows(callback, hwnds)
 
-    namec2s = 'tcp://127.0.0.1:1234'
-    names2c = 'tcp://127.0.0.1:2234'
+    name_sim2exp = 'tcp://127.0.0.1:1234'
+    name_exp2sim = 'tcp://127.0.0.1:2234'
+
     name_sim2coord = 'tcp://127.0.0.1:3234'
     name_coord2sim = 'tcp://127.0.0.1:4234'
+
     name_sim2mgr = 'tcp://127.0.0.1:5234'
     name_mgr2sim = 'tcp://127.0.0.1:6234'
 
     agent_names = ['agent%d' % i for i in range(1, 4)]
 
     # no exploration now
-    sims = [Simulator(idx=i, hwnd=hwnds[i], pipe_c2s=namec2s + str(i), pipe_s2c=names2c + str(i), pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
-                    pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
-                    agent_names=agent_names, exploration=0., toggle=toggle) for i in range(1)]
+    sims = [Simulator(idx=i, hwnd=hwnds[i], pipe_sim2exps=[name_sim2exp + str(j) for j in range(3)], pipe_exps2sim=[name_exp2sim + str(j) for j in range(3)],
+                      pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
+                      pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
+                      agent_names=agent_names, exploration=0.05, toggle=toggle) for i in range(len(hwnds))]
 
-    # sim = Simulator(idx=0, hwnd=hwnds[0], pipe_c2s=namec2s, pipe_s2c=names2c, pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
-    #                 pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
-    #                 agent_names=agent_names, exploration=0.05, toggle=toggle)
-    # sim2 = Simulator(idx=1, hwnd=hwnds[1], pipe_c2s=namec2s, pipe_s2c=names2c, pipe_sim2coord=name_sim2coord,
-    #                 pipe_coord2sim=name_coord2sim,
-    #                 pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
-    #                 agent_names=agent_names, exploration=0.05, toggle=toggle)
     manager = SimulatorManager(sims, pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim)
 
     coordinator = Coordinator(agent_names, sim2coord=name_sim2coord, coord2sim=name_coord2sim)
@@ -141,9 +137,9 @@ if __name__ == '__main__':
             init_memory_size=INIT_MEMORY_SIZE,
             init_exploration=1.,
             update_frequency=UPDATE_FREQ,
-            pipe_c2s=namec2s,
-            pipe_s2c=names2c
-        ) for name in agent_names]
+            pipe_exp2sim=name_exp2sim + str(i),
+            pipe_sim2exp=name_sim2exp + str(i)
+        ) for i, name in enumerate(agent_names)]
 
         df = MyDataFLow(exps)
 
@@ -157,6 +153,7 @@ if __name__ == '__main__':
                     RunOp(model.update_target_param, verbose=True),
                     every_k_steps=STEPS_PER_EPOCH // 10),  # update target network every 10k steps
                 # the following order is important
+
                 coordinator,
                 manager,
                 *exps,

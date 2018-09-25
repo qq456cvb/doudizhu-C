@@ -130,7 +130,7 @@ def parse_card_type(templates, img, bbox, binarize=True, recursive=True):
             if max_val > max_response:
                 max_response = max_val
                 max_t = t
-    if max_response < 0.65:
+    if max_response < 0.7:
         return None
     # filter joker
     if max_t == 'Joker' and recursive:
@@ -346,9 +346,14 @@ def who_is_lord(image):
     """
     if compare_color(image[cf.self_lord_y, cf.self_lord_x, :], cf.self_lord_color, 0):
         return 0
-    elif compare_color(image[cf.left_lord_y, cf.left_lord_x, :], cf.left_lord_color, 0):
+    elif compare_color(image[cf.left_lord_y, cf.left_lord_x, :], cf.left_lord_color, 10) or compare_color(
+        image[cf.left_lord_y_with_super_mul, cf.left_lord_x, :], cf.left_lord_color, 10):
         return 1
-    elif compare_color(image[cf.right_lord_y, cf.right_lord_x, :], cf.right_lord_color, 0):
+    elif compare_color(
+            image[cf.right_lord_y, cf.right_lord_x, :], cf.right_lord_color, 10
+    ) or compare_color(
+        image[cf.right_lord_y_with_super_mul, cf.right_lord_x, :], cf.right_lord_color, 10
+    ):
         return 2
     else:
         return -1
@@ -404,17 +409,18 @@ def click(x,y, offset=(0, 0)):
 
 
 # get cards and their bboxes, role = 0 for self, 1 for left, 2 for right
-def get_cards_bboxes(img, templates, role=0):
-    if role == 0:
-        bboxes = locate_cards_position(img, 44, 1257, 518, 502, 554, False, 200)
-    elif role == 1:
-        bboxes = locate_cards_position(img, 280, 645, 240, 180, 215, True, 200)
-        bboxes += locate_cards_position(img, 280, 645, 310, 245, 281, True, 200)
-    elif role == 2:
-        bboxes = locate_cards_position(img, 645, 1000, 240, 180, 215, True, 200)
-        bboxes += locate_cards_position(img, 645, 1000, 310, 245, 281, True, 200)
-    else:
-        raise Exception('unexpected role')
+def get_cards_bboxes(img, templates, role=0, bboxes=None):
+    if bboxes is None:
+        if role == 0:
+            bboxes = locate_cards_position(img, 44, 1257, 518, 502, 554, False, 200)
+        elif role == 1:
+            bboxes = locate_cards_position(img, 280, 645, 240, 180, 215, True, 200)
+            bboxes += locate_cards_position(img, 280, 645, 310, 245, 281, True, 200)
+        elif role == 2:
+            bboxes = locate_cards_position(img, 645, 1000, 240, 180, 215, True, 200)
+            bboxes += locate_cards_position(img, 645, 1000, 310, 245, 281, True, 200)
+        else:
+            raise Exception('unexpected role')
     cards = []
     for bbox in bboxes:
         cards.append(parse_card_type(templates, img, bbox))

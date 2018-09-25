@@ -104,11 +104,13 @@ class Configuration:
         # left player is load
         self.left_lord_x = 77
         self.left_lord_y = 285
+        self.left_lord_y_with_super_mul = self.left_lord_y - 32
         self.left_lord_color = np.array([107, 195, 49])
         # right player is load
         self.right_lord_x = 1204
         self.right_lord_y = 282
-        self.right_lord_color = np.array([16, 60, 148])
+        self.right_lord_y_with_super_mul = self.right_lord_y - 32
+        self.right_lord_color = np.array([74, 150, 8])
 
         ''' x position
         jiaodizhu = 436

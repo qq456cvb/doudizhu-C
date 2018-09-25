@@ -18,6 +18,7 @@ from tensorpack.utils.serialize import dumps, loads
 from env import Env as CEnv
 from tensorpack.utils.stats import StatCounter
 from simulator.manager import SimulatorManager
+from tensorpack.utils import logger
 
 
 class Simulator(multiprocessing.Process):
@@ -36,16 +37,19 @@ class Simulator(multiprocessing.Process):
             mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
     tiny_templates = load_tiny_templates()
 
-    def __init__(self, idx, hwnd, pipe_c2s, pipe_s2c, pipe_sim2coord, pipe_coord2sim, pipe_sim2mgr, pipe_mgr2sim, agent_names, exploration, toggle):
+    def __init__(self, idx, hwnd, pipe_sim2exps, pipe_exps2sim, pipe_sim2coord, pipe_coord2sim, pipe_sim2mgr, pipe_mgr2sim, agent_names, exploration, toggle):
         super(Simulator, self).__init__()
         self.name = 'simulator-{}'.format(idx)
 
-        self.c2s = pipe_c2s
-        self.s2c = pipe_s2c
+        self.sim2exps = pipe_sim2exps
+        self.exps2sim = pipe_exps2sim
+
         self.sim2coord = pipe_sim2coord
         self.coord2sim = pipe_coord2sim
+
         self.sim2mgr = pipe_sim2mgr
         self.mgr2sim = pipe_mgr2sim
+
         self.agent_names = agent_names
 
         # instance specific property
@@ -75,7 +79,7 @@ class Simulator(multiprocessing.Process):
     #     click((bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2, (self.window_rect[0], self.window_rect[1]))
 
     def run(self):
-        print('simulator main loop')
+        logger.info('simulator main loop')
         context = zmq.Context()
 
         sim2coord_socket = context.socket(zmq.PUSH)
@@ -88,13 +92,13 @@ class Simulator(multiprocessing.Process):
         coord2sim_socket.set_hwm(20)
         coord2sim_socket.connect(self.coord2sim)
 
-        c2s_socket = context.socket(zmq.PULL)
-        c2s_socket.bind(self.c2s)
-        c2s_socket.set_hwm(20)
-
-        s2c_socket = context.socket(zmq.ROUTER)
-        s2c_socket.bind(self.s2c)
-        s2c_socket.set_hwm(20)
+        sim2exp_sockets = []
+        for sim2exp in self.sim2exps:
+            sim2exp_socket = context.socket(zmq.PUSH)
+            sim2exp_socket.setsockopt(zmq.IDENTITY, self.name.encode('utf-8'))
+            sim2exp_socket.set_hwm(20)
+            sim2exp_socket.connect(sim2exp)
+            sim2exp_sockets.append(sim2exp_socket)
 
         sim2mgr_socket = context.socket(zmq.PUSH)
         sim2mgr_socket.setsockopt(zmq.IDENTITY, self.name.encode('utf-8'))
@@ -105,6 +109,11 @@ class Simulator(multiprocessing.Process):
         mgr2sim_socket.setsockopt(zmq.IDENTITY, self.name.encode('utf-8'))
         mgr2sim_socket.set_hwm(20)
         mgr2sim_socket.connect(self.mgr2sim)
+
+        # while True:
+        #     time.sleep(0.3)
+        #     print(self.name)
+        #     sim2exp_sockets[1].send(dumps([self.name, 'haha']))
 
         # print('main loop')
         # while True:
@@ -152,15 +161,15 @@ class Simulator(multiprocessing.Process):
                             res.append(i)
                 return res
 
-            differences = diff(idxs, get_cards_bboxes(request_screen(), self.templates)[0])
+            differences = diff(idxs, get_cards_bboxes(request_screen(), self.templates, bboxes=bboxes)[0])
             print(differences)
             request_lock()
             while len(differences) > 0:
-                # for d in differences:
-                #     request_click(bboxes[d])
-                request_click(bboxes[differences[0]])
-                time.sleep(0.3)
-                differences = diff(idxs, get_cards_bboxes(request_screen(), self.templates)[0])
+                for d in differences:
+                    request_click(bboxes[d])
+                # request_click(bboxes[differences[0]])
+                # time.sleep(0.3)
+                differences = diff(idxs, get_cards_bboxes(request_screen(), self.templates, bboxes=bboxes)[0])
                 print(differences)
             if 'chupai' in act:
                 request_click(act['chupai'])
@@ -170,9 +179,9 @@ class Simulator(multiprocessing.Process):
                 request_click(act['ming_chupai'])
             request_unlock()
 
+        game_cnt = 0
         while True:
             if self.toggle.value == 0:
-
                 time.sleep(0.2)
                 continue
             print('new round')
@@ -184,11 +193,11 @@ class Simulator(multiprocessing.Process):
             print(act)
             if 'addict_window' in act:
                 request_click(act['addict_window'])
-                time.sleep(1.)
+                time.sleep(3.)
                 continue
             if 'chuntian_window' in act:
                 request_click(act['chuntian_window'])
-                time.sleep(1.)
+                time.sleep(3.)
                 continue
             if self.state == Simulator.State.CALLING:
                 # state has changed
@@ -227,22 +236,31 @@ class Simulator(multiprocessing.Process):
                     win = is_win(self.current_screen)
                     state, action, fine_mask = self.cached_msg
                     if win:
-                        s2c_socket.send_multipart([self.agent_names[self.current_lord_pos].encode('utf-8'), dumps([[state, state], action, 1, True, False, [fine_mask, fine_mask]])])
+                        sim2exp_sockets[self.current_lord_pos].send(dumps([[state, state], action, 1, True, False, [fine_mask, fine_mask]]))
                         self.win_rates[self.agent_names[self.current_lord_pos]].feed(1.)
                     else:
-                        s2c_socket.send_multipart([self.agent_names[self.current_lord_pos].encode('utf-8'), dumps([[state, state], action, -1, True, False, [fine_mask, fine_mask]])])
+                        sim2exp_sockets[self.current_lord_pos].send(dumps([[state, state], action, -1, True, False, [fine_mask, fine_mask]]))
                         self.win_rates[self.agent_names[self.current_lord_pos]].feed(0.)
 
+                    game_cnt += 1
+                    if game_cnt % 100 == 0:
+                        for agent in self.agent_names:
+                            if self.win_rates[agent].count > 0:
+                                logger.info('[last-100]{} win rate: {}'.format(agent, self.win_rates[agent].average))
+                                self.win_rates[agent].reset()
+
                     self.reset_episode()
+
                     continue
                 # test if we have cached msg not sent
 
                 print('playing', act)
                 left_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 1)
                 right_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 2)
-                left_cards = [card for card in left_cards if card is not None]
-                right_cards = [card for card in right_cards if card is not None]
-
+                if None in left_cards or None in right_cards:
+                    request_click(act['buchu']) if 'buchu' in act else request_click(act['yaobuqi'])
+                    time.sleep(1.)
+                    continue
                 # assert None not in left_cards
                 # assert None not in right_cards
                 self.history[1].extend(right_cards)
@@ -276,13 +294,13 @@ class Simulator(multiprocessing.Process):
                 intention, buffer_comb, buffer_fine = self.predictor.predict(handcards, last_cards, prob_state, self, sim2coord_socket, coord2sim_socket)
                 if self.cached_msg is not None:
                     state, action, fine_mask = self.cached_msg
-                    s2c_socket.send_multipart([self.agent_names[self.current_lord_pos].encode('utf-8'),
+                    sim2exp_sockets[self.current_lord_pos].send(
                                                dumps([[state, buffer_comb[0]], action, 0, False, False,
-                                                      [fine_mask, buffer_comb[2]]])])
+                                                      [fine_mask, buffer_comb[2]]]))
 
-                s2c_socket.send_multipart([self.agent_names[self.current_lord_pos].encode('utf-8'),
+                    sim2exp_sockets[self.current_lord_pos].send(
                                            dumps([[buffer_comb[0], buffer_fine[0]], buffer_comb[1], 0, False, True,
-                                                  [buffer_comb[2], buffer_fine[2]]])])
+                                                  [buffer_comb[2], buffer_fine[2]]]))
                 self.cached_msg = buffer_fine
 
                 self.history[0].extend(intention)
