@@ -999,6 +999,7 @@ public:
         get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         arrHandCardData[indexID].PutCards();
         auto intention = arrHandCardData[indexID].value_nPutCardList;
+        auto group = clsGameSituation->uctNowCardGroup.cgType;
         
         //std::sort(intention.begin(), intention.end());
 

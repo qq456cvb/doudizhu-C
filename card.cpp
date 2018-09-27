@@ -751,11 +751,63 @@ CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count)
 /*
  2.0  
  */
+void my_Ai(GameSituation &clsGameSituation, HandCardData &clsHandCardData){
+    clsHandCardData.ClearPutCardList();
+    // if error
+    if (clsGameSituation.uctNowCardGroup.cgType == cgERROR)
+    {
+        clsHandCardData.uctPutCardType = get_GroupData(cgERROR, 0, 0);
+        return;
+    }
+    // if cgZero
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgZERO)
+    {
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
+        return;
+    }
+    // if cgSingle
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgSINGLE) {}
+    // if cgDouble
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgDOUBLE) {}
+    // if cgThree
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgTHREE) {}
+    // if cgSingleline
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgSINGLE_LINE) {}
+    // if cgDoubleline
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgDOUBLE_LINE) {}
+    // if cgThreeline
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgTHREE_LINE) {}
+    // if cgThree_take_one
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgTHREE_TAKE_ONE) {}
+    // if cgThree_take_two
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgTHREE_TAKE_TWO) {}
+    // if cgThree_take_one_line
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgTHREE_TAKE_ONE_LINE) {}
+    // if cgThree_take_two_line
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgTHREE_TAKE_TWO_LINE) {}
+    // if cgFour_take_one
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgFOUR_TAKE_ONE) {}
+    // if cgFour_take_two
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgFOUR_TAKE_TWO) {}
+    // if cgBomb_card
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgBOMB_CARD) {}
+    // if cgKing_card
+    else if (clsGameSituation.uctNowCardGroup.cgType == cgKING_CARD) {
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
+        return;
+    }
+    // else
+    else {
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
+        return;
+    }
+    return;
+}
 
 void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsHandCardData)
 {
     clsHandCardData.ClearPutCardList();
-    
+    // aHandCardList: one hot representation of hand cards
     
     /**/
     if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
@@ -2696,7 +2748,6 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
     }  
     return;  
 }
-
 void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
 {
     
