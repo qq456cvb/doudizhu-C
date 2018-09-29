@@ -56,8 +56,6 @@ enum class Card {
 	TWO = 12,
 	BLACK_JOKER = 13,
 	RED_JOKER = 14
-
-	
 };
 
 ostream& operator<<(ostream& os, const Card& c);
@@ -132,7 +130,7 @@ enum CardGroupType
 
 struct CardGroupNode {
     CardGroupType group_type;
-    vector<int> group_data(15, 0);
+    vector<int> group_data;
 };
 
 struct HandCardValue
@@ -149,7 +147,7 @@ struct CardGroupData
     int  nCount=0;
     int nMaxCard=0;
     // TODO: add one member
-    int CardData[18] = {0};
+    int CardData[15] = {0};
 };
 
 
@@ -207,6 +205,8 @@ CardGroupData ins_SurCardsType(int arr[]);
 CardGroupData ins_SurCardsType(vector<int>);
 CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count);
 
-void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vector<Card>> &kickers);
-vector<CardGroup> get_all_actions();
+void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vector<Card>> &kickers, int cardData[]);
+vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes);
+vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group);
+vector<CardGroup> get_all_actions(int cardData[]);
 #endif /* card_hpp */

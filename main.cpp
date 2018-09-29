@@ -1012,9 +1012,18 @@ public:
     auto step_auto() {
         get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         arrHandCardData[indexID].PutCards();
+        auto all_actions = get_all_actions();
+        auto one_action = all_actions[0];
+        Card card = one_action._cards[0];
+        vector<CardGroupNode> nodes(2, cgn);
+        for(auto node:nodes) {
+            node.group_data = Card::card;
+        }
+        CardGroupNode cgn;
+        cgn.group_data = {1, 2, 3};
+        vector<vector<int>> cgmatrix = cardGroup2matrix(nodes);
         auto intention = arrHandCardData[indexID].value_nPutCardList;
         auto intention1 = arrHandCardData[indexID].value_aHandCardList;
-        auto all_actions = get_all_actions();
         // std::vector<int> debug(intention1, intention1 + sizeof (intention1) / sizeof (intention1[0]));
         //std::sort(intention.begin(), intention.end());
 
@@ -1058,7 +1067,9 @@ public:
             clsGameSituation->nCardDroit = indexID;
             clsGameSituation->uctNowCardGroup = arrHandCardData[indexID].uctPutCardType;
             value_lastCards = arrHandCardData[indexID].value_nPutCardList;
-            last_category_idx = category_idx;return std::make_tuple(vector2numpy(intention), 0, category_idx);
+            last_category_idx = category_idx;
+            return std::make_tuple(vector2numpy(cgmatrix[0]), 0, category_idx);
+            // return std::make_tuple(vector2numpy(intention), 0, category_idx);
         }
         indexID == 2 ? indexID = 0 : indexID++;
 
