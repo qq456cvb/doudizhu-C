@@ -52,8 +52,8 @@ auto vector2numpy(const vector<int>& v) {
     return result;
 }
 
-auto list2numpy(const int list[]) {
-    int length = sizeof(list) / sizeof(list[0]);
+auto list2numpy(int list[]) {
+    int length = sizeof(list) / sizeof(int);
     if (length == 0) return py::array_t<int>();
     auto result = py::array_t<int>(length);
     auto buf = result.request();
@@ -1012,18 +1012,17 @@ public:
     auto step_auto() {
         get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         arrHandCardData[indexID].PutCards();
-        auto all_actions = get_all_actions();
-        auto one_action = all_actions[0];
-        Card card = one_action._cards[0];
-        vector<CardGroupNode> nodes(2, cgn);
-        for(auto node:nodes) {
-            node.group_data = Card::card;
-        }
-        CardGroupNode cgn;
-        cgn.group_data = {1, 2, 3};
-        vector<vector<int>> cgmatrix = cardGroup2matrix(nodes);
+        // auto one_action = all_actions[0];
+        // Card card = one_action._cards[0];
+        // vector<CardGroupNode> nodes(2, cgn);
+        // for(auto node:nodes) {
+        //     node.group_data = Card::card;
+        // }
+        // CardGroupNode cgn;
+        // cgn.group_data = {1, 2, 3};
+        // vector<vector<int>> cgmatrix = cardGroup2matrix(nodes);
         auto intention = arrHandCardData[indexID].value_nPutCardList;
-        auto intention1 = arrHandCardData[indexID].value_aHandCardList;
+        auto intention1 = arrHandCardData[indexID].value_nHandCardList; 
         // std::vector<int> debug(intention1, intention1 + sizeof (intention1) / sizeof (intention1[0]));
         //std::sort(intention.begin(), intention.end());
 
@@ -1068,11 +1067,12 @@ public:
             clsGameSituation->uctNowCardGroup = arrHandCardData[indexID].uctPutCardType;
             value_lastCards = arrHandCardData[indexID].value_nPutCardList;
             last_category_idx = category_idx;
-            return std::make_tuple(vector2numpy(cgmatrix[0]), 0, category_idx);
-            // return std::make_tuple(vector2numpy(intention), 0, category_idx);
+            int length = sizeof(intention1) / sizeof(int);
+            // return std::make_tuple(vector2numpy(cgmatrix[0]), 0, category_idx);
+            // return std::make_tuple(list2numpy(intention1), length, category_idx);
+            return std::make_tuple(vector2numpy(intention1), 0, category_idx);
         }
         indexID == 2 ? indexID = 0 : indexID++;
-
         return std::make_tuple(vector2numpy(intention), 0, category_idx);
         // return std::make_tuple(list2numpy(intention1), 0, category_idx);
     }

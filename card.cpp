@@ -3676,7 +3676,6 @@ HandCardValue my_get_HandCardValue(HandCardData &clsHandCardData)
         uctHandCardValue.NeedRound = 1;
         return uctHandCardValue;
     }
-    
     //
     
     /*clsHandCardData.value_nPutCardListclsHandCardData.uctPutCardType
@@ -3898,21 +3897,17 @@ void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vec
 	get_kickers(main_cards, single, len - 1, kickers, cardData);
 }
 
-vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group) {
-    vector<vector<int>> card_group_matrix;
-    vector<int> one_row; 
-    for(CardGroup cg:card_group) {
-        vector<Card> cg_cards = cg._cards;
-        for(Card cd:cg_cards) {
-            one_row.push_back((int) cd);
+void get_one_hot_respresentation(int one_hot[], vector<int> hand_card_data, bool zero_start) {
+    for(int idx = 0; idx < 15; idx ++) {
+        if(!zero_start) int new_idx = idx + 3;
+        for(int card:hand_card_data) {
+            if(new_idx == card) one_hot[idx] += 1;
         }
-        card_group_matrix.push_back(one_row);
-        one_row.clear();
     }
-    return card_group_matrix;
+    return;
 }
 
-vector<vector<int>> cardGroup2matrix(vector<CardGroupNode> &card_group_nodes) {
+vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes) {
     vector<vector<int>> card_group_matrix;
     for(CardGroupNode node:card_group_nodes) {
         card_group_matrix.push_back(node.group_data);

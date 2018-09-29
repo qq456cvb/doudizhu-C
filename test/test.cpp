@@ -5,6 +5,7 @@
 
 using namespace std;
 
+
 int main(int argc, char const *argv[])
 {
     // vector<vector<int>> a;
@@ -14,24 +15,44 @@ int main(int argc, char const *argv[])
     // for(vector<int> x:a) {
     //     cout << x[0] << endl;
     // }
-    int cardData[15] = {};
-    cardData[11] = 3;
-    cardData[10] = 2;
-    cardData[9] = 1;
-    int count = 0;
-    auto all_actions = get_all_actions(cardData);
-    vector<vector<int>> a = CardGroup2matrix(all_actions);
-    for(vector<int> b:a) {
-        for(int c:b) {
-            cout << c << endl;
-        }
-        cout << endl;
+
+    // int cardData[15] = {};
+    // cardData[11] = 3;
+    // cardData[10] = 2;
+    // cardData[9] = 1;
+    int one_hot[15] = {0};
+    vector<int> cardData = {17, 17, 10, 3};
+    get_one_hot_respresentation(one_hot, cardData, false);
+    for(int i = 0; i < 15; i++) {
+        cout << one_hot[0] << endl;
     }
+    // int count = 0;
+    // auto all_actions = get_all_actions(cardData);
+    // vector<vector<int>> a = CardGroup2matrix(all_actions);
+    // for(vector<int> b:a) {
+    //     for(int c:b) {
+    //         cout << c << endl;
+    //     }
+    //     cout << endl;
+    // }
+
     // for(int i = 0; i < 15; i++) {
     //     cout << cardData[i] << endl;
     // }
     return 0;
 }
+
+void get_one_hot_respresentation(int one_hot[], vector<int> hand_card_data, bool zero_start) {
+    for(int idx = 0; idx < 15; idx ++) {
+        int new_idx = idx;
+        if(!zero_start) new_idx = idx + 3;
+        for(int card:hand_card_data) {
+            if(new_idx == card) one_hot[idx] += 1;
+        }
+    }
+    return;
+}
+
 // here cardData is a one hot representation of current hand data
 vector<CardGroup> get_all_actions(int cardData[]) {
 	vector<CardGroup> actions;

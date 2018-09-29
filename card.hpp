@@ -209,4 +209,5 @@ void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vec
 vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes);
 vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group);
 vector<CardGroup> get_all_actions(int cardData[]);
+void get_one_hot_respresentation(int (&one_hot)[], vector<int> hand_card_data, bool zero_start)
 #endif /* card_hpp */
