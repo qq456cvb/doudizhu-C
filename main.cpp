@@ -52,6 +52,20 @@ auto vector2numpy(const vector<int>& v) {
     return result;
 }
 
+auto list2numpy(const int list[]) {
+    int length = sizeof(list) / sizeof(list[0]);
+    if (length == 0) return py::array_t<int>();
+    auto result = py::array_t<int>(length);
+    auto buf = result.request();
+    int *ptr = (int*)buf.ptr;
+
+    for (int i = 0; i < length; ++i)
+    {
+        ptr[i] = list[i];
+    }
+    return result;
+}
+
 // 所有带2的方法都是双人争上游，不带2的是三人斗地主
 class Env
 {
@@ -999,8 +1013,9 @@ public:
         get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         arrHandCardData[indexID].PutCards();
         auto intention = arrHandCardData[indexID].value_nPutCardList;
-        auto group = clsGameSituation->uctNowCardGroup.cgType;
-        
+        auto intention1 = arrHandCardData[indexID].value_aHandCardList;
+        auto all_actions = get_all_actions();
+        // std::vector<int> debug(intention1, intention1 + sizeof (intention1) / sizeof (intention1[0]));
         //std::sort(intention.begin(), intention.end());
 
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
@@ -1043,11 +1058,12 @@ public:
             clsGameSituation->nCardDroit = indexID;
             clsGameSituation->uctNowCardGroup = arrHandCardData[indexID].uctPutCardType;
             value_lastCards = arrHandCardData[indexID].value_nPutCardList;
-            last_category_idx = category_idx;
+            last_category_idx = category_idx;return std::make_tuple(vector2numpy(intention), 0, category_idx);
         }
         indexID == 2 ? indexID = 0 : indexID++;
 
         return std::make_tuple(vector2numpy(intention), 0, category_idx);
+        // return std::make_tuple(list2numpy(intention1), 0, category_idx);
     }
 };
 
