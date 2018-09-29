@@ -4,3 +4,6 @@ build/
 train*/
 agent*/
 .idea/
+*.png
+*.pyc
+
