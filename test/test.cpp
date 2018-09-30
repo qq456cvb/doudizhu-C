@@ -1,10 +1,6 @@
+#include"../card.hpp"
 #include<iostream>
 #include<vector>
-#include"../card.hpp"
-#include <cassert>
-
-using namespace std;
-
 
 int main(int argc, char const *argv[])
 {
@@ -20,12 +16,29 @@ int main(int argc, char const *argv[])
     // cardData[11] = 3;
     // cardData[10] = 2;
     // cardData[9] = 1;
-    int one_hot[15] = {0};
-    vector<int> cardData = {17, 17, 10, 3};
-    get_one_hot_respresentation(one_hot, cardData, false);
-    for(int i = 0; i < 15; i++) {
-        cout << one_hot[0] << endl;
+
+    // int one_hot[15] = {0};
+    // vector<int> cardData = {15, 3, 8, 7, 7, 7};
+    // get_one_hot_respresentation(one_hot, cardData, false);
+    // for(int i = 0; i < 15; i++) {
+    //     cout << one_hot[i] << endl;
+    // }
+
+    int cardData[15] = {};
+    cardData[11] = 3;
+    cardData[10] = 2;
+    cardData[9] = 1;
+    auto all_actions = get_all_actions(cardData);
+    for(CardGroup one_action:all_actions) {
+        vector<int> cvt = one_card_group2vector(one_action);
+        for(int c:cvt) cout << c << " ";
+        float value = get_card_group_value(one_action);
+        cout << ": " << value << endl;
     }
+    // CardGroup one_action = all_actions[4];
+    // vector<int> cvt = one_card_group2vector(one_action);
+    // for(int c:cvt) cout << c << endl;
+
     // int count = 0;
     // auto all_actions = get_all_actions(cardData);
     // vector<vector<int>> a = CardGroup2matrix(all_actions);
@@ -40,6 +53,119 @@ int main(int argc, char const *argv[])
     //     cout << cardData[i] << endl;
     // }
     return 0;
+}
+
+float get_card_group_value(CardGroup card_group) {
+    vector<int> cards = one_card_group2vector(card_group);
+    Category category = card_group._category;
+    float value = 0.0f;
+    // empty
+    if(category == Category(0)) value = 0;
+    // single
+    else if(category == Category(1)) {
+        assert(cards.size() == 1);
+        value = cards[0] * 0.1;
+    } 
+    // double 
+    else if(category == Category(2)) {
+        assert(cards.size() == 2);
+        value = cards[0] * 0.2;
+    } 
+    // triple
+    else if(category == Category(3)) {
+        assert(cards.size() == 3);
+        value = cards[0] * 0.3;
+    } 
+    // quatric
+    else if(category == Category(4)) {
+        assert(cards.size() == 4);
+        value = cards[0] * 3;
+    } 
+    // three one
+    else if(category == Category(5)) {
+        assert(cards.size() == 4);
+        int main_card, kicker;
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) kicker = card;
+            else main_card = card;
+        }
+        value = main_card * 1 - kicker * 0.1;
+    }
+    // three two
+    else if(category == Category(6)) {
+        assert(cards.size() == 5);
+        int main_card, kicker;
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 2) kicker = card;
+            else main_card = card;
+        }
+        value = main_card * 1 - kicker * 0.1;
+    }
+    // single line
+    else if(category == Category(7)) {
+        assert(cards.size() >= 5);
+        for(int card:cards) value += card * 0.2;
+    }
+    // double line
+    else if(category == Category(8)) {
+        assert(cards.size() >= 6);
+        for(int card:cards) value += card * 0.2;
+    }
+    // triple line
+    else if(category == Category(9)) {
+        assert(cards.size() == 6);
+        for(int card:cards) value += card * 0.2;
+    }
+    // three one line
+    else if(category == Category(10)) {
+        assert(cards.size() == 8);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n <= 2) value += -0.1 * card;
+            else value += 0.3 * card;
+        }
+    }
+    // three two line 
+    else if(category == Category(11)) {
+        assert(cards.size() == 10);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n <= 2) value += -0.1 * card;
+            else value += 0.3 * card;
+        }
+    }
+    // big band
+    else if(category == Category(12)) value = 5;
+    // four take one
+    else if(category == Category(13)) {
+        assert(cards.size() == 5);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    // take take two
+    else if(category == Category(14)) {
+        assert(cards.size() == 6);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    return value;
+} 
+
+vector<int> one_card_group2vector(CardGroup card_group) {
+    vector<int> vct;
+    vector<Card> cg_cards = card_group._cards;
+    for(Card cd:cg_cards) {
+            vct.push_back((int) cd);
+        }
+    return vct;
 }
 
 void get_one_hot_respresentation(int one_hot[], vector<int> hand_card_data, bool zero_start) {

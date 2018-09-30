@@ -3897,9 +3897,11 @@ void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vec
 	get_kickers(main_cards, single, len - 1, kickers, cardData);
 }
 
+// change value_nHandCardList to a one hot representation
 void get_one_hot_respresentation(int one_hot[], vector<int> hand_card_data, bool zero_start) {
     for(int idx = 0; idx < 15; idx ++) {
-        if(!zero_start) int new_idx = idx + 3;
+        int new_idx = idx;
+        if(!zero_start) new_idx = idx + 3;
         for(int card:hand_card_data) {
             if(new_idx == card) one_hot[idx] += 1;
         }
@@ -3929,6 +3931,116 @@ vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group) {
     return card_group_matrix;
 }
 
+vector<int> one_card_group2vector(CardGroup card_group) {
+    vector<int> vct;
+    vector<Card> cg_cards = card_group._cards;
+    for(Card cd:cg_cards) {
+            vct.push_back((int) cd);
+        }
+    return vct;
+}
+
+float get_card_group_value(CardGroup card_group) {
+    vector<int> cards = one_card_group2vector(card_group);
+    Category category = card_group._category;
+    float value = 0.0f;
+    // empty
+    if(category == Category(0)) bad = 0;
+    // single
+    else if(category == Category(1)) {
+        assert(cards.size() == 1);
+        value = cards[0] * 0.1;
+    } 
+    // double 
+    else if(category == Category(2)) {
+        assert(cards.size() == 2);
+        value = cards[0] * 0.2;
+    } 
+    // triple
+    else if(category == Category(3)) {
+        assert(cards.size() == 3);
+        value = cards[0] * 0.3;
+    } 
+    // quatric
+    else if(category == Category(4)) {
+        assert(cards.size() == 4);
+        value = card[0] * 3;
+    } 
+    // three one
+    else if(category == Category(5)) {
+        assert(cards.size() == 4);
+        int main_card, kicker;
+        for(int card:cards) {
+            int count = count(cards.begin(), cards.end(), card);
+            if(count == 1) kicker = card;
+            else main_card = card;
+        }
+        value = main_card * 1 - kicker * 0.1;
+    }
+    // three two
+    else if(category == Category(6)) {
+        assert(cards.size() == 5);
+        int main_card, kicker;
+        for(int card:cards) {
+            int count = count(cards.begin(), cards.end(), card);
+            if(count == 2) kicker = card;
+            else main_card = card;
+        }
+        value = main_card * 1 - kicker * 0.1;
+    }
+    // single line
+    else if(category == Category(7)) {
+        assert(cards.size() >= 5);
+        for(int card:cards) value += card * 0.2;
+    }
+    // double line
+    else if(category == Category(8)) {
+        assert(cards.size() >= 6);
+        for(int card:cards) value += card * 0.2;
+    }
+    // triple line
+    else if(category == Category(9)) {
+        assert(cards.size() == 6);
+        for(int card:cards) value += card * 0.2;
+    }
+    // three one line
+    else if(category == Category(10)) {
+        assert(cards.size() == 8);
+        for(int card:cards) {
+            int count = count(cards.begin(), cards.end(), card);
+            if(count <= 2) value += -0.1 * card;
+            else value += 0.3 * card;
+        }
+    }
+    // three two line 
+    else if(category == Category(11)) {
+        assert(cards.size() == 10);
+        for(int card:cards) {
+            int count = count(cards.begin(), cards.end(), card);
+            if(count <= 2) value += -0.1 * card;
+            else value += 0.3 * card;
+        }
+    }
+    // big band
+    else if(category == Category(12)) value = 5;
+    else if(category == Category(13)) {
+        assert(cards.size() == 5);
+        for(int card:cards) {
+            int count = count(cards.begin(), cards.end(), card);
+            if(count == 1) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    else if(category == Category(14)) {
+        assert(cards.size() == 6);
+        for(int card:cards) {
+            int count = count(cards.begin(), cards.end(), card);
+            if(count == 1) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    return value;
+} 
 ostream& operator<<(ostream& os, const Card& c) {
 	if (c == Card::THREE)
 	{

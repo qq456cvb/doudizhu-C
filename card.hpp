@@ -7,14 +7,10 @@
 #include <string>
 #include <algorithm>
 #include <ctime>
+#include <assert.h>
 using namespace std;
 
-
-
 #define HandCardMaxLen 20
-
-
-
 #define MinCardsValue -25
 
 
@@ -141,7 +137,6 @@ struct HandCardValue
 
 struct CardGroupData
 {
-
     CardGroupType cgType=cgERROR;
     int  nValue=0;
     int  nCount=0;
@@ -152,9 +147,7 @@ struct CardGroupData
 
 
 class HandCardData
-{
-    
-    
+{  
 public:
     HandCardData()
     {
@@ -208,6 +201,8 @@ CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count);
 void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vector<Card>> &kickers, int cardData[]);
 vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes);
 vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group);
+vector<int> one_card_group2vector(CardGroup card_group);
 vector<CardGroup> get_all_actions(int cardData[]);
-void get_one_hot_respresentation(int (&one_hot)[], vector<int> hand_card_data, bool zero_start)
+void get_one_hot_respresentation(int one_hot[], vector<int> hand_card_data, bool zero_start);
+float get_card_group_value(CardGroup card_group);
 #endif /* card_hpp */
