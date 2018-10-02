@@ -17,13 +17,19 @@ float get_remain_cards_value(int cardData[], float value) {
         }
     }
     if(return_flag) return value;
+    int max_card_value = 14;
+    for(int idx = 14; idx > -1; idx --) {
+        if(cardData[idx] > 0) max_card_value = idx;
+        break;
+    }
     vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
     vector<float> value_caches;
     for(CardGroup action:all_actions) {
-        float temp_group_value = get_card_group_value(action);
-        value += temp_group_value;
         vector<int> cards = one_card_group2vector(action);
         if(!cards.size()) continue;
+        if(find(cards.begin(), cards.end(), max_card_value) == cards.end()) continue;
+        float temp_group_value = get_card_group_value(action);
+        value += temp_group_value;
         // delete used value
         int temp_cardData[15] = {0};
         for(int j = 0; j < 15; j++) {
@@ -418,8 +424,8 @@ vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group) {
 
 int main(int argc, char const *argv[])
 {
-    vector<int> cardData = {3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 7, 7, 13, 10, 9, 8, 14};
-    // vector<int> cardData = {3, 4};
+    // vector<int> cardData = {3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 7, 7, 13, 10, 9, 8, 14};
+    vector<int> cardData = {3, 4, 4};
     int cardData_one_hot[15] = {0};
     get_one_hot_representation(cardData_one_hot, cardData, false);
     float value = 0, r_value;
