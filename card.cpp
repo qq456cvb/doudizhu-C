@@ -750,16 +750,6 @@ CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count)
 /*
 compute the weight of a given group
 */
-CardGroupData my_get_GroupData(CardGroupType cgType, int MaxCard, int Count, float value)
-{
-    CardGroupData uctCardGroupData;
-    
-    uctCardGroupData.cgType = cgType;
-    uctCardGroupData.nCount = Count;
-    uctCardGroupData.nMaxCard = MaxCard;
-    uctCardGroupData.nValue = value;
-    return uctCardGroupData;
-}
 
 void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsHandCardData)
 {
@@ -3655,67 +3645,6 @@ void get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCar
     return;
 }
 
-HandCardValue my_get_HandCardValue(HandCardData &clsHandCardData)
-{  
-    //get_PutCardList
-    clsHandCardData.ClearPutCardList();
-    HandCardValue uctHandCardValue;
-    //
-    if (clsHandCardData.nHandCardCount == 0)
-    {
-        uctHandCardValue.SumValue = 0;
-        uctHandCardValue.NeedRound = 0;
-        return uctHandCardValue;
-    }
-    //
-    CardGroupData uctCardGroupData = ins_SurCardsType(clsHandCardData.value_aHandCardList);
-    //
-    if (uctCardGroupData.cgType != cgERROR&&uctCardGroupData.cgType != cgFOUR_TAKE_ONE&&uctCardGroupData.cgType != cgFOUR_TAKE_TWO)
-    {
-        uctHandCardValue.SumValue = uctCardGroupData.nValue;
-        uctHandCardValue.NeedRound = 1;
-        return uctHandCardValue;
-    }
-    //
-    
-    /*clsHandCardData.value_nPutCardListclsHandCardData.uctPutCardType
-     get_PutCardList*/
-    get_PutCardList_2_unlimit(clsHandCardData);
-    
-    //clsHandCardData.value_nPutCardListclsHandCardData.uctPutCardType
-    CardGroupData NowPutCardType = clsHandCardData.uctPutCardType;
-    vector<int> NowPutCardList = clsHandCardData.value_nPutCardList;
-    
-    if (clsHandCardData.uctPutCardType.cgType == cgERROR)
-    {
-        cout << "PutCardType ERROR!" << endl;
-    }
-    
-    
-    //---
-    for (vector<int>::iterator iter = NowPutCardList.begin();
-         iter != NowPutCardList.end(); iter++)
-    {
-        clsHandCardData.value_aHandCardList[*iter]--;
-    }
-    clsHandCardData.nHandCardCount -= NowPutCardType.nCount;
-    //---
-    HandCardValue tmp_SurValue = get_HandCardValue(clsHandCardData);//
-    
-    //---
-    for (vector<int>::iterator iter = NowPutCardList.begin();
-         iter != NowPutCardList.end(); iter++)
-    {
-        clsHandCardData.value_aHandCardList[*iter]++;
-    }
-    clsHandCardData.nHandCardCount += NowPutCardType.nCount;
-    //---
-    
-    uctHandCardValue.SumValue = NowPutCardType.nValue + tmp_SurValue.SumValue;
-    uctHandCardValue.NeedRound = tmp_SurValue.NeedRound + 1;
-     
-    return uctHandCardValue;
-}
 
 //************************************
 // Method:    get_all_actions
@@ -3725,7 +3654,62 @@ HandCardValue my_get_HandCardValue(HandCardData &clsHandCardData)
 // Qualifier: the action orders may not be the same as Python's
 //************************************
 // here cardData is a one hot representation of current hand data
-vector<CardGroup> get_all_actions(int cardData[]) {
+void my_get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCardData) {
+    if (clsGameSituation.nCardDroit == clsHandCardData.nOwnIndex)
+    {
+        // printf("unlimit\n");
+        my_get_PutCardList_2_unlimit(clsHandCardData);
+    }
+    else
+    {
+        // printf("limit\n");
+        my_get_PutCardList_2_limit(clsGameSituation, clsHandCardData);
+    }
+    return;
+}
+// find limit best card group
+void my_get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsHandCardData) {
+    // preparation
+    clsHandCardData.ClearPutCardList();
+    vector<int> cardData_vector = clsHandCardData.value_nHandCardList;
+    int cardData[15];
+    get_one_hot_representation(cardData, cardData_vector, false);
+    // find best card group
+    CardGroupType cg_type = clsGameSituation.uctNowCardGroup.cgType;
+    int standard_len = clsGameSituation.uctNowCardGroup.nCount;
+    int standard_max_card = clsGameSituation.uctNowCardGroup.nMaxCard;
+    CardGroupNode best_node = find_best_group_limit(clsGameSituation, cardData);
+    CardGroupType best_action_type = best_node.group_type;
+    vector<int> best_group_data = best_node.group_data;
+    vector<int> best_remain_cards = best_node.remain_cards;
+    // put cards
+    int action_max_card, action_len;
+    get_card_group_max_and_len(best_group_data, (int) best_action_type, action_max_card, action_len);
+    clsHandCardData.value_nPutCardList = best_group_data;
+    clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(best_action_type, action_max_card, action_len);
+    return;
+}
+// find unlimit best card group
+void my_get_PutCardList_2_unlimit(HandCardData &clsHandCardData) {
+    // preparation
+    clsHandCardData.ClearPutCardList();
+    vector<int> cardData_vector = clsHandCardData.value_nHandCardList;
+    int cardData[15];
+    get_one_hot_representation(cardData, cardData_vector, false);
+    // find best card group
+    CardGroupNode best_node = find_best_group_unlimit(cardData);
+    CardGroupType best_action_type = best_node.group_type;
+    vector<int> best_group_data = best_node.group_data;
+    vector<int> best_remain_cards = best_node.remain_cards;
+    // put cards
+    int action_max_card, action_len;
+    get_card_group_max_and_len(best_group_data, (int) best_action_type, action_max_card, action_len);
+    clsHandCardData.value_nPutCardList = best_group_data;
+    clsHandCardData.uctPutCardType = get_GroupData(best_action_type, action_max_card, action_len);
+    return;
+}
+
+vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 	vector<CardGroup> actions;
 	actions.push_back(CardGroup({}, Category::EMPTY, 0));
 	for (int i = 0; i < 15; i++)
@@ -3745,23 +3729,48 @@ vector<CardGroup> get_all_actions(int cardData[]) {
         if(cardData[i] == 4) {
             vector<Card> main_cards = { Card(i), Card(i), Card(i), Card(i) };
             actions.push_back(CardGroup(main_cards, Category::QUADRIC, i));
-            vector<vector<Card>> kickers = { {} };
-            get_kickers(main_cards, true, 2, kickers, cardData);
-            for (const auto &kicker : kickers)
+            for(int idx = 0; idx < 15; idx ++)
             {
-                auto cards_kickers = main_cards;
-                cards_kickers.insert(cards_kickers.end(), kicker.begin(), kicker.end());
-                actions.push_back(CardGroup(cards_kickers, Category::FOUR_TAKE_ONE, i));
+                vector<Card> main_cards = { Card(i), Card(i), Card(i), Card(i) };
+                if(cardData[idx] >= 1 && idx != i)
+                {
+                    main_cards.push_back(Card(idx));
+                    cardData[idx] -= 1;
+                    for(int idx1 = 0; idx1 < 15; idx1 ++)
+                    {
+                        if(cardData[idx1] >= 1 && idx1 != i)
+                        {
+                            main_cards.push_back(Card(idx1));
+                            actions.push_back(CardGroup(main_cards, Category::FOUR_TAKE_ONE, i));
+                            main_cards.pop_back();
+                        }
+                    }
+                    cardData[idx] += 1;
+                }
             }
-            kickers.clear();
-            kickers.push_back({});
-            get_kickers(main_cards, false, 2, kickers, cardData);
-            for (const auto &kicker : kickers)
+            for(int idx = 0; idx < 15; idx ++)
             {
-                auto cards_kickers = main_cards;
-                cards_kickers.insert(cards_kickers.end(), kicker.begin(), kicker.end());
-                actions.push_back(CardGroup(cards_kickers, Category::FOUR_TAKE_TWO, i));
+                vector<Card> main_cards = { Card(i), Card(i), Card(i), Card(i) };
+                if(cardData[idx] >= 2 && idx != i)
+                {
+                    main_cards.push_back(Card(idx));
+                    main_cards.push_back(Card(idx));
+                    cardData[idx] -= 2;
+                    for(int idx1 = 0; idx1 < 15; idx1 ++)
+                    {
+                        if(cardData[idx1] >= 2 && idx1 != i)
+                        {
+                            main_cards.push_back(Card(idx1));
+                            main_cards.push_back(Card(idx1));
+                            actions.push_back(CardGroup(main_cards, Category::FOUR_TAKE_TWO, i));
+                            main_cards.pop_back();
+                            main_cards.pop_back();
+                        }
+                    }
+                    cardData[idx] += 2;
+                }
             }
+
         }
 	}
 	for (int i = 0; i < 13; i++)
@@ -3867,8 +3876,6 @@ vector<CardGroup> get_all_actions(int cardData[]) {
 	return actions;
 }
 
-// Nuke can not be used as kicker, different from Python side, 
-// TODO: modify the Python side
 void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vector<Card>> &kickers, int cardData[]) {
 	if (len == 0)
 	{
@@ -3881,10 +3888,10 @@ void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vec
 			vector<Card> tmp = kicker;
 			if (find(main_cards.begin(), main_cards.end(), Card(i)) == main_cards.end() && cardData[i] >= 1)
 			{
-                tmp.push_back(Card(i));
+                tmp.push_back(Card(i + 3));
                 if (!single && cardData[i] >= 2)
                 {
-                    tmp.push_back(Card(i));
+                    tmp.push_back(Card(i + 3));
                 }
                 if (!(tmp.size() == 2 && static_cast<int>(tmp[0]) + static_cast<int>(tmp[1]) == 13 + 14))
                 {
@@ -3898,7 +3905,7 @@ void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vec
 }
 
 // change value_nHandCardList to a one hot representation
-void get_one_hot_respresentation(int one_hot[], vector<int> hand_card_data, bool zero_start) {
+void get_one_hot_representation(int one_hot[], vector<int> hand_card_data, bool zero_start) {
     for(int idx = 0; idx < 15; idx ++) {
         int new_idx = idx;
         if(!zero_start) new_idx = idx + 3;
@@ -4054,7 +4061,7 @@ float get_remain_cards_value(int cardData[], float value) {
         }
     }
     if(return_flag) return value;
-    vector<CardGroup> all_actions = get_all_actions(cardData);
+    vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
     vector<float> value_caches;
     for(CardGroup action:all_actions) {
         float temp_group_value = get_card_group_value(action);
@@ -4074,11 +4081,49 @@ float get_remain_cards_value(int cardData[], float value) {
     return *max_element(value_caches.begin(), value_caches.end());
 }
 
-CardGroupNode find_best_group(int cardData[], CardGroupType cg_type) {
-    vector<CardGroup> card_groups = get_all_actions(cardData); // 0-14
+CardGroupNode find_best_group_unlimit(int cardData[]){
+    vector<CardGroup> card_groups = get_all_actions_unlimit(cardData); // 0-14
     vector<float> value_caches;
     for(CardGroup card_group:card_groups) {
-        if((int) card_group._category == (int) cg_type) {
+        if(card_group._cards.size() != 0) {
+            vector<int> card_group_vector = one_card_group2vector(card_group);
+            float value = get_card_group_value(card_group);
+            int temp_cardData[15] = {0};
+            for(int j = 0; j < 15; j++) {
+                int times = count(card_group_vector.begin(), card_group_vector.end(), j);
+                temp_cardData[j] = cardData[j] - times;
+                assert(temp_cardData[j] >= 0);
+            }
+            value = get_remain_cards_value(temp_cardData, value);
+            value_caches.push_back(value);
+        }
+        else value_caches.push_back(-1000);
+    }
+    // after find best group
+    CardGroupNode res_node;
+    int max_index = distance(value_caches.begin(), max_element(value_caches.begin(), value_caches.end()));
+    CardGroup best_card_group = card_groups[max_index];
+    vector<int> best_card_group_vector = one_card_group2vector(best_card_group);
+    vector<int> remain_cards_vector;
+    for(int j = 0; j < 15; j++) {
+        int times = count(best_card_group_vector.begin(), best_card_group_vector.end(), j);
+        int remain_times = cardData[j] - times;
+        if(remain_times) {
+            for (int k = 0; k < remain_times; k++) remain_cards_vector.push_back(j + 3);
+        }
+    }
+    for(vector<int>::iterator it = best_card_group_vector.begin(); it != best_card_group_vector.end(); it ++) *it += 3;
+    res_node.group_data = best_card_group_vector;
+    res_node.remain_cards = remain_cards_vector;
+    return res_node;
+}
+
+CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardData[]) {
+    vector<CardGroup> card_groups = get_all_actions_unlimit(cardData); // 0-14
+    vector<float> value_caches;
+    CardGroupType cg_type = clsGameSituation.uctNowCardGroup.cgType;
+    for(CardGroup card_group:card_groups) {
+        if(is_legal(clsGameSituation, card_group) && card_group._cards.size() != 0) {
             vector<int> card_group_vector = one_card_group2vector(card_group);
             float value = get_card_group_value(card_group);
             int temp_cardData[15] = {0};
@@ -4111,6 +4156,144 @@ CardGroupNode find_best_group(int cardData[], CardGroupType cg_type) {
     res_node.remain_cards = remain_cards_vector;
     return res_node;
 }
+
+void get_card_group_max_and_len(vector<int> &action, int standard_type, int &action_max_card, int &action_len) {
+    vector<int> cache;
+    int a;
+    switch(standard_type) {
+        case 1:
+        {
+            action_len = action.size();
+            action_max_card = *max_element(action.begin(), action.end());
+        }
+        case 2:
+        {
+            action_len = action.size();
+            action_max_card = *max_element(action.begin(), action.end());
+        }
+        case 3:
+        {
+            action_len = action.size();
+            action_max_card = *max_element(action.begin(), action.end());
+        }
+        case 4:
+        {
+            action_len = action.size();
+            action_max_card = *max_element(action.begin(), action.end());
+        }
+        case 5:
+        {
+            action_len = action.size();
+            for(int a:action) {
+                int times = count(action.begin(), action.end(), a);
+                if(times == 3) {
+                    action_max_card = a;
+                    break;
+                }
+            }
+            assert(action_max_card >= 0);
+        }
+        case 6:
+        {
+            action_len = action.size();
+            for(int a:action) {
+                int times = count(action.begin(), action.end(), a);
+                if(times == 3) {
+                    action_max_card = a;
+                    break;
+                }
+            }
+            assert(action_max_card >= 0);
+        }
+        case 7:
+        {
+            action_len = action.size();
+            action_max_card = *max_element(action.begin(), action.end());
+        }
+        case 8:
+        {
+            action_len = action.size();
+            action_max_card = *max_element(action.begin(), action.end());
+        }
+        case 9:
+        {
+            action_len = action.size();
+            action_max_card = *max_element(action.begin(), action.end());
+        }
+        case 10:
+        {
+            action_len = action.size();
+            vector<int> cache;
+            for(int a:action) {
+                int times = count(action.begin(), action.end(), a);
+                if(times == 3 && find(cache.begin(), cache.end(), a) == cache.end()) {
+                    cache.push_back(a);
+                }
+                if(cache.size() == 2) break;
+            }
+            action_max_card = *max_element(cache.begin(), cache.end());
+        }
+
+        case 11:
+        {
+            action_len = action.size();
+            for(a:action) {
+                int times = count(action.begin(), action.end(), a);
+                if(times == 3 && find(cache.begin(), cache.end(), a) == cache.end()) {
+                    cache.push_back(a);
+                }
+                if(cache.size() == 2) break;
+            }
+            action_max_card = *max_element(cache.begin(), cache.end());
+        }
+        case 12:
+        {
+            action_len = 2;
+            action_max_card = *max_element(action.begin(), action.end());
+        }
+        case 13:
+        {
+            action_len = 6;
+            for(a:action) {
+                int times = count(action.begin(), action.end(), a);
+                if(times == 4) {
+                    action_max_card = a;
+                    break;
+                }
+            }
+            assert(action_max_card >= 0);
+        }
+        case 14:
+        {
+            action_len = 10;
+            for(a:action) {
+                int times = count(action.begin(), action.end(), a);
+                if(times == 4) {
+                    action_max_card = a;
+                    break;
+                }
+            }
+            assert(action_max_card >= 0);
+        }
+    }
+}
+
+bool is_legal(GameSituation &clsGameSituation, CardGroup &candidate_action) {
+    int standard_type = (int) clsGameSituation.uctNowCardGroup.cgType;
+    int n_count = clsGameSituation.uctNowCardGroup.nCount;
+    int max_card = clsGameSituation.uctNowCardGroup.nMaxCard;
+    int action_len = -1;
+    int action_max_card = -1;
+    vector<int> action = one_card_group2vector(candidate_action);
+    int action_type = (int) candidate_action._category;
+    if(!(standard_type == action_type)) return false;
+    else {
+        get_card_group_max_and_len(action, standard_type, action_max_card, action_len);
+        if(action_len == n_count && action_max_card > max_card) return true;
+        else return false;
+    }
+}
+
 
 ostream& operator<<(ostream& os, const Card& c) {
 	if (c == Card::THREE)

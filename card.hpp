@@ -202,13 +202,35 @@ CardGroupData ins_SurCardsType(int arr[]);
 CardGroupData ins_SurCardsType(vector<int>);
 CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count);
 
+/* my functions */
+void my_get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
+
+void my_get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
+
+void my_get_PutCardList_2_unlimit(HandCardData &clsHandCardData);
+
+vector<CardGroup> get_all_actions_unlimit(int cardData[]);
+
 void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vector<Card>> &kickers, int cardData[]);
-vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes);
-vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group);
+
+void get_one_hot_representation(int one_hot[], vector<int> hand_card_data, bool zero_start);
+
 vector<int> one_card_group2vector(CardGroup card_group);
-vector<CardGroup> get_all_actions(int cardData[]);
-void get_one_hot_respresentation(int one_hot[], vector<int> hand_card_data, bool zero_start);
+
+vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes);
+
+vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group);
+
 float get_card_group_value(CardGroup card_group);
-CardGroupNode find_best_group(int cardData[], CardGroupType cg_type);
+
 float get_remain_cards_value(int cardData[], float value);
+
+CardGroupNode find_best_group_unlimit(int cardData[]);
+
+CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardData[]);
+
+void get_card_group_max_and_len(vector<int> &action, int standard_type, int &action_max_card, int &action_len);
+
+bool is_legal(GameSituation &clsGameSituation, CardGroup &candidate_action);
+
 #endif /* card_hpp */
