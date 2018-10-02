@@ -17,24 +17,26 @@ float get_remain_cards_value(int cardData[], float value) {
         }
     }
     if(return_flag) return value;
-    int max_card_value = 14;
-    for(int idx = 14; idx > -1; idx --) {
-        if(cardData[idx] > 0) max_card_value = idx;
-        break;
+    int max_value = 0;
+    for(int max_idx = 14; max_idx > -1; max_idx --) {
+        if(cardData[max_idx] > 0) {
+            max_value = max_idx;
+            break;
+        }
     }
+
     vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
     vector<float> value_caches;
     for(CardGroup action:all_actions) {
+        if(!action._cards.size()) continue;
         vector<int> cards = one_card_group2vector(action);
-        if(!cards.size()) continue;
-        if(find(cards.begin(), cards.end(), max_card_value) == cards.end()) continue;
+        if(find(cards.begin(), cards.end(), max_value) == cards.end()) continue;
         float temp_group_value = get_card_group_value(action);
         value += temp_group_value;
         // delete used value
         int temp_cardData[15] = {0};
         for(int j = 0; j < 15; j++) {
             int times = count(cards.begin(), cards.end(), j);
-
             temp_cardData[j] = cardData[j] - times;
             assert(temp_cardData[j] >= 0);
         }
@@ -340,16 +342,16 @@ float get_card_group_value(CardGroup card_group) {
     else if(category == Category(12)) value = 5;
     // four take one
     else if(category == Category(13)) {
-        // assert(cards.size() == 6);
+        assert(cards.size() == 6);
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
             if(count_n == 1) value += -0.1 * card;
             else value += 0.1 * card;
         }
     }
-    // four take two
+    // take take two
     else if(category == Category(14)) {
-        assert(cards.size() == 10);
+        assert(cards.size() == 8);
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
             if(count_n == 1) value += -0.1 * card;
@@ -424,12 +426,14 @@ vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group) {
 
 int main(int argc, char const *argv[])
 {
-    // vector<int> cardData = {3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 7, 7, 13, 10, 9, 8, 14};
-    vector<int> cardData = {3, 4, 4};
+    vector<int> cardData = {3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 7, 7, 13, 10, 9, 8, 14};
+    // vector<int> cardData = {3, 4, 4, 5, 6};
     int cardData_one_hot[15] = {0};
     get_one_hot_representation(cardData_one_hot, cardData, false);
     float value = 0, r_value;
-    CardGroupNode best_node = find_best_group(cardData_one_hot, cgTHREE_TAKE_ONE);
+    value = get_remain_cards_value(cardData_one_hot, value);
+    my_cout(value);
+    CardGroupNode best_node = find_best_group(cardData_one_hot, cgDOUBLE_LINE);
     vector<int> best_group = best_node.group_data;
     vector<int> remain_cards = best_node.remain_cards;
     vector<CardGroup> actions = get_all_actions_unlimit(cardData_one_hot);
