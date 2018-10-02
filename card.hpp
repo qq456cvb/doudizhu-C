@@ -127,6 +127,7 @@ enum CardGroupType
 struct CardGroupNode {
     CardGroupType group_type;
     vector<int> group_data;
+	vector<int> remain_cards;
 };
 
 struct HandCardValue
@@ -141,8 +142,11 @@ struct CardGroupData
     int  nValue=0;
     int  nCount=0;
     int nMaxCard=0;
-    // TODO: add one member
-    int CardData[15] = {0};
+};
+
+struct CardValue {
+    float group_value;
+    float remain_card_value;
 };
 
 
@@ -205,4 +209,6 @@ vector<int> one_card_group2vector(CardGroup card_group);
 vector<CardGroup> get_all_actions(int cardData[]);
 void get_one_hot_respresentation(int one_hot[], vector<int> hand_card_data, bool zero_start);
 float get_card_group_value(CardGroup card_group);
+CardGroupNode find_best_group(int cardData[], CardGroupType cg_type);
+float get_remain_cards_value(int cardData[], float value);
 #endif /* card_hpp */
