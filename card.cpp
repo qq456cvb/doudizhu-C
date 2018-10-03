@@ -3726,6 +3726,210 @@ void my_get_PutCardList_2_unlimit(HandCardData &clsHandCardData) {
     return;
 }
 
+// change value_nHandCardList to a one hot representation
+vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes) {
+    vector<vector<int>> card_group_matrix;
+    for(CardGroupNode node:card_group_nodes) {
+        card_group_matrix.push_back(node.group_data);
+    }
+    return card_group_matrix;
+}
+
+vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group) {
+    vector<vector<int>> card_group_matrix;
+    vector<int> one_row;
+    for(CardGroup cg:card_group) {
+        vector<Card> cg_cards = cg._cards;
+        for(Card cd:cg_cards) {
+            one_row.push_back((int) cd);
+        }
+        card_group_matrix.push_back(one_row);
+        one_row.clear();
+    }
+    return card_group_matrix;
+}
+
+float get_remain_cards_value(int cardData[], float value) {
+    // cardData is an one-hot representation of cards
+    bool return_flag = true;
+    for(int i = 0; i < 15; i++) {
+        if(cardData[i] != 0) {
+            return_flag = false;
+            break;
+        }
+    }
+    if(return_flag) return value;
+    int max_value = 0;
+    for(int max_idx = 14; max_idx > -1; max_idx --) {
+        if(cardData[max_idx] > 0) {
+            max_value = max_idx;
+            break;
+        }
+    }
+
+    vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
+    vector<float> value_caches;
+    for(CardGroup action:all_actions) {
+        // if(!action._cards.size()) continue;
+        vector<int> cards = one_card_group2vector(action);
+        // assert(cards.size() > 0);
+        if(find(cards.begin(), cards.end(), max_value) == cards.end()) continue;
+        float temp_group_value = get_card_group_value(action);
+
+        value += temp_group_value;
+        // delete used value
+        int temp_cardData[15] = {0};
+        for(int j = 0; j < 15; j++) {
+            int times = count(cards.begin(), cards.end(), j);
+            temp_cardData[j] = cardData[j] - times;
+            if(temp_cardData[j] < 0) temp_cardData[j] = 0;
+            assert(temp_cardData[j] >= 0);
+        }
+        float temp_value = get_remain_cards_value(temp_cardData, value);
+        value_caches.push_back(temp_value);
+    }
+    return *max_element(value_caches.begin(), value_caches.end());
+}
+void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vector<Card>> &kickers, int cardData[]) {
+	if (len == 0)
+	{
+		return;
+	}
+	vector<vector<Card>> result;
+	for (auto &kicker : kickers) {
+		for (size_t i = (kicker.empty() ? 0 : static_cast<int>(kicker.back()) + 1); i < (single ? 15 : 13); i++)
+		{
+			vector<Card> tmp = kicker;
+			if (find(main_cards.begin(), main_cards.end(), Card(i)) == main_cards.end() && cardData[i] >= 1)
+			{
+                tmp.push_back(Card(i + 3));
+                if (!single && cardData[i] >= 2)
+                {
+                    tmp.push_back(Card(i + 3));
+                }
+                if (!(tmp.size() == 2 && static_cast<int>(tmp[0]) + static_cast<int>(tmp[1]) == 13 + 14))
+                {
+                    result.push_back(tmp);
+                }
+			}
+		}
+	}
+	kickers = result;
+	get_kickers(main_cards, single, len - 1, kickers, cardData);
+}
+vector<int> one_card_group2vector(CardGroup card_group) {
+    vector<int> vct = {};
+    vector<Card> cg_cards = card_group._cards;
+    if(!cg_cards.size()) return vct;
+    for(Card cd:cg_cards) {
+            vct.push_back((int) cd);
+        }
+    return vct;
+}
+float get_card_group_value(CardGroup card_group) {
+    vector<int> cards = one_card_group2vector(card_group);
+    Category category = card_group._category;
+    float value = 0.0f;
+    // empty
+    if(category == Category(0)) value = 0;
+    // single
+    else if(category == Category(1)) {
+        assert(cards.size() == 1);
+        value = cards[0] * 0.3;
+    }
+    // double
+    else if(category == Category(2)) {
+        assert(cards.size() == 2);
+        value = cards[0] * 0.4;
+    }
+    // triple
+    else if(category == Category(3)) {
+        assert(cards.size() == 3);
+        value = cards[0] * 0.8;
+    }
+    // quatric
+    else if(category == Category(4)) {
+        assert(cards.size() == 4);
+        value = cards[0] * 3;
+    }
+    // three one
+    else if(category == Category(5)) {
+        assert(cards.size() == 4);
+        int main_card, kicker;
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) kicker = card;
+            else main_card = card;
+        }
+        value = main_card * 0.2 * 3 - kicker * 0.1;
+    }
+    // three two
+    else if(category == Category(6)) {
+        assert(cards.size() == 5);
+        int main_card, kicker;
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 2) kicker = card;
+            else main_card = card;
+        }
+        value = main_card * 0.2 * 3 - kicker * 0.1 * 2;
+    }
+    // single line
+    else if(category == Category(7)) {
+        assert(cards.size() >= 5);
+        for(int card:cards) value += card * 0.2;
+    }
+    // double line
+    else if(category == Category(8)) {
+        assert(cards.size() >= 6);
+        for(int card:cards) value += card * 0.2;
+    }
+    // triple line
+    else if(category == Category(9)) {
+        assert(cards.size() % 3 == 0);
+        for(int card:cards) value += card * 0.2;
+    }
+    // three one line
+    else if(category == Category(10)) {
+        assert(cards.size() >= 3);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n <= 2) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    // three two line
+    else if(category == Category(11)) {
+        assert(category == Category::THREE_TWO_LINE);
+        assert(cards.size() >= 3);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n <= 2) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    // big band
+    else if(category == Category(12)) value = 5;
+    // four take one
+    else if(category == Category(13)) {
+        assert(cards.size() == 6);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    // take take two
+    else if(category == Category(14)) {
+        assert(cards.size() == 8);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    return value;
+}
 vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 	vector<CardGroup> actions;
     // actions.push_back(CardGroup({}, Category::EMPTY, 0));
@@ -3893,36 +4097,6 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 	if(!actions.size()) actions.push_back(CardGroup({}, Category::EMPTY, 0));
 	return actions;
 }
-
-void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vector<Card>> &kickers, int cardData[]) {
-	if (len == 0)
-	{
-		return;
-	}
-	vector<vector<Card>> result;
-	for (auto &kicker : kickers) {
-		for (size_t i = (kicker.empty() ? 0 : static_cast<int>(kicker.back()) + 1); i < (single ? 15 : 13); i++)
-		{
-			vector<Card> tmp = kicker;
-			if (find(main_cards.begin(), main_cards.end(), Card(i)) == main_cards.end() && cardData[i] >= 1)
-			{
-                tmp.push_back(Card(i + 3));
-                if (!single && cardData[i] >= 2)
-                {
-                    tmp.push_back(Card(i + 3));
-                }
-                if (!(tmp.size() == 2 && static_cast<int>(tmp[0]) + static_cast<int>(tmp[1]) == 13 + 14))
-                {
-                    result.push_back(tmp);
-                }
-			}
-		}
-	}
-	kickers = result;
-	get_kickers(main_cards, single, len - 1, kickers, cardData);
-}
-
-// change value_nHandCardList to a one hot representation
 void get_one_hot_representation(int one_hot[], vector<int> hand_card_data, bool zero_start) {
     for(int idx = 0; idx < 15; idx ++) {
         int new_idx = idx;
@@ -3934,196 +4108,21 @@ void get_one_hot_representation(int one_hot[], vector<int> hand_card_data, bool 
     return;
 }
 
-vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes) {
-    vector<vector<int>> card_group_matrix;
-    for(CardGroupNode node:card_group_nodes) {
-        card_group_matrix.push_back(node.group_data);
-    }
-    return card_group_matrix;
-}
-
-vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group) {
-    vector<vector<int>> card_group_matrix;
-    vector<int> one_row;
-    for(CardGroup cg:card_group) {
-        vector<Card> cg_cards = cg._cards;
-        for(Card cd:cg_cards) {
-            one_row.push_back((int) cd);
-        }
-        card_group_matrix.push_back(one_row);
-        one_row.clear();
-    }
-    return card_group_matrix;
-}
-
-vector<int> one_card_group2vector(CardGroup card_group) {
-    vector<int> vct = {};
-    vector<Card> cg_cards = card_group._cards;
-    if(!cg_cards.size()) return vct;
-    for(Card cd:cg_cards) {
-            vct.push_back((int) cd);
-        }
-    return vct;
-}
-
-float get_card_group_value(CardGroup card_group) {
-    vector<int> cards = one_card_group2vector(card_group);
-    Category category = card_group._category;
-    float value = 0.0f;
-    // empty
-    if(category == Category(0)) value = 0;
-    // single
-    else if(category == Category(1)) {
-        assert(cards.size() == 1);
-        value = cards[0] * 0.1;
-    }
-    // double
-    else if(category == Category(2)) {
-        assert(cards.size() == 2);
-        value = cards[0] * 0.2;
-    }
-    // triple
-    else if(category == Category(3)) {
-        assert(cards.size() == 3);
-        value = cards[0] * 0.3;
-    }
-    // quatric
-    else if(category == Category(4)) {
-        assert(cards.size() == 4);
-        value = cards[0] * 3;
-    }
-    // three one
-    else if(category == Category(5)) {
-        assert(cards.size() == 4);
-        int main_card, kicker;
-        for(int card:cards) {
-            int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n == 1) kicker = card;
-            else main_card = card;
-        }
-        value = main_card * 0.2 * 3 - kicker * 0.1;
-    }
-    // three two
-    else if(category == Category(6)) {
-        assert(cards.size() == 5);
-        int main_card, kicker;
-        for(int card:cards) {
-            int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n == 2) kicker = card;
-            else main_card = card;
-        }
-        value = main_card * 0.2 * 3 - kicker * 0.1 * 2;
-    }
-    // single line
-    else if(category == Category(7)) {
-        assert(cards.size() >= 5);
-        for(int card:cards) value += card * 0.2;
-    }
-    // double line
-    else if(category == Category(8)) {
-        assert(cards.size() >= 6);
-        for(int card:cards) value += card * 0.2;
-    }
-    // triple line
-    else if(category == Category(9)) {
-        assert(cards.size() % 3 == 0);
-        for(int card:cards) value += card * 0.2;
-    }
-    // three one line
-    else if(category == Category(10)) {
-        assert(cards.size() == 8);
-        for(int card:cards) {
-            int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n <= 2) value += -0.1 * card;
-            else value += 0.1 * card;
-        }
-    }
-    // three two line
-    else if(category == Category(11)) {
-        assert(category == Category::THREE_TWO_LINE);
-        assert(cards.size() == 10);
-        for(int card:cards) {
-            int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n <= 2) value += -0.1 * card;
-            else value += 0.1 * card;
-        }
-    }
-    // big band
-    else if(category == Category(12)) value = 5;
-    // four take one
-    else if(category == Category(13)) {
-        assert(cards.size() == 6);
-        for(int card:cards) {
-            int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n == 1) value += -0.1 * card;
-            else value += 0.1 * card;
-        }
-    }
-    // take take two
-    else if(category == Category(14)) {
-        assert(cards.size() == 8);
-        for(int card:cards) {
-            int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n == 1) value += -0.1 * card;
-            else value += 0.1 * card;
-        }
-    }
-    return value;
-}
-
-float get_remain_cards_value(int cardData[], float value) {
-    // cardData is an one-hot representation of cards
-    bool return_flag = true;
-    for(int i = 0; i < 15; i++) {
-        if(cardData[i] != 0) {
-            return_flag = false;
-            break;
-        }
-    }
-    if(return_flag) return value;
-    int max_value = 0;
-    for(int max_idx = 14; max_idx > -1; max_idx --) {
-        if(cardData[max_idx] > 0) {
-            max_value = max_idx;
-            break;
-        }
-    }
-
-    vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
-    vector<float> value_caches;
-    for(CardGroup action:all_actions) {
-        if(!action._cards.size()) return 0;
-        vector<int> cards = one_card_group2vector(action);
-        assert(cards.size() > 0);
-        if(find(cards.begin(), cards.end(), max_value) == cards.end()) continue;
-        float temp_group_value = get_card_group_value(action);
-        value += temp_group_value;
-        // delete used value
-        int temp_cardData[15] = {0};
-        for(int j = 0; j < 15; j++) {
-            assert(cardData[j] >= 0);
-            int times = count(cards.begin(), cards.end(), j);
-            temp_cardData[j] = cardData[j] - times;
-
-            // assert(temp_cardData[j] >= 0);
-        }
-        float temp_value = get_remain_cards_value(temp_cardData, value);
-        value_caches.push_back(temp_value);
-    }
-    return *max_element(value_caches.begin(), value_caches.end());
-}
-
 CardGroupNode find_best_group_unlimit(int cardData[]){
     vector<CardGroup> card_groups = get_all_actions_unlimit(cardData); // 0-14
-    vector<float> value_caches;
+    vector<float> value_caches = {};
     for(CardGroup card_group:card_groups) {
         if(card_group._cards.size() != 0) {
             vector<int> card_group_vector = one_card_group2vector(card_group);
+            assert(card_group_vector.size() > 0);
             float value = get_card_group_value(card_group);
-            int temp_cardData[15] = {0};
+            int temp_cardData[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             for(int j = 0; j < 15; j++) {
                 int times = count(card_group_vector.begin(), card_group_vector.end(), j);
+                assert(cardData[j] >= 0);
+                // assert(times <= cardData[j]);
                 temp_cardData[j] = cardData[j] - times;
+                if(temp_cardData[j] < 0) temp_cardData[j] = 0;
                 assert(temp_cardData[j] >= 0);
             }
             value = get_remain_cards_value(temp_cardData, value);
@@ -4169,10 +4168,11 @@ CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardDat
             CardGroupType this_action_type = (CardGroupType) card_group._category;
             assert(this_action_type == cg_type);
             float value = get_card_group_value(card_group);
-            int temp_cardData[15] = {0};
+            int temp_cardData[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             for(int j = 0; j < 15; j++) {
                 int times = count(card_group_vector.begin(), card_group_vector.end(), j);
                 temp_cardData[j] = cardData[j] - times;
+                if(temp_cardData[j] < 0) temp_cardData[j] = 0;
                 assert(temp_cardData[j] >= 0);
             }
             value = get_remain_cards_value(temp_cardData, value);

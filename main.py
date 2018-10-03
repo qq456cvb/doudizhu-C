@@ -15,14 +15,14 @@ from utils import to_char
 
 if __name__ == '__main__':
     env = CEnv()
-    rounds = 10
+    rounds = 500
     count = 0
-    for _ in range(rounds):
+    for this_round in range(rounds):
         env.reset()
         env.prepare()
         r = 0
         round_count = 1
-        print('-' * 50 + 'Game start!' + '-' * 50)
+        print('-' * 50 + 'Game start at rounds {}!'.format(this_round) + '-' * 50)
         while r == 0:
             intention, r, cate, idx, p1, p2, idx1, p0, idx2 = env.step_auto()
             if (r != 0) and (idx == 0):
@@ -36,6 +36,6 @@ if __name__ == '__main__':
             round_count += 1
             if round_count % 3 == 0:
                 round_count = 1
-        print('-' * 50 + 'Game over!' + '-' * 50)
+        print('-' * 50 + 'Round {} game over!'.format(this_round) + '-' * 50)
 
     print('winning rate: ', count / rounds)
