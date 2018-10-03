@@ -683,18 +683,18 @@ bool  HandCardData::PutOneCard(int value_nCard, int &color_nCard)
  CardGroupType cgType
  int MaxCard
  int Count
- 
+
  CardGroupData
  */
 
 CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count)
 {
     CardGroupData uctCardGroupData;
-    
+
     uctCardGroupData.cgType = cgType;
     uctCardGroupData.nCount = Count;
     uctCardGroupData.nMaxCard = MaxCard;
-    
+
     //
     if (cgType == cgZERO)
         uctCardGroupData.nValue = 0;
@@ -743,8 +743,8 @@ CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count)
     //
     else
         uctCardGroupData.nValue = 0;
-    
-    
+
+
     return uctCardGroupData;
 }
 /*
@@ -755,11 +755,11 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
 {
     clsHandCardData.ClearPutCardList();
     // aHandCardList: one hot representation of hand cards
-    
+
     /**/
     if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
     {
-        
+
         clsHandCardData.value_aHandCardList[17] --;
         clsHandCardData.value_aHandCardList[16] --;
         clsHandCardData.nHandCardCount -= 2;
@@ -775,15 +775,15 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             return;
         }
     }
-    
-    
-    //  
+
+
+    //
     if (clsGameSituation.uctNowCardGroup.cgType == cgERROR)
     {
         clsHandCardData.uctPutCardType = get_GroupData(cgERROR, 0, 0);
         return;
     }
-    // 
+    //
     else if (clsGameSituation.uctNowCardGroup.cgType == cgZERO)
     {
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
@@ -809,11 +809,11 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         }
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
-        
-        
+
+
         //7
         BestHandCardValue.NeedRound += 1;
-        
+
         //
         int BestMaxCard=0;
         //
@@ -828,7 +828,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 HandCardValue tmpHandCardValue=get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i]++;
                 clsHandCardData.nHandCardCount++;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue-(BestHandCardValue.NeedRound*7)) <= (tmpHandCardValue.SumValue-(tmpHandCardValue.NeedRound*7)))
                 {
@@ -836,37 +836,37 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
         {
             clsHandCardData.value_nPutCardList.push_back(BestMaxCard);
-            clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgSINGLE, BestMaxCard, 1);  
-            return;  
+            clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgSINGLE, BestMaxCard, 1);
+            return;
         }
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -878,7 +878,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -889,7 +889,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.value_nPutCardList.push_back(16);
                 clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgKING_CARD, 17, 2);
                 return;
-            }  
+            }
         }
         //
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
@@ -914,18 +914,18 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             }
         }
         //--------------------------------------------------------------------------------------
-        
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
-        
+
         //7
         BestHandCardValue.NeedRound += 1;
-        
+
         //
         int BestMaxCard = 0;
         //
         bool PutCards = false;
-        
+
         for (int i = clsGameSituation.uctNowCardGroup.nMaxCard + 1; i < 18; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] > 1)
@@ -936,7 +936,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i]+=2;
                 clsHandCardData.nHandCardCount+=2;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                 {
@@ -944,7 +944,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -954,32 +954,32 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgDOUBLE, BestMaxCard, 2);
             return;
         }
-        
-        
+
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] ==4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -991,7 +991,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -1003,10 +1003,10 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgKING_CARD, 17, 2);
                 return;
             }
-        }  
-        
-        //  
-        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);  
+        }
+
+        //
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
     }
     //
@@ -1028,19 +1028,19 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             }
         }
         //--------------------------------------------------------------------------------------
-        
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
-        
-        
+
+
         //7
         BestHandCardValue.NeedRound += 1;
-        
+
         //
         int BestMaxCard = 0;
         //
         bool PutCards = false;
-        
+
         for (int i = clsGameSituation.uctNowCardGroup.nMaxCard + 1; i < 18; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] > 2)
@@ -1051,7 +1051,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 3;
                 clsHandCardData.nHandCardCount += 3;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                 {
@@ -1059,7 +1059,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -1070,32 +1070,32 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgTHREE, BestMaxCard, 3);
             return;
         }
-        
-        
+
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -1107,7 +1107,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -1119,10 +1119,10 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgKING_CARD, 17, 2);
                 return;
             }
-        }  
-        
-        //  
-        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);  
+        }
+
+        //
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
     }
     //
@@ -1146,11 +1146,11 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         int length = clsGameSituation.uctNowCardGroup.nCount;
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
-        
-        
+
+
         //7
         BestHandCardValue.NeedRound += 1;
-        
+
         //
         int BestMaxCard = 0;
         //
@@ -1173,7 +1173,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             {
                 end_i = i;
                 start_i = i - length + 1;
-                
+
                 for (int j = start_i; j <= end_i; j++)
                 {
                     clsHandCardData.value_aHandCardList[j] --;
@@ -1185,18 +1185,18 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     clsHandCardData.value_aHandCardList[j] ++;
                 }
                 clsHandCardData.nHandCardCount += clsGameSituation.uctNowCardGroup.nCount;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
-                {  
-                    BestHandCardValue = tmpHandCardValue;  
-                    BestMaxCard = end_i;  
-                    PutCards = true;  
-                }  
-                
-            }  
+                {
+                    BestHandCardValue = tmpHandCardValue;
+                    BestMaxCard = end_i;
+                    PutCards = true;
+                }
+
+            }
         }
-        
+
         if (PutCards)
         {
             if (BestMaxCard <= clsGameSituation.uctNowCardGroup.nMaxCard) {
@@ -1210,33 +1210,33 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             // std::cout << std::endl;
             // std::cout << "Setting nMaxCard " << BestMaxCard << std::endl;
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgSINGLE_LINE, BestMaxCard, clsGameSituation.uctNowCardGroup.nCount);
-            return;  
+            return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -1248,7 +1248,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -1285,15 +1285,15 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
-        
+
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
-        
-        
+
+
         //7
         BestHandCardValue.NeedRound += 1;
-        
+
         //
         int BestMaxCard = 0;
         //
@@ -1321,7 +1321,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             {
                 end_i = i;
                 start_i = i - length + 1;
-                
+
                 for (int j = start_i; j <= end_i; j++)
                 {
                     clsHandCardData.value_aHandCardList[j] -=2;
@@ -1333,7 +1333,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     clsHandCardData.value_aHandCardList[j] +=2;
                 }
                 clsHandCardData.nHandCardCount += clsGameSituation.uctNowCardGroup.nCount;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                 {
@@ -1341,10 +1341,10 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     BestMaxCard = end_i;
                     PutCards = true;
                 }
-                
+
             }
         }
-        
+
         if (PutCards)
         {
             for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
@@ -1355,31 +1355,31 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgDOUBLE_LINE, BestMaxCard, clsGameSituation.uctNowCardGroup.nCount);
             return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -1391,7 +1391,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -1404,13 +1404,13 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
-        
-        
+
+
+
         //
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
-        
+
     }
     //
     else if (clsGameSituation.uctNowCardGroup.cgType == cgTHREE_LINE)
@@ -1431,15 +1431,15 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
-        
+
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
-        
-        
+
+
         //7
         BestHandCardValue.NeedRound += 1;
-        
+
         //
         int BestMaxCard = 0;
         //
@@ -1467,7 +1467,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             {
                 end_i = i;
                 start_i = i - length + 1;
-                
+
                 for (int j = start_i; j <= end_i; j++)
                 {
                     clsHandCardData.value_aHandCardList[j] -= 3;
@@ -1479,7 +1479,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     clsHandCardData.value_aHandCardList[j] += 3;
                 }
                 clsHandCardData.nHandCardCount += clsGameSituation.uctNowCardGroup.nCount;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                 {
@@ -1487,10 +1487,10 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     BestMaxCard = end_i;
                     PutCards = true;
                 }
-                
+
             }
         }
-        
+
         if (PutCards)
         {
             for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
@@ -1502,31 +1502,31 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgTHREE_LINE, BestMaxCard, clsGameSituation.uctNowCardGroup.nCount);
             return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -1538,7 +1538,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -1547,16 +1547,16 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             {
                 clsHandCardData.value_nPutCardList.push_back(17);
                 clsHandCardData.value_nPutCardList.push_back(16);
-                clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgKING_CARD, 17, 2);  
-                return;  
-            }  
-        }  
-        
-        
-        
-        //  
-        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);  
-        return;  
+                clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgKING_CARD, 17, 2);
+                return;
+            }
+        }
+
+
+
+        //
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
+        return;
     }
     //
     else if (clsGameSituation.uctNowCardGroup.cgType == cgTHREE_TAKE_ONE)
@@ -1577,8 +1577,8 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
-        
+
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
         //7
@@ -1622,36 +1622,36 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         {
             clsHandCardData.value_nPutCardList.push_back(BestMaxCard);
             clsHandCardData.value_nPutCardList.push_back(BestMaxCard);
-            clsHandCardData.value_nPutCardList.push_back(BestMaxCard);  
-            clsHandCardData.value_nPutCardList.push_back(tmp_1);  
-            clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgTHREE_TAKE_ONE, BestMaxCard, 4);  
-            return;  
+            clsHandCardData.value_nPutCardList.push_back(BestMaxCard);
+            clsHandCardData.value_nPutCardList.push_back(tmp_1);
+            clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgTHREE_TAKE_ONE, BestMaxCard, 4);
+            return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -1663,7 +1663,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -1676,8 +1676,8 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
-        
+
+
         //
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
@@ -1701,7 +1701,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
         //7
@@ -1712,7 +1712,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         int tmp_1 = 0;
         //
         bool PutCards = false;
-        
+
         for (int i = clsGameSituation.uctNowCardGroup.nMaxCard + 1; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] >2)
@@ -1751,31 +1751,31 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgTHREE_TAKE_TWO, BestMaxCard, 5);
             return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -1787,7 +1787,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -1800,7 +1800,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
+
         //
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
@@ -1827,10 +1827,10 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
 
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
-        
+
         //7
         BestHandCardValue.NeedRound += 1;
-        
+
         //
         int BestMaxCard = 0;
         //
@@ -1843,7 +1843,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         int end_i = 0;
         //
         int length = clsGameSituation.uctNowCardGroup.nCount / 4;
-        
+
         int tmp_1 = 0;
         int tmp_2 = 0;
         int tmp_3 = 0;
@@ -1863,13 +1863,13 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             {
                 end_i = i;
                 start_i = i - length + 1;
-                
+
                 for (int j = start_i; j <= end_i; j++)
                 {
                     clsHandCardData.value_aHandCardList[j] -= 3;
                 }
                 clsHandCardData.nHandCardCount -= clsGameSituation.uctNowCardGroup.nCount;
-                
+
                 /*2-4
                  */
                 //
@@ -1897,7 +1897,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                                     clsHandCardData.value_aHandCardList[k] -= 1;
                                     HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                                     clsHandCardData.value_aHandCardList[k] += 1;
-                                    
+
                                     //-*7  n -7
                                     if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                                     {
@@ -1911,7 +1911,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                             }
                             clsHandCardData.value_aHandCardList[j] += 1;
                         }
-                        
+
                     }
                 }
                 //
@@ -1963,8 +1963,8 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                             }
                             clsHandCardData.value_aHandCardList[j] += 1;
                         }
-                        
-                        
+
+
                     }
                 }
                 //
@@ -2029,11 +2029,11 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                             }
                             clsHandCardData.value_aHandCardList[j] += 1;
                         }
-                        
-                        
+
+
                     }
                 }
-                
+
                 for (int j = start_i; j <= end_i; j++)
                 {
                     clsHandCardData.value_aHandCardList[j] += 3;
@@ -2041,7 +2041,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.nHandCardCount += clsGameSituation.uctNowCardGroup.nCount;
             }
         }
-        
+
         if (PutCards)
         {
             for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
@@ -2050,55 +2050,55 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.value_nPutCardList.push_back(j);
                 clsHandCardData.value_nPutCardList.push_back(j);
             }
-            
+
             if (length == 2)
             {
                 clsHandCardData.value_nPutCardList.push_back(tmp_1);
-                clsHandCardData.value_nPutCardList.push_back(tmp_2);  
-            }  
-            if (length == 3)  
-            {  
-                clsHandCardData.value_nPutCardList.push_back(tmp_1);  
-                clsHandCardData.value_nPutCardList.push_back(tmp_2);  
-                clsHandCardData.value_nPutCardList.push_back(tmp_3);  
-                
-            }  
-            if (length == 4)  
-            {  
-                clsHandCardData.value_nPutCardList.push_back(tmp_1);  
-                clsHandCardData.value_nPutCardList.push_back(tmp_2);  
-                clsHandCardData.value_nPutCardList.push_back(tmp_3);  
-                clsHandCardData.value_nPutCardList.push_back(tmp_4);  
-            }  
-            
-            clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgTHREE_TAKE_ONE_LINE, BestMaxCard, clsGameSituation.uctNowCardGroup.nCount);  
-            return;  
+                clsHandCardData.value_nPutCardList.push_back(tmp_2);
+            }
+            if (length == 3)
+            {
+                clsHandCardData.value_nPutCardList.push_back(tmp_1);
+                clsHandCardData.value_nPutCardList.push_back(tmp_2);
+                clsHandCardData.value_nPutCardList.push_back(tmp_3);
+
+            }
+            if (length == 4)
+            {
+                clsHandCardData.value_nPutCardList.push_back(tmp_1);
+                clsHandCardData.value_nPutCardList.push_back(tmp_2);
+                clsHandCardData.value_nPutCardList.push_back(tmp_3);
+                clsHandCardData.value_nPutCardList.push_back(tmp_4);
+            }
+
+            clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgTHREE_TAKE_ONE_LINE, BestMaxCard, clsGameSituation.uctNowCardGroup.nCount);
+            return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -2110,7 +2110,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -2147,14 +2147,14 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
-        
-        
+
+
         //7
         BestHandCardValue.NeedRound += 1;
-        
+
         //
         int BestMaxCard = 0;
         //
@@ -2167,7 +2167,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         int end_i = 0;
         //
         int length = clsGameSituation.uctNowCardGroup.nCount / 4;
-        
+
         int tmp_1 = 0;
         int tmp_2 = 0;
         int tmp_3 = 0;
@@ -2186,13 +2186,13 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             {
                 end_i = i;
                 start_i = i - length + 1;
-                
+
                 for (int j = start_i; j <= end_i; j++)
                 {
                     clsHandCardData.value_aHandCardList[j] -= 3;
                 }
                 clsHandCardData.nHandCardCount -= clsGameSituation.uctNowCardGroup.nCount;
-                
+
                 /*2-4
                  */
                 //
@@ -2210,7 +2210,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                                     clsHandCardData.value_aHandCardList[k] -= 2;
                                     HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                                     clsHandCardData.value_aHandCardList[k] += 2;
-                                    
+
                                     //-*7  n -7
                                     if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                                     {
@@ -2224,7 +2224,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                             }
                             clsHandCardData.value_aHandCardList[j] += 2;
                         }
-                        
+
                     }
                 }
                 //
@@ -2264,11 +2264,11 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                             }
                             clsHandCardData.value_aHandCardList[j] += 2;
                         }
-                        
-                        
+
+
                     }
                 }
-                
+
                 for (int j = start_i; j <= end_i; j++)
                 {
                     clsHandCardData.value_aHandCardList[j] += 3;
@@ -2276,7 +2276,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.nHandCardCount += clsGameSituation.uctNowCardGroup.nCount;
             }
         }
-        
+
         if (PutCards)
         {
             for (int j = BestMaxCard - length + 1; j <= BestMaxCard; j++)
@@ -2285,7 +2285,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.value_nPutCardList.push_back(j);
                 clsHandCardData.value_nPutCardList.push_back(j);
             }
-            
+
             if (length == 2)
             {
                 clsHandCardData.value_nPutCardList.push_back(tmp_1);
@@ -2301,37 +2301,37 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.value_nPutCardList.push_back(tmp_2);
                 clsHandCardData.value_nPutCardList.push_back(tmp_3);
                 clsHandCardData.value_nPutCardList.push_back(tmp_3);
-                
+
             }
-            
+
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgTHREE_TAKE_TWO_LINE, BestMaxCard, clsGameSituation.uctNowCardGroup.nCount);
             return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -2343,7 +2343,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -2356,7 +2356,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
+
         //
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
@@ -2381,7 +2381,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
         //7
@@ -2392,7 +2392,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         int tmp_1 = 0, tmp_2 = 0;
         //
         bool PutCards = false;
-        
+
         for (int i = clsGameSituation.uctNowCardGroup.nMaxCard + 1; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
@@ -2416,7 +2416,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                                 clsHandCardData.value_aHandCardList[j] += 1;
                                 clsHandCardData.value_aHandCardList[k] += 1;
                                 clsHandCardData.nHandCardCount += 6;
-                                
+
                                 //-*7  n -7
                                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                                 {
@@ -2430,7 +2430,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                         }
                     }
                 }
-            }  
+            }
         }
         if (PutCards)
         {
@@ -2443,31 +2443,31 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgFOUR_TAKE_ONE, BestMaxCard, 6);
             return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         for (int i = 3; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
             {
-                
+
                 //,
                 clsHandCardData.value_aHandCardList[i] -= 4;
                 clsHandCardData.nHandCardCount -= 4;
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 4;
                 clsHandCardData.nHandCardCount += 4;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7))
-                    // 
+                    //
                     || tmpHandCardValue.SumValue > 0)
                 {
                     BestHandCardValue = tmpHandCardValue;
                     BestMaxCard = i;
                     PutCards = true;
                 }
-                
+
             }
         }
         if (PutCards)
@@ -2479,7 +2479,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, BestMaxCard, 4);
             return;
         }
-        
+
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
@@ -2492,7 +2492,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
+
         //
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
@@ -2517,7 +2517,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 return;
             }
         }
-        
+
         //
         HandCardValue BestHandCardValue = get_HandCardValue(clsHandCardData);
         //7
@@ -2528,7 +2528,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
         int tmp_1 = 0, tmp_2 = 0;
         //
         bool PutCards = false;
-        
+
         for (int i = clsGameSituation.uctNowCardGroup.nMaxCard + 1; i < 16; i++)
         {
             if (clsHandCardData.value_aHandCardList[i] == 4)
@@ -2552,7 +2552,7 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                                 clsHandCardData.value_aHandCardList[j] += 2;
                                 clsHandCardData.value_aHandCardList[k] += 2;
                                 clsHandCardData.nHandCardCount += 8;
-                                
+
                                 //-*7  n -7
                                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                                 {
@@ -2568,10 +2568,10 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 }
             }
         }
-        
+
         /*14
          14*/
-        
+
         if (BestHandCardValue.SumValue > 14)
         {
             //
@@ -2583,25 +2583,25 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                     clsHandCardData.value_nPutCardList.push_back(i);
                     clsHandCardData.value_nPutCardList.push_back(i);
                     clsHandCardData.value_nPutCardList.push_back(i);
-                    
+
                     clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, i, 4);
-                    
+
                     return;
                 }
             }
             //
             if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
             {
-                
+
                 clsHandCardData.value_nPutCardList.push_back(17);
                 clsHandCardData.value_nPutCardList.push_back(16);
-                
+
                 clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgKING_CARD, 17, 2);
-                
-                return;  
-            }  
+
+                return;
+            }
         }
-        
+
         if (PutCards)
         {
             clsHandCardData.value_nPutCardList.push_back(BestMaxCard);
@@ -2615,9 +2615,9 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgFOUR_TAKE_TWO, BestMaxCard, 8);
             return;
         }
-        
+
         //--------------------------------------------------------------------------------------
-        
+
         //
         for (int i = 3; i < 16; i++)
         {
@@ -2627,24 +2627,24 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.value_nPutCardList.push_back(i);
                 clsHandCardData.value_nPutCardList.push_back(i);
                 clsHandCardData.value_nPutCardList.push_back(i);
-                
+
                 clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, i, 4);
-                
+
                 return;
             }
         }
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
-            
+
             clsHandCardData.value_nPutCardList.push_back(17);
             clsHandCardData.value_nPutCardList.push_back(16);
-            
+
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgKING_CARD, 17, 2);
-            
-            return;  
+
+            return;
         }
-        
+
         //
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
@@ -2661,45 +2661,45 @@ void get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsH
                 clsHandCardData.value_nPutCardList.push_back(i);
                 clsHandCardData.value_nPutCardList.push_back(i);
                 clsHandCardData.value_nPutCardList.push_back(i);
-                
+
                 clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgBOMB_CARD, i, 4);
-                
+
                 return;
             }
         }
         //
         if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
         {
-            
+
             clsHandCardData.value_nPutCardList.push_back(17);
             clsHandCardData.value_nPutCardList.push_back(16);
-            
+
             clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cgKING_CARD, 17, 2);
-            
-            return;  
-        }  
-        //  
-        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);  
+
+            return;
+        }
+        //
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
     }
-    // 
+    //
     else if (clsGameSituation.uctNowCardGroup.cgType == cgKING_CARD)
     {
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
         return;
     }
-    // 
+    //
     else
     {
         clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
-    }  
-    return;  
+    }
+    return;
 }
 void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
 {
-    
+
     clsHandCardData.ClearPutCardList();
-    
+
     ///
     CardGroupData SurCardGroupData = ins_SurCardsType(clsHandCardData.value_aHandCardList); // get hand card information
     //
@@ -2708,11 +2708,11 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
         Put_All_SurCards(clsHandCardData, SurCardGroupData);
         return;
     }
-    
+
     /**/
     if (clsHandCardData.value_aHandCardList[17] > 0 && clsHandCardData.value_aHandCardList[16] > 0)
     {
-        
+
         clsHandCardData.value_aHandCardList[17] --;
         clsHandCardData.value_aHandCardList[16] --;
         clsHandCardData.nHandCardCount -= 2;
@@ -2728,17 +2728,17 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
             return;
         }
     }
-    
+
     //
     HandCardValue BestHandCardValue;
     BestHandCardValue.NeedRound = 20;
     BestHandCardValue.SumValue = MinCardsValue;
     //7
     BestHandCardValue.NeedRound += 1;
-    
+
     //
     CardGroupData BestCardGroup;
-    
+
     //
     int tmp_1 = 0;
     int tmp_2 = 0;
@@ -2828,7 +2828,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     //
                     if (prov == 2)
                     {
-                        
+
                         for (int k = i; k <= j; k++)
                         {
                             clsHandCardData.value_aHandCardList[k] -= 3;
@@ -2853,7 +2853,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                                     {
                                         clsHandCardData.value_aHandCardList[tmp2] -= 1;
                                         HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
-                                        
+
                                         if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                                         {
                                             BestHandCardValue = tmpHandCardValue;
@@ -2908,25 +2908,25 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                                             if (clsHandCardData.value_aHandCardList[tmp3] > 0)
                                             {
                                                 clsHandCardData.value_aHandCardList[tmp3] -= 1;
-                                                
+
                                                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                                                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                                                 {
-                                                    
+
                                                     BestHandCardValue = tmpHandCardValue;
                                                     BestCardGroup = get_GroupData(cgTHREE_TAKE_ONE_LINE, j, prov * 4);
                                                     tmp_1 = tmp1;
                                                     tmp_2 = tmp2;
                                                     tmp_3 = tmp3;
-                                                    
+
                                                 }
                                                 clsHandCardData.value_aHandCardList[tmp3] += 1;
                                             }
-                                            
+
                                         }
                                         clsHandCardData.value_aHandCardList[tmp2] += 1;
                                     }
-                                    
+
                                 }
                                 clsHandCardData.value_aHandCardList[tmp1] += 1;
                             }
@@ -2993,15 +2993,15 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                                                         }
                                                         clsHandCardData.value_aHandCardList[tmp4] += 1;
                                                     }
-                                                    
+
                                                 }
                                                 clsHandCardData.value_aHandCardList[tmp3] += 1;
                                             }
-                                            
+
                                         }
                                         clsHandCardData.value_aHandCardList[tmp2] += 1;
                                     }
-                                    
+
                                 }
                                 clsHandCardData.value_aHandCardList[tmp1] += 1;
                             }
@@ -3014,7 +3014,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     }
                     //prov==5
                 }
-                
+
             }
             //
             if (clsHandCardData.value_aHandCardList[i] > 2)
@@ -3035,7 +3035,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     //
                     if (prov == 2)
                     {
-                        
+
                         for (int k = i; k <= j; k++)
                         {
                             clsHandCardData.value_aHandCardList[k] -= 3;
@@ -3125,26 +3125,26 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                                                 }
                                                 clsHandCardData.value_aHandCardList[tmp3] += 2;
                                             }
-                                            
+
                                         }
                                         clsHandCardData.value_aHandCardList[tmp2] += 2;
                                     }
-                                    
+
                                 }
                                 clsHandCardData.value_aHandCardList[tmp1] += 2;
-                            }  
-                        }  
-                        for (int k = i; k <= j; k++)  
-                        {  
-                            clsHandCardData.value_aHandCardList[k] += 3;  
-                        }  
-                        clsHandCardData.nHandCardCount += prov * 5;  
-                    }  
-                    //prov==4  
-                }  
-            }  
-        }  
-        
+                            }
+                        }
+                        for (int k = i; k <= j; k++)
+                        {
+                            clsHandCardData.value_aHandCardList[k] += 3;
+                        }
+                        clsHandCardData.nHandCardCount += prov * 5;
+                    }
+                    //prov==4
+                }
+            }
+        }
+
     }
     //
     if (BestCardGroup.cgType == cgTHREE_TAKE_ONE)
@@ -3174,7 +3174,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
             clsHandCardData.value_nPutCardList.push_back(j);
             clsHandCardData.value_nPutCardList.push_back(j);
         }
-        
+
         if (BestCardGroup.nCount / 4 == 2)
         {
             clsHandCardData.value_nPutCardList.push_back(tmp_1);
@@ -3193,7 +3193,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
             clsHandCardData.value_nPutCardList.push_back(tmp_3);
             clsHandCardData.value_nPutCardList.push_back(tmp_4);
         }
-        
+
         clsHandCardData.uctPutCardType = BestCardGroup;
         return;
     }
@@ -3224,7 +3224,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
         clsHandCardData.uctPutCardType = BestCardGroup;
         return;
     }
-    
+
     //
     for (int i = 3; i < 16; i++)
     {
@@ -3252,7 +3252,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 2;
                 clsHandCardData.nHandCardCount += 2;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                 {
@@ -3268,7 +3268,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                 HandCardValue tmpHandCardValue = get_HandCardValue(clsHandCardData);
                 clsHandCardData.value_aHandCardList[i] += 3;
                 clsHandCardData.nHandCardCount += 3;
-                
+
                 //-*7  n -7
                 if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                 {
@@ -3276,7 +3276,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     BestCardGroup = get_GroupData(cgTHREE, i, 3);
                 }
             }
-            
+
             //
             if (clsHandCardData.value_aHandCardList[i] > 0)
             {
@@ -3293,7 +3293,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     }
                     if (prov >= 5)
                     {
-                        
+
                         for (int k = i; k <= j; k++)
                         {
                             clsHandCardData.value_aHandCardList[k] --;
@@ -3305,7 +3305,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                             clsHandCardData.value_aHandCardList[k] ++;
                         }
                         clsHandCardData.nHandCardCount += prov;
-                        
+
                         //-*7  n -7
                         if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                         {
@@ -3314,7 +3314,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                         }
                     }
                 }
-                
+
             }
             //
             if (clsHandCardData.value_aHandCardList[i] > 1)
@@ -3332,7 +3332,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     }
                     if (prov >= 3)
                     {
-                        
+
                         for (int k = i; k <= j; k++)
                         {
                             clsHandCardData.value_aHandCardList[k] -=2;
@@ -3344,7 +3344,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                             clsHandCardData.value_aHandCardList[k] +=2;
                         }
                         clsHandCardData.nHandCardCount += prov*2;
-                        
+
                         //-*7  n -7
                         if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                         {
@@ -3370,7 +3370,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     }
                     if (prov >= 2)
                     {
-                        
+
                         for (int k = i; k <= j; k++)
                         {
                             clsHandCardData.value_aHandCardList[k] -= 3;
@@ -3382,7 +3382,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                             clsHandCardData.value_aHandCardList[k] += 3;
                         }
                         clsHandCardData.nHandCardCount += prov * 3;
-                        
+
                         //-*7  n -7
                         if ((BestHandCardValue.SumValue - (BestHandCardValue.NeedRound * 7)) <= (tmpHandCardValue.SumValue - (tmpHandCardValue.NeedRound * 7)))
                         {
@@ -3394,7 +3394,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
             }
             if (BestCardGroup.cgType == cgERROR)
             {
-                
+
             }
             else if (BestCardGroup.cgType == cgSINGLE)
             {
@@ -3466,7 +3466,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     clsHandCardData.value_nPutCardList.push_back(j);
                     clsHandCardData.value_nPutCardList.push_back(j);
                 }
-                
+
                 if (BestCardGroup.nCount / 4 == 2)
                 {
                     clsHandCardData.value_nPutCardList.push_back(tmp_1);
@@ -3485,7 +3485,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
                     clsHandCardData.value_nPutCardList.push_back(tmp_3);
                     clsHandCardData.value_nPutCardList.push_back(tmp_4);
                 }
-                
+
                 clsHandCardData.uctPutCardType = BestCardGroup;
             }
             else if (BestCardGroup.cgType == cgTHREE_TAKE_TWO_LINE)
@@ -3528,7 +3528,7 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
     {
         clsHandCardData.value_nPutCardList.push_back(17);
         clsHandCardData.uctPutCardType = get_GroupData(cgSINGLE, 17, 1);
-        return;  
+        return;
     }
     //
     for (int i = 3; i < 16; i++)
@@ -3539,12 +3539,12 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
             clsHandCardData.value_nPutCardList.push_back(i);
             clsHandCardData.value_nPutCardList.push_back(i);
             clsHandCardData.value_nPutCardList.push_back(i);
-            
+
             clsHandCardData.uctPutCardType = get_GroupData(cgBOMB_CARD, i, 4);
-            
+
             return;
-        }  
-    }  
+        }
+    }
 
     //
     clsHandCardData.uctPutCardType = get_GroupData(cgERROR, 0, 0);
@@ -3556,15 +3556,15 @@ void get_PutCardList_2_unlimit(HandCardData &clsHandCardData)
  dp
  get_PutCardList
  HandCardValue
- 
+
  */
 
 HandCardValue get_HandCardValue(HandCardData &clsHandCardData)
 {
-    
+
     //get_PutCardList
     clsHandCardData.ClearPutCardList();
-    
+
     HandCardValue uctHandCardValue;
     //
     if (clsHandCardData.nHandCardCount == 0)
@@ -3582,24 +3582,24 @@ HandCardValue get_HandCardValue(HandCardData &clsHandCardData)
         uctHandCardValue.NeedRound = 1;
         return uctHandCardValue;
     }
-    
+
     //
-    
+
     /*clsHandCardData.value_nPutCardListclsHandCardData.uctPutCardType
      get_PutCardList*/
     get_PutCardList_2_unlimit(clsHandCardData);
-    
+
     //clsHandCardData.value_nPutCardListclsHandCardData.uctPutCardType
     CardGroupData NowPutCardType = clsHandCardData.uctPutCardType;
     vector<int> NowPutCardList = clsHandCardData.value_nPutCardList;
-    
+
     if (clsHandCardData.uctPutCardType.cgType == cgERROR)
     {
         cout << "PutCardType ERROR!" << endl;
     }
-    
-    
-    
+
+
+
     //---
     for (vector<int>::iterator iter = NowPutCardList.begin();
          iter != NowPutCardList.end(); iter++)
@@ -3609,7 +3609,7 @@ HandCardValue get_HandCardValue(HandCardData &clsHandCardData)
     clsHandCardData.nHandCardCount -= NowPutCardType.nCount;
     //---
     HandCardValue tmp_SurValue = get_HandCardValue(clsHandCardData);//
-    
+
     //---
     for (vector<int>::iterator iter = NowPutCardList.begin();
          iter != NowPutCardList.end(); iter++)
@@ -3618,16 +3618,16 @@ HandCardValue get_HandCardValue(HandCardData &clsHandCardData)
     }
     clsHandCardData.nHandCardCount += NowPutCardType.nCount;
     //---
-    
+
     uctHandCardValue.SumValue = NowPutCardType.nValue + tmp_SurValue.SumValue;
     uctHandCardValue.NeedRound = tmp_SurValue.NeedRound + 1;
-     
+
     return uctHandCardValue;
 }
 
 
 /*
- 2.0  
+ 2.0
  */
 
 void get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCardData)
@@ -3649,7 +3649,7 @@ void get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCar
 //************************************
 // Method:    get_all_actions
 // FullName:  get_all_actions
-// Access:    public 
+// Access:    public
 // Returns:   std::vector<CardGroup>
 // Qualifier: the action orders may not be the same as Python's
 //************************************
@@ -3672,21 +3672,32 @@ void my_get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &c
     // preparation
     clsHandCardData.ClearPutCardList();
     vector<int> cardData_vector = clsHandCardData.value_nHandCardList;
-    int cardData[15];
+    int cardData[15] = {0};
     get_one_hot_representation(cardData, cardData_vector, false);
     // find best card group
     CardGroupType cg_type = clsGameSituation.uctNowCardGroup.cgType;
+    // if(cg_type == cgERROR || cg_type == cgZERO) return;
     int standard_len = clsGameSituation.uctNowCardGroup.nCount;
     int standard_max_card = clsGameSituation.uctNowCardGroup.nMaxCard;
     CardGroupNode best_node = find_best_group_limit(clsGameSituation, cardData);
+    if(best_node.group_type == cgZERO) {
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
+        assert(best_node.group_data.size() == 0);
+        clsHandCardData.value_nPutCardList = best_node.group_data;
+        return;
+    }
     CardGroupType best_action_type = best_node.group_type;
     vector<int> best_group_data = best_node.group_data;
     vector<int> best_remain_cards = best_node.remain_cards;
     // put cards
-    int action_max_card, action_len;
-    get_card_group_max_and_len(best_group_data, (int) best_action_type, action_max_card, action_len);
+    int action_max_card = standard_max_card;
+    int action_len = standard_len;
+    assert(cg_type == best_action_type);
+    get_card_group_max_and_len(best_group_data, cg_type, action_max_card, action_len);
     clsHandCardData.value_nPutCardList = best_group_data;
-    clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(best_action_type, action_max_card, action_len);
+    assert(cg_type == best_action_type);
+    assert(best_group_data.size() == standard_len);
+    clsHandCardData.uctPutCardType = clsGameSituation.uctNowCardGroup = get_GroupData(cg_type, action_max_card, action_len);
     return;
 }
 // find unlimit best card group
@@ -3694,16 +3705,22 @@ void my_get_PutCardList_2_unlimit(HandCardData &clsHandCardData) {
     // preparation
     clsHandCardData.ClearPutCardList();
     vector<int> cardData_vector = clsHandCardData.value_nHandCardList;
-    int cardData[15];
+    int cardData[15] = {0};
     get_one_hot_representation(cardData, cardData_vector, false);
     // find best card group
     CardGroupNode best_node = find_best_group_unlimit(cardData);
+    if(best_node.group_type == cgZERO) {
+        clsHandCardData.uctPutCardType = get_GroupData(cgZERO, 0, 0);
+        assert(best_node.group_data.size() == 0);
+        return;
+    }
     CardGroupType best_action_type = best_node.group_type;
     vector<int> best_group_data = best_node.group_data;
     vector<int> best_remain_cards = best_node.remain_cards;
     // put cards
     int action_max_card, action_len;
-    get_card_group_max_and_len(best_group_data, (int) best_action_type, action_max_card, action_len);
+    get_card_group_max_and_len(best_group_data, best_action_type, action_max_card, action_len);
+    assert(3 <= action_max_card <= 17);
     clsHandCardData.value_nPutCardList = best_group_data;
     clsHandCardData.uctPutCardType = get_GroupData(best_action_type, action_max_card, action_len);
     return;
@@ -3711,6 +3728,7 @@ void my_get_PutCardList_2_unlimit(HandCardData &clsHandCardData) {
 
 vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 	vector<CardGroup> actions;
+    // actions.push_back(CardGroup({}, Category::EMPTY, 0));
 	for (int i = 0; i < 15; i++)
 	{
         if(cardData[i] >= 1) actions.push_back(CardGroup({ Card(i) }, Category::SINGLE, i));
@@ -3896,7 +3914,7 @@ void get_kickers(const vector<Card> main_cards, bool single, int len, vector<vec
                 if (!(tmp.size() == 2 && static_cast<int>(tmp[0]) + static_cast<int>(tmp[1]) == 13 + 14))
                 {
                     result.push_back(tmp);
-                }           	
+                }
 			}
 		}
 	}
@@ -3922,11 +3940,11 @@ vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes
         card_group_matrix.push_back(node.group_data);
     }
     return card_group_matrix;
-} 
+}
 
 vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group) {
     vector<vector<int>> card_group_matrix;
-    vector<int> one_row; 
+    vector<int> one_row;
     for(CardGroup cg:card_group) {
         vector<Card> cg_cards = cg._cards;
         for(Card cd:cg_cards) {
@@ -3939,8 +3957,9 @@ vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group) {
 }
 
 vector<int> one_card_group2vector(CardGroup card_group) {
-    vector<int> vct;
+    vector<int> vct = {};
     vector<Card> cg_cards = card_group._cards;
+    if(!cg_cards.size()) return vct;
     for(Card cd:cg_cards) {
             vct.push_back((int) cd);
         }
@@ -4007,7 +4026,7 @@ float get_card_group_value(CardGroup card_group) {
     }
     // triple line
     else if(category == Category(9)) {
-        assert(cards.size() == 6);
+        assert(cards.size() % 3 == 0);
         for(int card:cards) value += card * 0.2;
     }
     // three one line
@@ -4021,6 +4040,7 @@ float get_card_group_value(CardGroup card_group) {
     }
     // three two line
     else if(category == Category(11)) {
+        assert(category == Category::THREE_TWO_LINE);
         assert(cards.size() == 10);
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
@@ -4072,17 +4092,20 @@ float get_remain_cards_value(int cardData[], float value) {
     vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
     vector<float> value_caches;
     for(CardGroup action:all_actions) {
-        if(!action._cards.size()) continue;
+        if(!action._cards.size()) return 0;
         vector<int> cards = one_card_group2vector(action);
+        assert(cards.size() > 0);
         if(find(cards.begin(), cards.end(), max_value) == cards.end()) continue;
         float temp_group_value = get_card_group_value(action);
         value += temp_group_value;
         // delete used value
         int temp_cardData[15] = {0};
         for(int j = 0; j < 15; j++) {
+            assert(cardData[j] >= 0);
             int times = count(cards.begin(), cards.end(), j);
             temp_cardData[j] = cardData[j] - times;
-            assert(temp_cardData[j] >= 0);
+
+            // assert(temp_cardData[j] >= 0);
         }
         float temp_value = get_remain_cards_value(temp_cardData, value);
         value_caches.push_back(temp_value);
@@ -4111,6 +4134,13 @@ CardGroupNode find_best_group_unlimit(int cardData[]){
     // after find best group
     CardGroupNode res_node;
     int max_index = distance(value_caches.begin(), max_element(value_caches.begin(), value_caches.end()));
+    if(value_caches[max_index] == -1000) {
+        vector<int> group_data = {};
+        assert(group_data.size() == 0);
+        res_node.group_data = group_data;
+        res_node.group_type = cgZERO;
+        return res_node;
+    }
     CardGroup best_card_group = card_groups[max_index];
     vector<int> best_card_group_vector = one_card_group2vector(best_card_group);
     vector<int> remain_cards_vector;
@@ -4122,6 +4152,8 @@ CardGroupNode find_best_group_unlimit(int cardData[]){
         }
     }
     for(vector<int>::iterator it = best_card_group_vector.begin(); it != best_card_group_vector.end(); it ++) *it += 3;
+    Category tmp_type = best_card_group._category;
+    res_node.group_type = (CardGroupType) tmp_type;
     res_node.group_data = best_card_group_vector;
     res_node.remain_cards = remain_cards_vector;
     return res_node;
@@ -4134,6 +4166,8 @@ CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardDat
     for(CardGroup card_group:card_groups) {
         if(is_legal(clsGameSituation, card_group) && card_group._cards.size() != 0) {
             vector<int> card_group_vector = one_card_group2vector(card_group);
+            CardGroupType this_action_type = (CardGroupType) card_group._category;
+            assert(this_action_type == cg_type);
             float value = get_card_group_value(card_group);
             int temp_cardData[15] = {0};
             for(int j = 0; j < 15; j++) {
@@ -4147,9 +4181,18 @@ CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardDat
         else value_caches.push_back(-1000);
     }
     // after find best group
+    assert(value_caches.size() == card_groups.size());
     CardGroupNode res_node;
     res_node.group_type = cg_type;
     int max_index = distance(value_caches.begin(), max_element(value_caches.begin(), value_caches.end()));
+    assert(max_index >= 0);
+    if(value_caches[max_index] == -1000) {
+        vector<int> group_data = {};
+        assert(group_data.size() == 0);
+        res_node.group_data = group_data;
+        res_node.group_type = cgZERO;
+        return res_node;
+    }
     CardGroup best_card_group = card_groups[max_index];
     vector<int> best_card_group_vector = one_card_group2vector(best_card_group);
     vector<int> remain_cards_vector;
@@ -4166,31 +4209,37 @@ CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardDat
     return res_node;
 }
 
-void get_card_group_max_and_len(vector<int> &action, int standard_type, int &action_max_card, int &action_len) {
+void get_card_group_max_and_len(vector<int> action, CardGroupType &standard_type, int &action_max_card, int &action_len) {
     vector<int> cache;
     int a;
+    CardGroupType cg_type = standard_type;
     switch(standard_type) {
-        case 1:
+        case cgSINGLE:
+        {
+            // assert(1 == 2);
+            action_len = action.size();
+            action_max_card = *max_element(action.begin(), action.end());
+            break;
+        }
+        case cgDOUBLE:
         {
             action_len = action.size();
             action_max_card = *max_element(action.begin(), action.end());
+            break;
         }
-        case 2:
+        case cgTHREE:
         {
             action_len = action.size();
             action_max_card = *max_element(action.begin(), action.end());
+            break;
         }
-        case 3:
+        case cgBOMB_CARD:
         {
             action_len = action.size();
             action_max_card = *max_element(action.begin(), action.end());
+            break;
         }
-        case 4:
-        {
-            action_len = action.size();
-            action_max_card = *max_element(action.begin(), action.end());
-        }
-        case 5:
+        case cgTHREE_TAKE_ONE:
         {
             action_len = action.size();
             for(int a:action) {
@@ -4201,8 +4250,9 @@ void get_card_group_max_and_len(vector<int> &action, int standard_type, int &act
                 }
             }
             assert(action_max_card >= 0);
+            break;
         }
-        case 6:
+        case cgTHREE_TAKE_TWO:
         {
             action_len = action.size();
             for(int a:action) {
@@ -4213,23 +4263,26 @@ void get_card_group_max_and_len(vector<int> &action, int standard_type, int &act
                 }
             }
             assert(action_max_card >= 0);
+            break;
         }
-        case 7:
+        case cgSINGLE_LINE:
         {
             action_len = action.size();
             action_max_card = *max_element(action.begin(), action.end());
         }
-        case 8:
+        case cgDOUBLE_LINE:
         {
             action_len = action.size();
             action_max_card = *max_element(action.begin(), action.end());
+            break;
         }
-        case 9:
+        case cgTHREE_LINE:
         {
             action_len = action.size();
             action_max_card = *max_element(action.begin(), action.end());
+            break;
         }
-        case 10:
+        case cgTHREE_TAKE_ONE_LINE:
         {
             action_len = action.size();
             vector<int> cache;
@@ -4241,9 +4294,10 @@ void get_card_group_max_and_len(vector<int> &action, int standard_type, int &act
                 if(cache.size() == 2) break;
             }
             action_max_card = *max_element(cache.begin(), cache.end());
+            break;
         }
 
-        case 11:
+        case cgTHREE_TAKE_TWO_LINE:
         {
             action_len = action.size();
             for(a:action) {
@@ -4254,13 +4308,15 @@ void get_card_group_max_and_len(vector<int> &action, int standard_type, int &act
                 if(cache.size() == 2) break;
             }
             action_max_card = *max_element(cache.begin(), cache.end());
+            break;
         }
-        case 12:
+        case cgKING_CARD:
         {
             action_len = 2;
             action_max_card = *max_element(action.begin(), action.end());
+            break;
         }
-        case 13:
+        case cgFOUR_TAKE_ONE:
         {
             action_len = 6;
             for(a:action) {
@@ -4271,8 +4327,9 @@ void get_card_group_max_and_len(vector<int> &action, int standard_type, int &act
                 }
             }
             assert(action_max_card >= 0);
+            break;
         }
-        case 14:
+        case cgFOUR_TAKE_TWO:
         {
             action_len = 10;
             for(a:action) {
@@ -4283,21 +4340,30 @@ void get_card_group_max_and_len(vector<int> &action, int standard_type, int &act
                 }
             }
             assert(action_max_card >= 0);
+            break;
         }
+        case cgERROR:
+            break;
+        case cgZERO:
+            break;
+        default:
+            break;
     }
 }
 
 bool is_legal(GameSituation &clsGameSituation, CardGroup &candidate_action) {
-    int standard_type = (int) clsGameSituation.uctNowCardGroup.cgType;
+    CardGroupType standard_type = clsGameSituation.uctNowCardGroup.cgType;
+
     int n_count = clsGameSituation.uctNowCardGroup.nCount;
     int max_card = clsGameSituation.uctNowCardGroup.nMaxCard;
     int action_len = -1;
     int action_max_card = -1;
     vector<int> action = one_card_group2vector(candidate_action);
-    int action_type = (int) candidate_action._category;
+    CardGroupType action_type = (CardGroupType) candidate_action._category;
     if(!(standard_type == action_type)) return false;
     else {
         get_card_group_max_and_len(action, standard_type, action_max_card, action_len);
+        assert(standard_type == action_type);
         if(action_len == n_count && action_max_card > max_card) return true;
         else return false;
     }

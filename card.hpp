@@ -105,10 +105,10 @@ public:
 
 enum CardGroupType
 {
-    cgERROR = -1,                                   
-    cgZERO = 0,                                     
-    cgSINGLE = 1,                                   
-    cgDOUBLE = 2,                                   
+    cgERROR = -1,
+    cgZERO = 0,
+    cgSINGLE = 1,
+    cgDOUBLE = 2,
     cgTHREE = 3,
     cgBOMB_CARD = 4,
     cgTHREE_TAKE_ONE = 5,
@@ -191,6 +191,7 @@ public:
     void PrintAll();
 };
 
+class Env;
 class GameSituation;
 
 void get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
@@ -229,7 +230,7 @@ CardGroupNode find_best_group_unlimit(int cardData[]);
 
 CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardData[]);
 
-void get_card_group_max_and_len(vector<int> &action, int standard_type, int &action_max_card, int &action_len);
+void get_card_group_max_and_len(vector<int> action, CardGroupType &standard_type, int &action_max_card, int &action_len);
 
 bool is_legal(GameSituation &clsGameSituation, CardGroup &candidate_action);
 

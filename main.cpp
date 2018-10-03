@@ -1008,16 +1008,21 @@ public:
         return vector2numpy(intention);
     }
 
-    auto step_auto() {
-        if(indexID == 0) my_get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
+   auto step_auto() {
+        int my_player_idx = 0;
+        vector<int> players = {0, 1, 2};
+        players.erase(find(players.begin(), players.end(), my_player_idx));
+        if(indexID == my_player_idx) my_get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         else{
             get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         }
         arrHandCardData[indexID].PutCards();
-        auto intention = arrHandCardData[indexID].value_nPutCardList;
-        // std::vector<int> debug(intention1, intention1 + sizeof (intention1) / sizeof (intention1[0]));
-        //std::sort(intention.begin(), intention.end());
 
+        const auto idx_for_return = indexID;
+        auto intention = arrHandCardData[indexID].value_nPutCardList;
+        auto hc0 = arrHandCardData[my_player_idx].value_nHandCardList;
+        auto hc1 = arrHandCardData[players[0]].value_nHandCardList;
+        auto hc2 = arrHandCardData[players[1]].value_nHandCardList;
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
         
         // get group category
@@ -1045,13 +1050,15 @@ public:
             
             if (indexID == clsGameSituation->nDiZhuID)
             {
-                indexID == 2 ? indexID = 0 : indexID++;
-                return std::make_tuple(vector2numpy(intention), -clsGameSituation->nLandScore * clsGameSituation->nMultiple, category_idx, indexID);
+                // indexID == 2 ? indexID = 0 : indexID++;
+                return std::make_tuple(vector2numpy(intention), -clsGameSituation->nLandScore * clsGameSituation->nMultiple,
+                 category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1]);
             }
             else
             {
-                indexID == 2 ? indexID = 0 : indexID++;
-                return std::make_tuple(vector2numpy(intention), clsGameSituation->nLandScore * clsGameSituation->nMultiple, category_idx, indexID);
+                // indexID == 2 ? indexID = 0 : indexID++;
+                return std::make_tuple(vector2numpy(intention), clsGameSituation->nLandScore * clsGameSituation->nMultiple,
+                category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1]);
             }
         }
         
@@ -1061,11 +1068,9 @@ public:
             clsGameSituation->uctNowCardGroup = arrHandCardData[indexID].uctPutCardType;
             value_lastCards = arrHandCardData[indexID].value_nPutCardList;
             last_category_idx = category_idx;
-            indexID == 2 ? indexID = 0 : indexID++;
-            return std::make_tuple(vector2numpy(intention), 0, category_idx, indexID);
         }
         indexID == 2 ? indexID = 0 : indexID++;
-        return std::make_tuple(vector2numpy(intention), 0, category_idx, indexID);
+        return std::make_tuple(vector2numpy(intention), 0, category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1]);
     }
 };
 
