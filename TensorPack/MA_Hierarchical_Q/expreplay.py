@@ -348,7 +348,7 @@ class ExpReplay(DataFlow, Callback):
             if self.agent_name == winner:
                 reward = 1
             else:
-                if self.player.get_all_agent_names().index(winner) + self.player.get_all_agent_names().index(winner) == 3:
+                if self.player.get_all_agent_names().index(winner) + self.player.get_all_agent_names().index(self.agent_name) == 3:
                     reward = 1
                 else:
                     reward = -1

@@ -83,8 +83,14 @@ class Env:
 
 if __name__ == '__main__':
     env = Env(['1', '2', '3'])
-    predictors = {n: Predictor(lambda x: [np.random.rand(1, 21)]) for n in env.get_all_agent_names()}
-    for _ in range(1000):
+    predictors = {n: Predictor(lambda x, y, z: [np.random.rand(1, 21)]) for n in env.get_all_agent_names()}
+    agent_names = ['1', '2', '3']
+    cnt = {
+        '1': 0,
+        '2': 0,
+        '3': 0
+    }
+    for _ in range(100):
         env.reset()
         env.prepare()
         done = False
@@ -93,6 +99,18 @@ if __name__ == '__main__':
             last_cards = env.get_last_outcards()
             prob_state = env.get_state_prob()
             action = predictors[env.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
-            _, done = env.step(action)
+            winner, done = env.step(action)
+            if done:
+                for agent_name in agent_names:
+                    print(agent_name)
+                    if agent_name == winner:
+                        cnt[agent_name] += 1
+                        print(agent_name, ' wins')
+                    else:
+                        if env.get_all_agent_names().index(winner) + env.get_all_agent_names().index(agent_name) == 3:
+                            cnt[agent_name] += 1
+                            print(agent_name, winner, ' all wins')
+
+    print(cnt)
 
 

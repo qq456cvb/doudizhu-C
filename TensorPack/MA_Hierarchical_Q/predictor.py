@@ -162,7 +162,7 @@ class Predictor:
         # print(handcards, last_cards)
         state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_cards_char=last_cards, prob_state=prob_state)
         # print(available_actions)
-        q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
+        q_values = self.predictor(state[None, :, :, :], np.array([True]), np.array([fine_mask_input]))[0][0]
         action = np.argmax(q_values)
         assert action < self.num_actions[0]
         # clamp action to valid range
@@ -174,7 +174,7 @@ class Predictor:
             fine_mask_input = fine_mask if fine_mask.shape[0] == max(self.num_actions[0], self.num_actions[1]) \
                 else np.pad(fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - fine_mask.shape[0]), 'constant',
                             constant_values=(0, 0))
-        q_values = self.predictor([state[None, :, :, :], np.array([False]), np.array([fine_mask_input])])[0][0]
+        q_values = self.predictor(state[None, :, :, :], np.array([False]), np.array([fine_mask_input]))[0][0]
         if fine_mask is not None:
             q_values = q_values[:self.num_actions[1]]
             # assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
