@@ -214,15 +214,17 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
             for(int idx = 0; idx < 15; idx ++)
             {
                 vector<Card> main_cards = { Card(i), Card(i), Card(i), Card(i) };
-                if(cardData[idx] >= 1 && idx != i)
+                if(4 > cardData[idx] - count(main_cards.begin(), main_cards.end(), Card(idx)) && cardData[idx] - count(main_cards.begin(), main_cards.end(), Card(idx)) >= 1 && idx != i)
+
                 {
                     main_cards.push_back(Card(idx));
                     cardData[idx] -= 1;
                     for(int idx1 = 0; idx1 < 15; idx1 ++)
                     {
-                        if(cardData[idx1] >= 1 && idx1 != i)
+                        if(4 > cardData[idx1] - count(main_cards.begin(), main_cards.end(), Card(idx1)) && cardData[idx1] - count(main_cards.begin(), main_cards.end(), Card(idx1)) >= 1 && idx1 != i)
                         {
                             main_cards.push_back(Card(idx1));
+                            assert(main_cards.size() == 6);
                             actions.push_back(CardGroup(main_cards, Category::FOUR_TAKE_ONE, i));
                             main_cards.pop_back();
                         }
@@ -233,20 +235,23 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
             for(int idx = 0; idx < 15; idx ++)
             {
                 vector<Card> main_cards = { Card(i), Card(i), Card(i), Card(i) };
-                if(cardData[idx] >= 2 && idx != i)
+                if(4 > cardData[idx] - count(main_cards.begin(), main_cards.end(), Card(idx)) && cardData[idx] - count(main_cards.begin(), main_cards.end(), Card(idx)) >= 2 && idx != i)
+
                 {
                     main_cards.push_back(Card(idx));
                     main_cards.push_back(Card(idx));
                     cardData[idx] -= 2;
                     for(int idx1 = 0; idx1 < 15; idx1 ++)
                     {
-                        if(cardData[idx1] >= 2 && idx1 != i)
+                        if(4 > cardData[idx1] - count(main_cards.begin(), main_cards.end(), Card(idx1)) && cardData[idx1] - count(main_cards.begin(), main_cards.end(), Card(idx1)) >= 2 && idx1 != i)
                         {
                             main_cards.push_back(Card(idx1));
                             main_cards.push_back(Card(idx1));
+                            assert(main_cards.size() == 8);
                             actions.push_back(CardGroup(main_cards, Category::FOUR_TAKE_TWO, i));
                             main_cards.pop_back();
                             main_cards.pop_back();
+
                         }
                     }
                     cardData[idx] += 2;
@@ -324,33 +329,121 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 				actions.push_back(CardGroup(cards, Category::TRIPLE_LINE, i, cards.size() / 3));
 			}
 			size_t len = cards.size() / 3;
-			vector<vector<Card>> kickers = { {} };
-			get_kickers(cards, true, len, kickers, cardData);
-			for (const auto &kicker : kickers)
-			{
-				/*std::copy(kicker.begin(), kicker.end(), std::ostream_iterator<Card>(cout));
-				cout << endl;*/
-				auto cards_kickers = cards;
-				cards_kickers.insert(cards_kickers.end(), kicker.begin(), kicker.end());
-				if (cards_kickers.size() <= 20)
-				{
-					actions.push_back(CardGroup(cards_kickers, Category::THREE_ONE_LINE, i, len));
-				}
+			if(len == 2) {
+			    for(int idx = 0; idx < 15; idx ++) // three one line
+                {
+                    if(3 > (cardData[idx] - count(cards.begin(), cards.end(), Card(idx))) && (cardData[idx] - count(cards.begin(), cards.end(), Card(idx))) >= 1)
+                    {
+                        cards.push_back(Card(idx));
+                        cardData[idx] -= 1;
+                        for(int idx1 = 0; idx1 < 15; idx1 ++)
+                        {
+                            if(3 > (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) && (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) >= 1)
+                            {
+                                cards.push_back(Card(idx1));
+                                assert(cards.size() == 8);
+                                actions.push_back(CardGroup(cards, Category::THREE_ONE_LINE, i));
+                                cards.pop_back();
+                            }
+                        }
+                        cards.pop_back();
+                        cardData[idx] += 1;
+                    }
+                }
+                for(int idx = 0; idx < 15; idx ++) // three two line
+                {
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2)
+                    {
+                        cards.push_back(Card(idx));
+                        cards.push_back(Card(idx));
+                        cardData[idx] -= 2;
+                        for(int idx1 = 0; idx1 < 15; idx1 ++)
+                        {
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2)
+                            {
+                                cards.push_back(Card(idx1));
+                                cards.push_back(Card(idx1));
+                                assert(cards.size() == 10);
+                                actions.push_back(CardGroup(cards, Category::THREE_TWO_LINE, i));
+                                cards.pop_back();
+                                cards.pop_back();
+                            }
+                        }
+                        cards.pop_back();
+                        cards.pop_back();
+                        cardData[idx] += 2;
+                    }
+                }
 			}
-			if (len < 5)
-			{
-				kickers.clear();
-				kickers.push_back({});
-				get_kickers(cards, false, len, kickers, cardData);
-				for (const auto &kicker : kickers)
-				{
-					auto cards_kickers = cards;
-					cards_kickers.insert(cards_kickers.end(), kicker.begin(), kicker.end());
-					if (cards_kickers.size() <= 20)
-					{
-						actions.push_back(CardGroup(cards_kickers, Category::THREE_TWO_LINE, i, len));
-					}
-				}
+			else if(len == 3) {
+                for(int idx = 0; idx < 15; idx ++) {// three one line
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx))  >= 1)
+                    {
+                        cards.push_back(Card(idx));
+                        cardData[idx] -= 1;
+                        for(int idx1 = 0; idx1 < 15; idx1 ++)
+                        {
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 1)
+                            {
+                                cards.push_back(Card(idx1));
+                                cardData[idx1] -= 1;
+                                {
+                                    for(int idx2 = 0; idx2 < 15; idx2 ++)
+                                    {   // three one line
+                                        if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 1)
+                                        {
+                                            cards.push_back(Card(idx2));
+                                            assert(cards.size() == 12);
+                                            actions.push_back(CardGroup(cards, Category::THREE_ONE_LINE, i));
+                                            cards.pop_back();
+                                        }
+                                     }
+                                cards.pop_back();
+                                cardData[idx1] += 1;
+                                }
+                            }
+                        }
+                        cards.pop_back();
+                        cardData[idx] += 1;
+                    }
+                }
+                for(int idx = 0; idx < 15; idx ++) // three two line
+                {
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2)
+                    {
+                        cards.push_back(Card(idx));
+                        cards.push_back(Card(idx));
+                        cardData[idx] -= 2;
+                        for(int idx1 = 0; idx1 < 15; idx1 ++)
+                        {
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2)
+                            {
+                                cards.push_back(Card(idx1));
+                                cards.push_back(Card(idx1));
+                                cardData[idx1] -= 2;
+                                for(int idx2 = 0; idx2 < 15; idx2 ++)
+                                {
+                                    if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 2)
+                                    {
+                                        cards.push_back(Card(idx2));
+                                        cards.push_back(Card(idx2));
+                                        assert(cards.size() == 15);
+                                        actions.push_back(CardGroup(cards, Category::THREE_TWO_LINE, i));
+                                        cards.pop_back();
+                                        cards.pop_back();
+                                    }
+                                }
+                                cards.pop_back();
+                                cards.pop_back();
+                                cardData[idx1] += 2;
+                            }
+                        }
+                        cards.pop_back();
+                        cards.pop_back();
+                        cardData[idx] += 2;
+                    }
+                }
+
 			}
 		}
 	}
@@ -371,44 +464,59 @@ void get_one_hot_representation(int one_hot[], vector<int> hand_card_data, bool 
 
 int main(int argc, char const *argv[])
 {
-    float value = 0;
+      float value = 0;
       vector<float> value_caches = {};
-      vector<int> cardData_vector = {13, 13, 13, 10, 10, 8, 7, 7, 6, 3};
+      vector<int> cardData_vector = {13, 13, 13, 13, 11, 11, 11, 10, 10, 10, 9, 3, 4, 3, 4};
       int cardData[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
       get_one_hot_representation(cardData, cardData_vector, false);
-      // for(int c = 0; c < 15; c ++) my_cout(cardData[c]);
+      for(int _ = 0; _ < 15; _ ++) my_cout(cardData[_]);
+      cout << endl;
       vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
-      int max_value = 0;
-       for(int max_idx = 14; max_idx > -1; max_idx --) {
-           if(cardData[max_idx] > 0) {
-               max_value = max_idx;
-               break;
-           }
-       }
+      for(int _ = 0; _ < 15; _ ++) my_cout(cardData[_]);
       for(CardGroup action:all_actions) {
-        // if(!action._cards.size()) continue;
-        vector<int> cards = one_card_group2vector(action);
-        // assert(cards.size() > 0);
-         if(find(cards.begin(), cards.end(), max_value) == cards.end()) continue;
-//         cout_vector(cards);
-//        cout << endl;
-         float temp_group_value = get_card_group_value(action);
-
-        value += temp_group_value;
-        // delete used value
-        int temp_cardData[15] = {0};
-        for(int j = 0; j < 15; j++) {
-            int times = count(cards.begin(), cards.end(), j);
-            temp_cardData[j] = cardData[j] - times;
+            vector<int> cards = one_card_group2vector(action);
             cout_vector(cards);
-            cout << endl;
-            assert(temp_cardData[j] >= 0);
-        }
-        float temp_value = get_remain_cards_value(temp_cardData, value);
-        value_caches.push_back(temp_value);
+            cout << "length is " << cards.size() << endl;
+            int type = (int) action._category;
+            cout << "type is " << type << endl;
 
       }
-      cout_vector(value_caches);
+      if(10 > 6 - 5 >= 0) cout << "1111111111" << endl;
+//        // if(!action._cards.size()) continue;
+//        vector<int> cards = one_card_group2vector(action);
+      // for(int c = 0; c < 15; c ++) my_cout(cardData[c]);
+//      vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
+//      int max_value = 0;
+//       for(int max_idx = 14; max_idx > -1; max_idx --) {
+//           if(cardData[max_idx] > 0) {
+//               max_value = max_idx;
+//               break;
+//           }
+//       }
+//      for(CardGroup action:all_actions) {
+//        // if(!action._cards.size()) continue;
+//        vector<int> cards = one_card_group2vector(action);
+//        // assert(cards.size() > 0);
+//         if(find(cards.begin(), cards.end(), max_value) == cards.end()) continue;
+////         cout_vector(cards);
+////        cout << endl;
+//         float temp_group_value = get_card_group_value(action);
+//
+//        value += temp_group_value;
+//        // delete used value
+//        int temp_cardData[15] = {0};
+//        for(int j = 0; j < 15; j++) {
+//            int times = count(cards.begin(), cards.end(), j);
+//            temp_cardData[j] = cardData[j] - times;
+//            cout_vector(cards);
+//            cout << endl;
+//            assert(temp_cardData[j] >= 0);
+//        }
+//        float temp_value = get_remain_cards_value(temp_cardData, value);
+//        value_caches.push_back(temp_value);
+//
+//      }
+//      cout_vector(value_caches);
       return 0;
 }
 

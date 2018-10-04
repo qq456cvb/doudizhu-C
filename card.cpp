@@ -3826,109 +3826,148 @@ vector<int> one_card_group2vector(CardGroup card_group) {
         }
     return vct;
 }
-float get_card_group_value(CardGroup card_group) {
+
+float get_card_group_value(CardGroup card_group){
     vector<int> cards = one_card_group2vector(card_group);
     Category category = card_group._category;
-    float value = 0.0f;
+    float bad = 0.0f;
     // empty
-    if(category == Category(0)) value = 0;
+    if(category == Category::EMPTY) return bad;
     // single
-    else if(category == Category(1)) {
+    else if(category == Category::SINGLE) {
         assert(cards.size() == 1);
-        value = cards[0] * 0.3;
+        float top = (cards[0] * 2 + 1) / 2.0f;
+        bad = 0.435 + 0.0151 * (12 - top);
     }
     // double
-    else if(category == Category(2)) {
+    else if(category == Category::DOUBLE) {
         assert(cards.size() == 2);
-        value = cards[0] * 0.4;
+        float top = (cards[0] + cards[1] + 1) / 2.0f;
+        bad = 0.433 + 0.015 * (12 - top);
     }
     // triple
-    else if(category == Category(3)) {
+    else if(category == Category::TRIPLE) {
         assert(cards.size() == 3);
-        value = cards[0] * 0.8;
+        float top = (cards[0] * 2 + 1) / 2.0f;
+        bad = 0.433 + 0.02 * (12 - top);
     }
     // quatric
     else if(category == Category(4)) {
         assert(cards.size() == 4);
-        value = cards[0] * 3;
+        float top = (cards[0] * 2 + 1) / 2.0f;
+        bad = -1.5f * 4.0f + 0.175 * (12 - top);
     }
     // three one
-    else if(category == Category(5)) {
+    else if(category == Category::THREE_ONE) {
         assert(cards.size() == 4);
         int main_card, kicker;
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n == 1) kicker = card;
+            if(count_n != 3) kicker = card;
             else main_card = card;
         }
-        value = main_card * 0.2 * 3 - kicker * 0.1;
+        float top = (main_card * 2 + 1) / 2.0f;
+        bad = 0.433 + 0.02 * (12 - top) - 0.01 * 1;
     }
     // three two
-    else if(category == Category(6)) {
+    else if(category == Category::THREE_TWO) {
         assert(cards.size() == 5);
         int main_card, kicker;
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n == 2) kicker = card;
+            if(count_n != 3) kicker = card;
             else main_card = card;
         }
-        value = main_card * 0.2 * 3 - kicker * 0.1 * 2;
+        float top = (main_card * 2 + 1) / 2.0f;
+        bad = 0.433 + 0.02 * (12 - top) - 0.01 * 2;
     }
     // single line
-    else if(category == Category(7)) {
+    else if(category == Category::SINGLE_LINE) {
         assert(cards.size() >= 5);
-        for(int card:cards) value += card * 0.2;
+        int min_v = *min_element(cards.begin(), cards.end());
+        float top = (min_v + min_v + cards.size()) / 2.0f;
+        bad = 0.435 + 0.0151 * (12 - top) + cards.size() * 0.02;
     }
     // double line
-    else if(category == Category(8)) {
+    else if(category == Category::DOUBLE_LINE) {
         assert(cards.size() >= 6);
-        for(int card:cards) value += card * 0.2;
+        int min_v = *min_element(cards.begin(), cards.end());
+        float top = (min_v + min_v + cards.size() / 2) / 2.0f;
+        bad = 0.437 + 0.015 * (12 - top) + cards.size() / 2 * 0.02;
     }
     // triple line
-    else if(category == Category(9)) {
+    else if(category == Category::TRIPLE_LINE) {
         assert(cards.size() % 3 == 0);
-        for(int card:cards) value += card * 0.2;
+        int min_v = *min_element(cards.begin(), cards.end());
+        float top = (min_v + min_v + cards.size() / 3) / 2.0f;
+        bad = 0.433 + 0.02 * (12 - top) + cards.size() / 3 * 0.02;
     }
     // three one line
-    else if(category == Category(10)) {
-        assert(cards.size() >= 3);
+    else if(category == Category::THREE_ONE_LINE) {
+        assert(cards.size() == 8 || cards.size() == 12 || cards.size() == 16);
+        assert((cards.size() - 2) % 3 == 0 || (cards.size() - 3) % 3 == 0 || (cards.size() - 4) % 3 == 0);
+        vector<int> main_cards, kickers;
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n <= 2) value += -0.1 * card;
-            else value += 0.1 * card;
+            if(count_n != 3) kickers.push_back(card);
+            else main_cards.push_back(card);
         }
+        assert(main_cards.size() % 3 == 0);
+        assert(main_cards.size() / 3 == kickers.size());
+        int min_v = *min_element(main_cards.begin(), main_cards.end());
+        float top = (min_v + min_v + main_cards.size() / 3) / 2.0f;
+        bad = 0.433 + 0.02 * (12 - top) + main_cards.size() / 3 * 0.02 - main_cards.size() / 3 * 0.01;
     }
     // three two line
-    else if(category == Category(11)) {
-        assert(category == Category::THREE_TWO_LINE);
-        assert(cards.size() >= 3);
+    else if(category == Category::THREE_TWO_LINE) {
+        assert(cards.size() == 10 || cards.size() == 15);
+        assert((cards.size() - 4) % 3 == 0 || (cards.size() - 6) % 3 == 0);
+        vector<int> main_cards, kickers;
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n <= 2) value += -0.1 * card;
-            else value += 0.1 * card;
+            if(count_n == 2) kickers.push_back(card);
+            else main_cards.push_back(card);
         }
+        assert(main_cards.size() % 3 == 0);
+        assert(main_cards.size() / 3 == kickers.size() / 2);
+        int min_v = *min_element(main_cards.begin(), main_cards.end());
+        float top = (min_v + min_v + main_cards.size() / 3) / 2.0f;
+        bad = 0.433 + 0.02 * (12 - top) + main_cards.size() / 3 * 0.02 - main_cards.size() / 3 * 2 * 0.01;
     }
     // big band
-    else if(category == Category(12)) value = 5;
+    else if(category == Category::BIGBANG) bad = -8.0f;
     // four take one
-    else if(category == Category(13)) {
+    else if(category == Category::FOUR_TAKE_ONE) {
         assert(cards.size() == 6);
+        vector<int> main_cards, kickers;
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n == 1) value += -0.1 * card;
-            else value += 0.1 * card;
+            if(count_n != 4) kickers.push_back(card);
+            else main_cards.push_back(card);
         }
+        assert(main_cards.size() % 4 == 0);
+        assert(main_cards.size() == kickers.size() + 2);
+        int min_v = *min_element(main_cards.begin(), main_cards.end());
+        float top = (min_v + min_v + 1) / 2.0f;
+        bad = - 1.5 * 3.0f + 0.003 * (12 - top) - 2 * 0.002;
+
     }
-    // take take two
-    else if(category == Category(14)) {
+    // four take two
+    else if(category == Category::FOUR_TAKE_TWO) {
         assert(cards.size() == 8);
+        vector<int> main_cards, kickers;
         for(int card:cards) {
             int count_n = count(cards.begin(), cards.end(), card);
-            if(count_n == 1) value += -0.1 * card;
-            else value += 0.1 * card;
+            if(count_n == 4) kickers.push_back(card);
+            else main_cards.push_back(card);
         }
+        assert(main_cards.size() == kickers.size());
+        int min_v = *min_element(main_cards.begin(), main_cards.end());
+        float top = (min_v + min_v + 1) / 2.0f;
+        bad = - 1.5 * 3.0f + 0.003 * (12 - top) - 4 * 0.002;
     }
-    return value;
+    float ret = -150 - 100 * bad;
+    return ret;
 }
 vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 	vector<CardGroup> actions;
@@ -3953,15 +3992,17 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
             for(int idx = 0; idx < 15; idx ++)
             {
                 vector<Card> main_cards = { Card(i), Card(i), Card(i), Card(i) };
-                if(cardData[idx] >= 1 && idx != i)
+                if(4 > cardData[idx] - count(main_cards.begin(), main_cards.end(), Card(idx)) && cardData[idx] - count(main_cards.begin(), main_cards.end(), Card(idx)) >= 1 && idx != i)
+
                 {
                     main_cards.push_back(Card(idx));
                     cardData[idx] -= 1;
                     for(int idx1 = 0; idx1 < 15; idx1 ++)
                     {
-                        if(cardData[idx1] >= 1 && idx1 != i)
+                        if(4 > cardData[idx1] - count(main_cards.begin(), main_cards.end(), Card(idx1)) && cardData[idx1] - count(main_cards.begin(), main_cards.end(), Card(idx1)) >= 1 && idx1 != i)
                         {
                             main_cards.push_back(Card(idx1));
+                            assert(main_cards.size() == 6);
                             actions.push_back(CardGroup(main_cards, Category::FOUR_TAKE_ONE, i));
                             main_cards.pop_back();
                         }
@@ -3972,20 +4013,23 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
             for(int idx = 0; idx < 15; idx ++)
             {
                 vector<Card> main_cards = { Card(i), Card(i), Card(i), Card(i) };
-                if(cardData[idx] >= 2 && idx != i)
+                if(4 > cardData[idx] - count(main_cards.begin(), main_cards.end(), Card(idx)) && cardData[idx] - count(main_cards.begin(), main_cards.end(), Card(idx)) >= 2 && idx != i)
+
                 {
                     main_cards.push_back(Card(idx));
                     main_cards.push_back(Card(idx));
                     cardData[idx] -= 2;
                     for(int idx1 = 0; idx1 < 15; idx1 ++)
                     {
-                        if(cardData[idx1] >= 2 && idx1 != i)
+                        if(4 > cardData[idx1] - count(main_cards.begin(), main_cards.end(), Card(idx1)) && cardData[idx1] - count(main_cards.begin(), main_cards.end(), Card(idx1)) >= 2 && idx1 != i)
                         {
                             main_cards.push_back(Card(idx1));
                             main_cards.push_back(Card(idx1));
+                            assert(main_cards.size() == 8);
                             actions.push_back(CardGroup(main_cards, Category::FOUR_TAKE_TWO, i));
                             main_cards.pop_back();
                             main_cards.pop_back();
+
                         }
                     }
                     cardData[idx] += 2;
@@ -4063,33 +4107,121 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 				actions.push_back(CardGroup(cards, Category::TRIPLE_LINE, i, cards.size() / 3));
 			}
 			size_t len = cards.size() / 3;
-			vector<vector<Card>> kickers = { {} };
-			get_kickers(cards, true, len, kickers, cardData);
-			for (const auto &kicker : kickers)
-			{
-				/*std::copy(kicker.begin(), kicker.end(), std::ostream_iterator<Card>(cout));
-				cout << endl;*/
-				auto cards_kickers = cards;
-				cards_kickers.insert(cards_kickers.end(), kicker.begin(), kicker.end());
-				if (cards_kickers.size() <= 20)
-				{
-					actions.push_back(CardGroup(cards_kickers, Category::THREE_ONE_LINE, i, len));
-				}
+			if(len == 2) {
+			    for(int idx = 0; idx < 15; idx ++) // three one line
+                {
+                    if(3 > (cardData[idx] - count(cards.begin(), cards.end(), Card(idx))) && (cardData[idx] - count(cards.begin(), cards.end(), Card(idx))) >= 1)
+                    {
+                        cards.push_back(Card(idx));
+                        cardData[idx] -= 1;
+                        for(int idx1 = 0; idx1 < 15; idx1 ++)
+                        {
+                            if(3 > (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) && (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) >= 1)
+                            {
+                                cards.push_back(Card(idx1));
+                                assert(cards.size() == 8);
+                                actions.push_back(CardGroup(cards, Category::THREE_ONE_LINE, i));
+                                cards.pop_back();
+                            }
+                        }
+                        cards.pop_back();
+                        cardData[idx] += 1;
+                    }
+                }
+                for(int idx = 0; idx < 15; idx ++) // three two line
+                {
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2)
+                    {
+                        cards.push_back(Card(idx));
+                        cards.push_back(Card(idx));
+                        cardData[idx] -= 2;
+                        for(int idx1 = 0; idx1 < 15; idx1 ++)
+                        {
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2)
+                            {
+                                cards.push_back(Card(idx1));
+                                cards.push_back(Card(idx1));
+                                assert(cards.size() == 10);
+                                actions.push_back(CardGroup(cards, Category::THREE_TWO_LINE, i));
+                                cards.pop_back();
+                                cards.pop_back();
+                            }
+                        }
+                        cards.pop_back();
+                        cards.pop_back();
+                        cardData[idx] += 2;
+                    }
+                }
 			}
-			if (len < 5)
-			{
-				kickers.clear();
-				kickers.push_back({});
-				get_kickers(cards, false, len, kickers, cardData);
-				for (const auto &kicker : kickers)
-				{
-					auto cards_kickers = cards;
-					cards_kickers.insert(cards_kickers.end(), kicker.begin(), kicker.end());
-					if (cards_kickers.size() <= 20)
-					{
-						actions.push_back(CardGroup(cards_kickers, Category::THREE_TWO_LINE, i, len));
-					}
-				}
+			else if(len == 3) {
+                for(int idx = 0; idx < 15; idx ++) {// three one line
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx))  >= 1)
+                    {
+                        cards.push_back(Card(idx));
+                        cardData[idx] -= 1;
+                        for(int idx1 = 0; idx1 < 15; idx1 ++)
+                        {
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 1)
+                            {
+                                cards.push_back(Card(idx1));
+                                cardData[idx1] -= 1;
+                                {
+                                    for(int idx2 = 0; idx2 < 15; idx2 ++)
+                                    {   // three one line
+                                        if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 1)
+                                        {
+                                            cards.push_back(Card(idx2));
+                                            assert(cards.size() == 12);
+                                            actions.push_back(CardGroup(cards, Category::THREE_ONE_LINE, i));
+                                            cards.pop_back();
+                                        }
+                                     }
+                                cards.pop_back();
+                                cardData[idx1] += 1;
+                                }
+                            }
+                        }
+                        cards.pop_back();
+                        cardData[idx] += 1;
+                    }
+                }
+                for(int idx = 0; idx < 15; idx ++) // three two line
+                {
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2)
+                    {
+                        cards.push_back(Card(idx));
+                        cards.push_back(Card(idx));
+                        cardData[idx] -= 2;
+                        for(int idx1 = 0; idx1 < 15; idx1 ++)
+                        {
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2)
+                            {
+                                cards.push_back(Card(idx1));
+                                cards.push_back(Card(idx1));
+                                cardData[idx1] -= 2;
+                                for(int idx2 = 0; idx2 < 15; idx2 ++)
+                                {
+                                    if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 2)
+                                    {
+                                        cards.push_back(Card(idx2));
+                                        cards.push_back(Card(idx2));
+                                        assert(cards.size() == 15);
+                                        actions.push_back(CardGroup(cards, Category::THREE_TWO_LINE, i));
+                                        cards.pop_back();
+                                        cards.pop_back();
+                                    }
+                                }
+                                cards.pop_back();
+                                cards.pop_back();
+                                cardData[idx1] += 2;
+                            }
+                        }
+                        cards.pop_back();
+                        cards.pop_back();
+                        cardData[idx] += 2;
+                    }
+                }
+
 			}
 		}
 	}
@@ -4434,4 +4566,109 @@ ostream& operator<<(ostream& os, const Card& c) {
 	return os;
 }
 
-
+/*
+float get_card_group_value(CardGroup card_group) const {
+    vector<int> cards = one_card_group2vector(card_group);
+    Category category = card_group._category;
+    float value = 0.0f;
+    // empty
+    if(category == Category(0)) value = 0;
+    // single
+    else if(category == Category(1)) {
+        assert(cards.size() == 1);
+        value = cards[0] * 0.3;
+    }
+    // double
+    else if(category == Category(2)) {
+        assert(cards.size() == 2);
+        value = cards[0] * 0.4;
+    }
+    // triple
+    else if(category == Category(3)) {
+        assert(cards.size() == 3);
+        value = cards[0] * 0.8;
+    }
+    // quatric
+    else if(category == Category(4)) {
+        assert(cards.size() == 4);
+        value = cards[0] * 3;
+    }
+    // three one
+    else if(category == Category(5)) {
+        assert(cards.size() == 4);
+        int main_card, kicker;
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) kicker = card;
+            else main_card = card;
+        }
+        value = main_card * 0.2 * 3 - kicker * 0.1;
+    }
+    // three two
+    else if(category == Category(6)) {
+        assert(cards.size() == 5);
+        int main_card, kicker;
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 2) kicker = card;
+            else main_card = card;
+        }
+        value = main_card * 0.2 * 3 - kicker * 0.1 * 2;
+    }
+    // single line
+    else if(category == Category(7)) {
+        assert(cards.size() >= 5);
+        for(int card:cards) value += card * 0.2;
+    }
+    // double line
+    else if(category == Category(8)) {
+        assert(cards.size() >= 6);
+        for(int card:cards) value += card * 0.2;
+    }
+    // triple line
+    else if(category == Category(9)) {
+        assert(cards.size() % 3 == 0);
+        for(int card:cards) value += card * 0.2;
+    }
+    // three one line
+    else if(category == Category(10)) {
+        assert(cards.size() >= 3);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n <= 2) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    // three two line
+    else if(category == Category(11)) {
+        assert(category == Category::THREE_TWO_LINE);
+        assert(cards.size() >= 3);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n <= 2) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    // big band
+    else if(category == Category(12)) value = 5;
+    // four take one
+    else if(category == Category(13)) {
+        assert(cards.size() == 6);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    // take take two
+    else if(category == Category(14)) {
+        assert(cards.size() == 8);
+        for(int card:cards) {
+            int count_n = count(cards.begin(), cards.end(), card);
+            if(count_n == 1) value += -0.1 * card;
+            else value += 0.1 * card;
+        }
+    }
+    return value;
+}
+*/

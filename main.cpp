@@ -1009,7 +1009,7 @@ public:
     }
 
    auto step_auto() {
-        int my_player_idx = 0;
+        int my_player_idx = clsGameSituation->nDiZhuID;
         vector<int> players = {0, 1, 2};
         players.erase(find(players.begin(), players.end(), my_player_idx));
         if(indexID == my_player_idx) my_get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
