@@ -1010,6 +1010,7 @@ public:
 
    auto step_auto() {
         int my_player_idx = clsGameSituation->nDiZhuID;
+        // py::print("my idx", my_player_idx); // dizhuid = 0
         vector<int> players = {0, 1, 2};
         players.erase(find(players.begin(), players.end(), my_player_idx));
         if(indexID == my_player_idx) my_get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
@@ -1052,13 +1053,13 @@ public:
             {
                 // indexID == 2 ? indexID = 0 : indexID++;
                 return std::make_tuple(vector2numpy(intention), -clsGameSituation->nLandScore * clsGameSituation->nMultiple,
-                 category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1]);
+                 category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1], my_player_idx);
             }
             else
             {
                 // indexID == 2 ? indexID = 0 : indexID++;
                 return std::make_tuple(vector2numpy(intention), clsGameSituation->nLandScore * clsGameSituation->nMultiple,
-                category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1]);
+                category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1], my_player_idx);
             }
         }
         
@@ -1070,7 +1071,7 @@ public:
             last_category_idx = category_idx;
         }
         indexID == 2 ? indexID = 0 : indexID++;
-        return std::make_tuple(vector2numpy(intention), 0, category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1]);
+        return std::make_tuple(vector2numpy(intention), 0, category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1], my_player_idx);
     }
 };
 

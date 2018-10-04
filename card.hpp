@@ -14,6 +14,9 @@ using namespace std;
 #define HandCardMaxLen 20
 #define MinCardsValue -25
 
+#define USELESS_CARD -100000
+#define kOneHandPower -150
+#define kPowerUnit -100
 
 
 #define MaxCardsValue 106

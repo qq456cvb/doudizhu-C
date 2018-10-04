@@ -16,15 +16,16 @@ from utils import to_char
 import os
 
 
-def logger(log_info, filename='log.log', foldername='pylog', verbose=True):
+def logger(log_info, filename='log2018_10_4_19_10.log', foldername='pylog', verbose=True, write_log=True):
     full_name = os.path.join(foldername, filename)
     if not os.path.exists(foldername):
         os.mkdir(foldername)
     if verbose:
         print(log_info)
-    with open(full_name, 'a+') as f:
-        f.write(log_info)
-        f.close()
+    if write_log:
+        with open(full_name, 'a+') as f:
+            f.write(log_info)
+            f.close()
 
 
 if __name__ == '__main__':
@@ -40,9 +41,13 @@ if __name__ == '__main__':
         log_info += '-' * 50 + 'Game start at rounds {}!'.format(this_round) + '-' * 50 + '\n'
         logger(log_info)
         while r == 0:
-            intention, r, cate, idx, p1, p2, idx1, p0, idx2 = env.step_auto()
-            if (r != 0) and (idx == 0):
-                count += 1
+            intention, r, cate, idx, p1, p2, idx1, p0, idx2, my_idx = env.step_auto()
+            if my_idx == 0:
+                if (r != 0) and (idx == my_idx):
+                    count += 1
+            else:
+                if (r != 0) and (idx != 0):
+                    count += 1
             log_info += 'player{}: puts:{} \n'.format(idx, intention)
             log_info += 'card type is {}\n'.format(cate)
             log_info += 'my_player hand cards: {}\n'.format(p1)
@@ -53,6 +58,6 @@ if __name__ == '__main__':
             if round_count % 3 == 0:
                 round_count = 1
         log_info += '-' * 50 + 'Round {} game over!'.format(this_round) + '-' * 50 + '\n'
-        logger(log_info)
+        logger(log_info, write_log=True)
 
     print('winning rate: ', count / rounds)
