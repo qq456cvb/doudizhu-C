@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <ctime>
 #include <assert.h>
+#include <fstream>
 using namespace std;
 
 #define HandCardMaxLen 20

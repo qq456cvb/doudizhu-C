@@ -2,6 +2,7 @@
 #include<iostream>
 #include<vector>
 #include<iterator>
+#include<fstream>
 
 template <typename T> void my_cout(T any) {
     cout << any << endl;
@@ -332,13 +333,13 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 			if(len == 2) {
 			    for(int idx = 0; idx < 15; idx ++) // three one line
                 {
-                    if(3 > (cardData[idx] - count(cards.begin(), cards.end(), Card(idx))) && (cardData[idx] - count(cards.begin(), cards.end(), Card(idx))) >= 1)
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 1 && cardData[idx] < 3)
                     {
                         cards.push_back(Card(idx));
                         cardData[idx] -= 1;
                         for(int idx1 = 0; idx1 < 15; idx1 ++)
                         {
-                            if(3 > (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) && (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) >= 1)
+                            if(3 > (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) && (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) >= 1 && cardData[idx1] < 3)
                             {
                                 cards.push_back(Card(idx1));
                                 assert(cards.size() == 8);
@@ -352,14 +353,14 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
                 }
                 for(int idx = 0; idx < 15; idx ++) // three two line
                 {
-                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2)
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2 && cardData[idx] < 3)
                     {
                         cards.push_back(Card(idx));
                         cards.push_back(Card(idx));
                         cardData[idx] -= 2;
                         for(int idx1 = 0; idx1 < 15; idx1 ++)
                         {
-                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2)
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2 && cardData[idx1] < 3)
                             {
                                 cards.push_back(Card(idx1));
                                 cards.push_back(Card(idx1));
@@ -377,20 +378,20 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 			}
 			else if(len == 3) {
                 for(int idx = 0; idx < 15; idx ++) {// three one line
-                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx))  >= 1)
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx))  >= 1 && cardData[idx] < 3)
                     {
                         cards.push_back(Card(idx));
                         cardData[idx] -= 1;
                         for(int idx1 = 0; idx1 < 15; idx1 ++)
                         {
-                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 1)
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 1 && cardData[idx1] < 3)
                             {
                                 cards.push_back(Card(idx1));
                                 cardData[idx1] -= 1;
                                 {
                                     for(int idx2 = 0; idx2 < 15; idx2 ++)
                                     {   // three one line
-                                        if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 1)
+                                        if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 1 && cardData[idx2] < 3)
                                         {
                                             cards.push_back(Card(idx2));
                                             assert(cards.size() == 12);
@@ -409,21 +410,21 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
                 }
                 for(int idx = 0; idx < 15; idx ++) // three two line
                 {
-                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2)
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2 && cardData[idx] < 3)
                     {
                         cards.push_back(Card(idx));
                         cards.push_back(Card(idx));
                         cardData[idx] -= 2;
                         for(int idx1 = 0; idx1 < 15; idx1 ++)
                         {
-                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2)
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2 && cardData[idx1] < 3)
                             {
                                 cards.push_back(Card(idx1));
                                 cards.push_back(Card(idx1));
                                 cardData[idx1] -= 2;
                                 for(int idx2 = 0; idx2 < 15; idx2 ++)
                                 {
-                                    if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 2)
+                                    if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 2 && cardData[idx2] < 3)
                                     {
                                         cards.push_back(Card(idx2));
                                         cards.push_back(Card(idx2));
@@ -466,22 +467,24 @@ int main(int argc, char const *argv[])
 {
       float value = 0;
       vector<float> value_caches = {};
-      vector<int> cardData_vector = {13, 13, 13, 13, 11, 11, 11, 10, 10, 10, 9, 3, 4, 3, 4};
+      vector<int> cardData_vector = {7, 7, 7, 7, 8, 8, 8, 8, 3, 3, 3, 4};
       int cardData[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
       get_one_hot_representation(cardData, cardData_vector, false);
       for(int _ = 0; _ < 15; _ ++) my_cout(cardData[_]);
       cout << endl;
       vector<CardGroup> all_actions = get_all_actions_unlimit(cardData);
       for(int _ = 0; _ < 15; _ ++) my_cout(cardData[_]);
+      ofstream myfile;
+      myfile.open("exe.txt");
       for(CardGroup action:all_actions) {
             vector<int> cards = one_card_group2vector(action);
             cout_vector(cards);
+            myfile << 1 << endl;
             cout << "length is " << cards.size() << endl;
             int type = (int) action._category;
             cout << "type is " << type << endl;
 
       }
-      if(10 > 6 - 5 >= 0) cout << "1111111111" << endl;
 //        // if(!action._cards.size()) continue;
 //        vector<int> cards = one_card_group2vector(action);
       // for(int c = 0; c < 15; c ++) my_cout(cardData[c]);
@@ -517,6 +520,7 @@ int main(int argc, char const *argv[])
 //
 //      }
 //      cout_vector(value_caches);
+      myfile.close();
       return 0;
 }
 

@@ -3913,7 +3913,18 @@ float get_card_group_value(CardGroup card_group){
             else main_cards.push_back(card);
         }
         assert(main_cards.size() % 3 == 0);
-        assert(main_cards.size() / 3 == kickers.size());
+        if(main_cards.size() / 3 != kickers.size()){
+            ofstream myfile;
+            myfile.open("THREE_ONE_LINE_ERROR.txt");
+            myfile << "main_cards: ";
+            for(int main:main_cards) myfile << main << ' ';
+            myfile << endl;
+            myfile << "kickers: ";
+            for(int ki:kickers) myfile << ki << ' ';
+            myfile.close();
+            assert(main_cards.size() / 3 == kickers.size());
+        }
+
         int min_v = *min_element(main_cards.begin(), main_cards.end());
         float top = (min_v + min_v + main_cards.size() / 3) / 2.0f;
         bad = 0.433 + 0.02 * (12 - top) + main_cards.size() / 3 * 0.02 - main_cards.size() / 3 * 0.01;
@@ -4110,13 +4121,13 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 			if(len == 2) {
 			    for(int idx = 0; idx < 15; idx ++) // three one line
                 {
-                    if(3 > (cardData[idx] - count(cards.begin(), cards.end(), Card(idx))) && (cardData[idx] - count(cards.begin(), cards.end(), Card(idx))) >= 1)
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 1 && cardData[idx] < 3)
                     {
                         cards.push_back(Card(idx));
                         cardData[idx] -= 1;
                         for(int idx1 = 0; idx1 < 15; idx1 ++)
                         {
-                            if(3 > (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) && (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) >= 1)
+                            if(3 > (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) && (cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1))) >= 1 && cardData[idx1] < 3)
                             {
                                 cards.push_back(Card(idx1));
                                 assert(cards.size() == 8);
@@ -4130,14 +4141,14 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
                 }
                 for(int idx = 0; idx < 15; idx ++) // three two line
                 {
-                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2)
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2 && cardData[idx] < 3)
                     {
                         cards.push_back(Card(idx));
                         cards.push_back(Card(idx));
                         cardData[idx] -= 2;
                         for(int idx1 = 0; idx1 < 15; idx1 ++)
                         {
-                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2)
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2 && cardData[idx1] < 3)
                             {
                                 cards.push_back(Card(idx1));
                                 cards.push_back(Card(idx1));
@@ -4155,20 +4166,20 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
 			}
 			else if(len == 3) {
                 for(int idx = 0; idx < 15; idx ++) {// three one line
-                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx))  >= 1)
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx))  >= 1 && cardData[idx] < 3)
                     {
                         cards.push_back(Card(idx));
                         cardData[idx] -= 1;
                         for(int idx1 = 0; idx1 < 15; idx1 ++)
                         {
-                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 1)
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 1 && cardData[idx1] < 3)
                             {
                                 cards.push_back(Card(idx1));
                                 cardData[idx1] -= 1;
                                 {
                                     for(int idx2 = 0; idx2 < 15; idx2 ++)
                                     {   // three one line
-                                        if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 1)
+                                        if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 1 && cardData[idx2] < 3)
                                         {
                                             cards.push_back(Card(idx2));
                                             assert(cards.size() == 12);
@@ -4187,21 +4198,21 @@ vector<CardGroup> get_all_actions_unlimit(int cardData[]) {
                 }
                 for(int idx = 0; idx < 15; idx ++) // three two line
                 {
-                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2)
+                    if(3 > cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) && cardData[idx] - count(cards.begin(), cards.end(), Card(idx)) >= 2 && cardData[idx] < 3)
                     {
                         cards.push_back(Card(idx));
                         cards.push_back(Card(idx));
                         cardData[idx] -= 2;
                         for(int idx1 = 0; idx1 < 15; idx1 ++)
                         {
-                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2)
+                            if(3 > cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) && cardData[idx1] - count(cards.begin(), cards.end(), Card(idx1)) >= 2 && cardData[idx1] < 3)
                             {
                                 cards.push_back(Card(idx1));
                                 cards.push_back(Card(idx1));
                                 cardData[idx1] -= 2;
                                 for(int idx2 = 0; idx2 < 15; idx2 ++)
                                 {
-                                    if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 2)
+                                    if(3 > cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) && cardData[idx2] - count(cards.begin(), cards.end(), Card(idx2)) >= 2 && cardData[idx2] < 3)
                                     {
                                         cards.push_back(Card(idx2));
                                         cards.push_back(Card(idx2));
