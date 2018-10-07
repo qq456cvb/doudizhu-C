@@ -1010,6 +1010,9 @@ public:
 
    auto step_auto() {
         int my_player_idx = clsGameSituation->nDiZhuID;
+        int next_player_idx;
+        indexID == 2 ? next_player_idx = 0 : next_player_idx = indexID + 1;
+        clsGameSituation->next_player_cards = arrHandCardData[next_player_idx].value_nHandCardList;
         // py::print("my idx", my_player_idx); // dizhuid = 0
         vector<int> players = {0, 1, 2};
         players.erase(find(players.begin(), players.end(), my_player_idx));
@@ -1025,7 +1028,7 @@ public:
         auto hc1 = arrHandCardData[players[0]].value_nHandCardList;
         auto hc2 = arrHandCardData[players[1]].value_nHandCardList;
         clsGameSituation->color_aUnitOutCardList[indexID] += arrHandCardData[indexID].color_nPutCardList;
-        
+
         // get group category
         auto category = arrHandCardData[indexID].uctPutCardType.cgType;
         reorder_cards(intention, category);
@@ -1043,12 +1046,12 @@ public:
         {
             clsGameSituation->nMultiple *= 2;
         }
-        
-        
+
+
         if (arrHandCardData[indexID].nHandCardCount == 0)
         {
             clsGameSituation->Over = true;
-            
+
             if (indexID == clsGameSituation->nDiZhuID)
             {
                 // indexID == 2 ? indexID = 0 : indexID++;
@@ -1062,7 +1065,7 @@ public:
                 category_idx, idx_for_return, vector2numpy(hc0), vector2numpy(hc1), players[0], vector2numpy(hc2), players[1], my_player_idx);
             }
         }
-        
+
         if (arrHandCardData[indexID].uctPutCardType.cgType != cgZERO)
         {
             clsGameSituation->nCardDroit = indexID;

@@ -67,6 +67,9 @@ public:
     bool Over = false;
     
     std::vector<int> color_aUnitOutCardList[3];
+    std::vector<int> next_player_cards;
+    void get_next_player_card_one_hot(int next_player_card_one_hot[]);
+    bool can_next_player_take(CardGroup current_card);
 };
 
 int LandScore(GameSituation &clsGameSituation, HandCardData &clsHandCardData, int &);

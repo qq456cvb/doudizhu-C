@@ -15,8 +15,8 @@ using namespace std;
 #define MinCardsValue -25
 
 #define USELESS_CARD -100000
-#define kOneHandPower -150
-#define kPowerUnit -100
+#define kOneHandPower -15
+#define kPowerUnit -10
 
 
 #define MaxCardsValue 106
@@ -212,7 +212,7 @@ void my_get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHand
 
 void my_get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
 
-void my_get_PutCardList_2_unlimit(HandCardData &clsHandCardData);
+void my_get_PutCardList_2_unlimit(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
 
 vector<CardGroup> get_all_actions_unlimit(int cardData[]);
 
@@ -226,11 +226,11 @@ vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes
 
 vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group);
 
-float get_card_group_value(CardGroup card_group);
+float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &clsGameSituation);
 
-float get_remain_cards_value(int cardData[], float value);
+float get_remain_cards_value(int cardData[], float value, GameSituation &clsGameSituation);
 
-CardGroupNode find_best_group_unlimit(int cardData[]);
+CardGroupNode find_best_group_unlimit(GameSituation &clsGameSituation, int cardData[]);
 
 CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardData[]);
 
