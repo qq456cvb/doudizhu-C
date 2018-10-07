@@ -15,7 +15,7 @@ using namespace std;
 #define MinCardsValue -25
 
 #define USELESS_CARD -100000
-#define kOneHandPower -15
+#define kOneHandPower -10
 #define kPowerUnit -10
 
 
