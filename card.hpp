@@ -13,10 +13,42 @@ using namespace std;
 
 #define HandCardMaxLen 20
 #define MinCardsValue -25
-
+// some parameters for calculating card group value
 #define USELESS_CARD -100000
 #define kOneHandPower -10
 #define kPowerUnit -10
+#define RefValue 12 // the card value of '2'
+
+#define SingleMainConstant 0.435
+#define SingleMainCoef 0.0151
+#define SingleMainSerialCoef 0.02
+#define SingRemainPenalty 0.01
+#define SingleLineExactPenalty -0.02
+
+#define DoubleMainConstant 0.433
+#define DoubleMainCoef 0.015
+#define DoubleMainSerialCoef 0.02
+#define DoubleRemainPenalty 0.01
+#define DoubleLineExactPenalty -0.02
+
+#define TripleMainConstant 0.433
+#define TripleMainCoef 0.02
+#define TripleMainSerialCoef 0.02
+#define TripleMainSubCoef 0.01
+#define TripleRemainPenalty 0.01
+#define TripleLineExactPenalty -0.02
+
+#define QuatricWithSubConstant -4.5
+#define QuatricWithSubCoef 0.003
+#define QuatricWithSubSerialCoef 0.002
+#define QuatricWithSubSubCoef 0.002
+#define QuatricWithoutSubConstant -6
+#define QuatricWithoutSubCoef 0.175
+#define QuatricWithSubSerialCoef 0.002
+#define QuatricTwoConstant -4.65
+
+#define BigBangPenalty -8.0
+
 
 
 #define MaxCardsValue 106

@@ -3856,13 +3856,175 @@ vector<int> one_card_group2vector(CardGroup card_group) {
     return vct;
 }
 
+//float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &clsGameSituation){
+//    vector<int> cards = one_card_group2vector(card_group);
+//    Category category = card_group._category;
+//    float bad = 0.0f;
+//    // empty
+//    if(category == Category::EMPTY) return bad;
+//    // single
+//    else if(category == Category::SINGLE) {
+//        assert(cards.size() == 1);
+//        float top = (cards[0] * 2 + 1) / 2.0f;
+//        bad = SingleMainConstant + SingleMainCoef * (RefValue - top);
+//        // py::print("debug: ", cards[0]);
+//        if(cardData[cards[0]] > 1) bad += SingRemainPenalty * (RefValue - top);
+//    }
+//    // double
+//    else if(category == Category::DOUBLE) {
+//        assert(cards.size() == 2);
+//        float top = (cards[0] + cards[1] + 1) / 2.0f;
+//        bad = DoubleMainConstant + DoubleMainCoef * (RefValue - top);
+//        if(cardData[cards[0]] > 2) bad += DoubleRemainPenalty * (RefValue - top);
+//    }
+//    // triple
+//    else if(category == Category::TRIPLE) {
+//        assert(cards.size() == 3);
+//        float top = (cards[0] * 2 + 1) / 2.0f;
+//        bad = TripleMainConstant + TripleMainCoef * (RefValue - top);
+//        if(cardData[cards[0]] > 3) bad += TripleRemainPenalty * (RefValue - top);
+//    }
+//    // quatric
+//    else if(category == Category::QUADRIC) {
+//        assert(cards.size() == 4);
+//        float top = (cards[0] * 2 + 1) / 2.0f;
+//        bad = QuatricWithoutSubConstant + QuatricWithoutSubCoef * (RefValue - top);
+//        if(cards[0] == 12) bad = QuatricTwoConstant;
+//    }
+//    // three one
+//    else if(category == Category::THREE_ONE) {
+//        assert(cards.size() == 4);
+//        int main_card, kicker;
+//        for(int card:cards) {
+//            int count_n = count(cards.begin(), cards.end(), card);
+//            if(count_n != 3) kicker = card;
+//            else main_card = card;
+//        }
+//         for(int i = 0; i < 15; i++) {
+//             if(cardData[kicker] == 1) bad += -0.02 * (14 - i);
+//         }
+//        float top = (main_card * 2 + 1) / 2.0f;
+//        bad = TripleMainConstant + TripleMainCoef * (RefValue - top) - TripleMainSubCoef * 1;
+//    }
+//    // three two
+//    else if(category == Category::THREE_TWO) {
+//        assert(cards.size() == 5);
+//        int main_card, kicker;
+//        for(int card:cards) {
+//            int count_n = count(cards.begin(), cards.end(), card);
+//            if(count_n != 3) kicker = card;
+//            else main_card = card;
+//        }
+//         for(int i = 0; i < 15; i++) {
+//             if(cardData[kicker] == 2) bad += -0.02 * (14 - i);
+//         }
+//        float top = (main_card * 2 + 1) / 2.0f;
+//        bad = TripleMainConstant + TripleMainCoef * (RefValue - top) - TripleMainSubCoef * 2;
+//    }
+//    // single line
+//    else if(category == Category::SINGLE_LINE) {
+//        assert(cards.size() >= 5);
+//        int min_v = *min_element(cards.begin(), cards.end());
+//        float top = (min_v + min_v + cards.size()) / 2.0f;
+//        bad = SingleMainConstant + SingleMainCoef * (RefValue - top) + cards.size() * SingleMainSerialCoef;
+//        for(int i = 0; i < 15; i++) {
+//            if(cardData[i] == 1 && find(cards.begin(), cards.end(), i) != cards.end()) bad += SingleLineExactPenalty * (RefValue - i);
+//        }
+//    }
+//    // double line
+//    else if(category == Category::DOUBLE_LINE) {
+//        assert(cards.size() >= 6);
+//        int min_v = *min_element(cards.begin(), cards.end());
+//        float top = (min_v + min_v + cards.size() / 2) / 2.0f;
+//        bad = DoubleMainConstant + DoubleMainCoef * (RefValue - top) + cards.size() / 2 * DoubleMainSerialCoef;
+//        for(int i = 0; i < 15; i++) {
+//            if(cardData[i] == 2 && find(cards.begin(), cards.end(), i) != cards.end()) bad += DoubleLineExactPenalty * (RefValue - i);
+//        }
+//    }
+//    // triple line
+//    else if(category == Category::TRIPLE_LINE) {
+//        assert(cards.size() % 3 == 0);
+//        int min_v = *min_element(cards.begin(), cards.end());
+//        float top = (min_v + min_v + cards.size() / 3) / 2.0f;
+//        bad = TripleMainConstant + TripleMainCoef * (RefValue - top) + cards.size() / 3 * TripleMainSerialCoef;
+//        for(int i = 0; i < 15; i++) {
+//            if(cardData[i] == 3 && find(cards.begin(), cards.end(), i) != cards.end()) bad += TripleLineExactPenalty * (RefValue - i);
+//        }
+//    }
+//    // three one line
+//    else if(category == Category::THREE_ONE_LINE) {
+//        assert(cards.size() == 8 || cards.size() == 12 || cards.size() == 16);
+//        assert((cards.size() - 2) % 3 == 0 || (cards.size() - 3) % 3 == 0 || (cards.size() - 4) % 3 == 0);
+//        vector<int> main_cards, kickers;
+//        for(int card:cards) {
+//            int count_n = count(cards.begin(), cards.end(), card);
+//            if(count_n != 3) kickers.push_back(card);
+//            else main_cards.push_back(card);
+//        }
+//        assert(main_cards.size() % 3 == 0);
+//        int min_v = *min_element(main_cards.begin(), main_cards.end());
+//        float top = (min_v + min_v + main_cards.size() / 3) / 2.0f;
+//        bad = TripleMainConstant + TripleMainCoef * (RefValue - top) + main_cards.size() / 3 * TripleMainSerialCoef - main_cards.size() / 3 * TripleMainSubCoef;
+//    }
+//    // three two line
+//    else if(category == Category::THREE_TWO_LINE) {
+//        assert(cards.size() == 10 || cards.size() == 15);
+//        assert((cards.size() - 4) % 3 == 0 || (cards.size() - 6) % 3 == 0);
+//        vector<int> main_cards, kickers;
+//        for(int card:cards) {
+//            int count_n = count(cards.begin(), cards.end(), card);
+//            if(count_n == 2) kickers.push_back(card);
+//            else main_cards.push_back(card);
+//        }
+//        assert(main_cards.size() % 3 == 0);
+//        assert(main_cards.size() / 3 == kickers.size() / 2);
+//        int min_v = *min_element(main_cards.begin(), main_cards.end());
+//        float top = (min_v + min_v + main_cards.size() / 3) / 2.0f;
+//        bad = TripleMainConstant + TripleMainCoef * (RefValue - top) + main_cards.size() / 3 * TripleMainSerialCoef - main_cards.size() / 3 * 2 * TripleMainSubCoef;
+//    }
+//    // big band
+//    else if(category == Category::BIGBANG) bad = BigBangPenalty;
+//    // four take one
+//    else if(category == Category::FOUR_TAKE_ONE) {
+//        assert(cards.size() == 6);
+//        vector<int> main_cards, kickers;
+//        for(int card:cards) {
+//            int count_n = count(cards.begin(), cards.end(), card);
+//            if(count_n != 4) kickers.push_back(card);
+//            else main_cards.push_back(card);
+//        }
+//        assert(main_cards.size() % 4 == 0);
+//        assert(main_cards.size() == kickers.size() + 2);
+//        int min_v = *min_element(main_cards.begin(), main_cards.end());
+//        float top = (min_v + min_v + 1) / 2.0f;
+//        bad = QuatricWithSubConstant + QuatricWithSubCoef * (RefValue - top) - 2 * QuatricWithoutSubCoef;
+//    }
+//    // four take two
+//    else if(category == Category::FOUR_TAKE_TWO) {
+//        assert(cards.size() == 8);
+//        vector<int> main_cards, kickers;
+//        for(int card:cards) {
+//            int count_n = count(cards.begin(), cards.end(), card);
+//            if(count_n == 4) kickers.push_back(card);
+//            else main_cards.push_back(card);
+//        }
+//        assert(main_cards.size() == kickers.size());
+//        int min_v = *min_element(main_cards.begin(), main_cards.end());
+//        float top = (min_v + min_v + 1) / 2.0f;
+//        bad = QuatricWithSubConstant + QuatricWithSubCoef * (RefValue - top) - 4 * QuatricWithSubSubCoef;
+//    }
+//    // py::print("bad:", bad);
+//    float ret = kOneHandPower + kPowerUnit * bad;
+//    // if(clsGameSituation.can_next_player_take(card_group)) ret -= 0.05;
+//    return ret;
+//}
 float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &clsGameSituation){
     vector<int> cards = one_card_group2vector(card_group);
     Category category = card_group._category;
     float bad = 0.0f;
     // empty
     if(category == Category::EMPTY) return bad;
-    // single
+        // single
     else if(category == Category::SINGLE) {
         assert(cards.size() == 1);
         float top = (cards[0] * 2 + 1) / 2.0f;
@@ -3870,27 +4032,27 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
         // py::print("debug: ", cards[0]);
         if(cardData[cards[0]] > 1) bad += 0.01 * (12 - top);
     }
-    // double
+        // double
     else if(category == Category::DOUBLE) {
         assert(cards.size() == 2);
         float top = (cards[0] + cards[1] + 1) / 2.0f;
         bad = 0.433 + 0.015 * (12 - top);
         if(cardData[cards[0]] > 2) bad += 0.01 * (12 - top);
     }
-    // triple
+        // triple
     else if(category == Category::TRIPLE) {
         assert(cards.size() == 3);
         float top = (cards[0] * 2 + 1) / 2.0f;
         bad = 0.433 + 0.02 * (12 - top);
         if(cardData[cards[0]] > 3) bad += 0.01 * (12 - top);
     }
-    // quatric
+        // quatric
     else if(category == Category::QUADRIC) {
         assert(cards.size() == 4);
         float top = (cards[0] * 2 + 1) / 2.0f;
         bad = -1.5f * 4.0f + 0.175 * (12 - top);
     }
-    // three one
+        // three one
     else if(category == Category::THREE_ONE) {
         assert(cards.size() == 4);
         int main_card, kicker;
@@ -3905,7 +4067,7 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
         float top = (main_card * 2 + 1) / 2.0f;
         bad = 0.433 + 0.02 * (12 - top) - 0.01 * 1;
     }
-    // three two
+        // three two
     else if(category == Category::THREE_TWO) {
         assert(cards.size() == 5);
         int main_card, kicker;
@@ -3920,7 +4082,7 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
         float top = (main_card * 2 + 1) / 2.0f;
         bad = 0.433 + 0.02 * (12 - top) - 0.01 * 2;
     }
-    // single line
+        // single line
     else if(category == Category::SINGLE_LINE) {
         assert(cards.size() >= 5);
         int min_v = *min_element(cards.begin(), cards.end());
@@ -3930,7 +4092,7 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
             if(cardData[i] == 1 && find(cards.begin(), cards.end(), i) != cards.end()) bad += -0.02 * (14 - i);
         }
     }
-    // double line
+        // double line
     else if(category == Category::DOUBLE_LINE) {
         assert(cards.size() >= 6);
         int min_v = *min_element(cards.begin(), cards.end());
@@ -3940,7 +4102,7 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
             if(cardData[i] == 2 && find(cards.begin(), cards.end(), i) != cards.end()) bad += -0.02 * (14 - i);
         }
     }
-    // triple line
+        // triple line
     else if(category == Category::TRIPLE_LINE) {
         assert(cards.size() % 3 == 0);
         int min_v = *min_element(cards.begin(), cards.end());
@@ -3950,7 +4112,7 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
             if(cardData[i] == 3 && find(cards.begin(), cards.end(), i) != cards.end()) bad += -0.02 * (14 - i);
         }
     }
-    // three one line
+        // three one line
     else if(category == Category::THREE_ONE_LINE) {
         assert(cards.size() == 8 || cards.size() == 12 || cards.size() == 16);
         assert((cards.size() - 2) % 3 == 0 || (cards.size() - 3) % 3 == 0 || (cards.size() - 4) % 3 == 0);
@@ -3977,7 +4139,7 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
         float top = (min_v + min_v + main_cards.size() / 3) / 2.0f;
         bad = 0.433 + 0.02 * (12 - top) + main_cards.size() / 3 * 0.02 - main_cards.size() / 3 * 0.01;
     }
-    // three two line
+        // three two line
     else if(category == Category::THREE_TWO_LINE) {
         assert(cards.size() == 10 || cards.size() == 15);
         assert((cards.size() - 4) % 3 == 0 || (cards.size() - 6) % 3 == 0);
@@ -3993,9 +4155,9 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
         float top = (min_v + min_v + main_cards.size() / 3) / 2.0f;
         bad = 0.433 + 0.02 * (12 - top) + main_cards.size() / 3 * 0.02 - main_cards.size() / 3 * 2 * 0.01;
     }
-    // big band
+        // big band
     else if(category == Category::BIGBANG) bad = -8.0f;
-    // four take one
+        // four take one
     else if(category == Category::FOUR_TAKE_ONE) {
         assert(cards.size() == 6);
         vector<int> main_cards, kickers;
@@ -4010,7 +4172,7 @@ float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &
         float top = (min_v + min_v + 1) / 2.0f;
         bad = - 1.5 * 3.0f + 0.003 * (12 - top) - 2 * 0.002;
     }
-    // four take two
+        // four take two
     else if(category == Category::FOUR_TAKE_TWO) {
         assert(cards.size() == 8);
         vector<int> main_cards, kickers;
@@ -4363,7 +4525,6 @@ CardGroupNode find_best_group_unlimit(GameSituation &clsGameSituation, int cardD
     res_node.group_data = best_card_group_vector;
     return res_node;
 }
-
 CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardData[]) {
     vector<CardGroup> card_groups = get_all_actions_unlimit(cardData); // 0-14
     vector<float> value_caches;
