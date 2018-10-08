@@ -320,7 +320,7 @@ class ExpReplay(DataFlow, Callback):
             else:
                 act = self.rng.choice(range(self.num_actions[0 if comb_mask else 1]))
         else:
-            q_values = self.predictor([old_s[None, :, :, :], np.array([comb_mask]), np.array([fine_mask])])[0][0]
+            q_values = self.predictor(old_s[None, :, :, :], np.array([comb_mask]), np.array([fine_mask]))[0][0]
             if not self._comb_mask and self._fine_mask is not None:
                 q_values = q_values[:self.num_actions[1]]
                 assert np.all(q_values[np.where(np.logical_not(self._fine_mask))[0]] < -100)
