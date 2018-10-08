@@ -1008,7 +1008,13 @@ public:
         return vector2numpy(intention);
     }
 
-   auto step_auto() {
+   auto step_auto(py::list args) {
+        vector<float> cpp_args;
+
+        for(int i = 0; i < 27; i++) {
+            float tmp = args[i].cast<float>();
+            cpp_args.push_back(tmp);
+        }
         int my_player_idx = clsGameSituation->nDiZhuID;
         int next_player_idx;
         indexID == 2 ? next_player_idx = 0 : next_player_idx = indexID + 1;
@@ -1016,7 +1022,7 @@ public:
         // py::print("my idx", my_player_idx); // dizhuid = 0
         vector<int> players = {0, 1, 2};
         players.erase(find(players.begin(), players.end(), my_player_idx));
-        if(indexID == my_player_idx) my_get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
+        if(indexID == my_player_idx) my_get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID], cpp_args);
         else{
             get_PutCardList_2(*clsGameSituation, arrHandCardData[indexID]);
         }

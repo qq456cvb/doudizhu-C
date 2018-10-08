@@ -15,39 +15,39 @@ using namespace std;
 #define MinCardsValue -25
 // some parameters for calculating card group value
 #define USELESS_CARD -100000
-#define kOneHandPower -15
-#define kPowerUnit -10
-#define RefValue 12 // the card value of '2'
-
-#define SingleMainConstant 0.435
-#define SingleMainCoef 0.0151
-#define SingleMainSerialCoef 0.02
-#define SingRemainPenalty 0.01
-#define SingleLineExactPenalty -0.02
-
-#define DoubleMainConstant 0.433
-#define DoubleMainCoef 0.015
-#define DoubleMainSerialCoef 0.02
-#define DoubleRemainPenalty 0.01
-#define DoubleLineExactPenalty -0.02
-
-#define TripleMainConstant 0.433
-#define TripleMainCoef 0.02
-#define TripleMainSerialCoef 0.02
-#define TripleMainSubCoef 0.01
-#define TripleRemainPenalty 0.01
-#define TripleLineExactPenalty -0.02
-
-#define QuatricWithSubConstant -4.5
-#define QuatricWithSubCoef 0.003
-#define QuatricWithSubSerialCoef 0.002
-#define QuatricWithSubSubCoef 0.002
-#define QuatricWithoutSubConstant -6
-#define QuatricWithoutSubCoef 0.175
-#define QuatricWithSubSerialCoef 0.002
-#define QuatricTwoConstant -4.65
-
-#define BigBangPenalty -8.0
+//#define kOneHandPower -10
+//#define kPowerUnit -5
+//#define RefValue 12 // the card value of '2'
+//
+//#define SingleMainConstant 0.435
+//#define SingleMainCoef 0.0151
+//#define SingleMainSerialCoef 0.02
+//#define SingRemainPenalty 0.01
+//#define SingleLineExactPenalty -0.02
+//
+//#define DoubleMainConstant 0.433
+//#define DoubleMainCoef 0.015
+//#define DoubleMainSerialCoef 0.02
+//#define DoubleRemainPenalty 0.01
+//#define DoubleLineExactPenalty -0.02
+//
+//#define TripleMainConstant 0.433
+//#define TripleMainCoef 0.02
+//#define TripleMainSerialCoef 0.02
+//#define TripleMainSubCoef 0.01
+//#define TripleRemainPenalty 0.01
+//#define TripleLineExactPenalty -0.02
+//
+//#define QuatricWithSubConstant -4.5
+//#define QuatricWithSubCoef 0.003
+//#define QuatricWithSubSerialCoef 0.002
+//#define QuatricWithSubSubCoef 0.002
+//#define QuatricWithoutSubConstant -6
+//#define QuatricWithoutSubCoef 0.175
+//#define QuatricWithoutSubSerialCoef 0.002
+//#define QuatricTwoConstant -4.65
+//
+//#define BigBangPenalty -8.0
 
 
 
@@ -240,11 +240,11 @@ CardGroupData ins_SurCardsType(vector<int>);
 CardGroupData get_GroupData(CardGroupType cgType, int MaxCard, int Count);
 
 /* my functions */
-void my_get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
+void my_get_PutCardList_2(GameSituation &clsGameSituation, HandCardData &clsHandCardData,  vector<float> &args);
 
-void my_get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
+void my_get_PutCardList_2_limit(GameSituation &clsGameSituation, HandCardData &clsHandCardData, vector<float> &args);
 
-void my_get_PutCardList_2_unlimit(GameSituation &clsGameSituation, HandCardData &clsHandCardData);
+void my_get_PutCardList_2_unlimit(GameSituation &clsGameSituation, HandCardData &clsHandCardData, vector<float> &args);
 
 vector<CardGroup> get_all_actions_unlimit(int cardData[]);
 
@@ -258,13 +258,13 @@ vector<vector<int>> cardGroupNode2matrix(vector<CardGroupNode> &card_group_nodes
 
 vector<vector<int>> CardGroup2matrix(vector<CardGroup> card_group);
 
-float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &clsGameSituation);
+float get_card_group_value(CardGroup card_group, int cardData[], GameSituation &clsGameSituation, vector<float> &args);
 
-float get_remain_cards_value(int cardData[], float value, GameSituation &clsGameSituation);
+float get_remain_cards_value(int cardData[], float value, GameSituation &clsGameSituation, vector<float> &args);
 
-CardGroupNode find_best_group_unlimit(GameSituation &clsGameSituation, int cardData[]);
+CardGroupNode find_best_group_unlimit(GameSituation &clsGameSituation, int cardData[], vector<float> &args);
 
-CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardData[]);
+CardGroupNode find_best_group_limit(GameSituation &clsGameSituation, int cardData[], vector<float> &args);
 
 void get_card_group_max_and_len(vector<int> action, CardGroupType &standard_type, int &action_max_card, int &action_len);
 
