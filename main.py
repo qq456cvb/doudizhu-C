@@ -33,7 +33,7 @@ def logger(log_info, filename=current_time + '.log', foldername='pylog', verbose
 
 if __name__ == '__main__':
     env = CEnv()
-    rounds = 50
+    rounds = 100
     count = 0
     write_log_flag = False
     write_log = input("Do you want to log:y(yes) / any other key(no) ?")
