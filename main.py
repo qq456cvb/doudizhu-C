@@ -48,7 +48,7 @@ if __name__ == '__main__':
         round_count = 1
         log_info = ''
         log_info += '-' * 50 + 'Game start at rounds {}!'.format(this_round) + '-' * 50 + '\n'
-        logger(log_info)
+        logger(log_info, filename=remark + current_time + '.log', write_log=write_log_flag)
         while r == 0:
             intention, r, cate, idx, p1, p2, idx1, p0, idx2, my_idx = env.step_auto()
             # intention = to_char(intention)
