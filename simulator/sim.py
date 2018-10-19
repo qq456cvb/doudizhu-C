@@ -29,13 +29,7 @@ class Simulator(multiprocessing.Process):
         END = 3
 
     templates = load_templates()
-    mini_templates = dict()
-    for t in templates:
-        if t == 'Joker':
-            mini_templates[t] = cv2.imread('./templates/Joker_mini.png', cv2.IMREAD_GRAYSCALE)
-        else:
-            mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.7, fy=0.7)
-    tiny_templates = load_tiny_templates()
+    mini_templates = load_mini_templates(templates)
 
     def __init__(self, idx, hwnd, pipe_sim2exps, pipe_exps2sim, pipe_sim2coord, pipe_coord2sim, pipe_sim2mgr, pipe_mgr2sim, agent_names, exploration, toggle):
         super(Simulator, self).__init__()
@@ -127,7 +121,7 @@ class Simulator(multiprocessing.Process):
             return loads(mgr2sim_socket.recv(copy=False).bytes)
 
         def request_click(bbox):
-            sim2mgr_socket.send(dumps([self.name, SimulatorManager.MSG_TYPE.CLICK, [(bbox[0] + bbox[2]) // 2 + self.window_rect[0], (bbox[1] + bbox[3]) // 2 + self.window_rect[1]]]))
+            sim2mgr_socket.send(dumps([self.name, SimulatorManager.MSG_TYPE.CLICK, [(bbox[0] + bbox[2]) // 2 + self.window_rect[0] + 6, (bbox[1] + bbox[3]) // 2 + self.window_rect[1] + 46]]))
             return loads(mgr2sim_socket.recv(copy=False).bytes)
 
         def request_lock():
@@ -191,17 +185,12 @@ class Simulator(multiprocessing.Process):
             if not act:
                 continue
             print(act)
-            if 'addict_window' in act:
-                request_click(act['addict_window'])
-                time.sleep(3.)
-                continue
-            if 'chuntian_window' in act:
-                request_click(act['chuntian_window'])
-                time.sleep(3.)
+            if 'start' in act:
+                request_click(act['start'])
                 continue
             if self.state == Simulator.State.CALLING:
                 # state has changed
-                if 'chupai' in act or 'alone_chupai' in act or 'ming_chupai' in act or 'yaobuqi' in act:
+                if 'reverse' in act:
                     self.state = Simulator.State.PLAYING
                     self.current_lord_pos = who_is_lord(self.current_screen)
                     while self.current_lord_pos < 0:
@@ -210,25 +199,16 @@ class Simulator(multiprocessing.Process):
                         print('current lord pos ', self.current_lord_pos)
                         if self.toggle.value == 0:
                             break
-                    time.sleep(1.5)
                     continue
                 print('calling', act)
                 handcards, _ = get_cards_bboxes(self.current_screen, self.templates, 0)
                 cards_value, _ = CEnv.get_cards_value(Card.char2color(handcards))
                 print('cards value: ', cards_value)
-                if 'qiangdizhu' in act:
-                    request_click(act['buqiang']) if cards_value < 10 else request_click(act['qiangdizhu'])
-                else:
-                    if 'bujiabei' in act:
-                        request_click(act['bujiabei'])
-                        time.sleep(1.)
-                        continue
-                    # assert 'jiaodizhu' in act
-                    request_click(act['bujiao']) if cards_value < 10 else request_click(act['jiaodizhu'])
+                assert 'jiaodizhu' in act
+                request_click(act['bujiao']) if cards_value < 10 else request_click(act['jiaodizhu'])
             elif self.state == Simulator.State.PLAYING:
-                if 'end' in act or 'continous_end' in act or 'fail_end' in act:
-                    time.sleep(0.5)
-                    request_click(act['end'] if 'end' in act else (act['continous_end'] if 'continous_end' in act else act['fail_end']))
+                if 'defeat' in act or 'victory' in act:
+                    request_click(act['defeat'] if 'defeat' in act else act['victory'])
                     time.sleep(0.5)
                     if self.cached_msg is None:
                         print('other player wins in one step!!!')
@@ -258,11 +238,11 @@ class Simulator(multiprocessing.Process):
                 left_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 1)
                 right_cards, _ = get_cards_bboxes(self.current_screen, self.mini_templates, 2)
                 if None in left_cards or None in right_cards:
-                    request_click(act['buchu']) if 'buchu' in act else request_click(act['yaobuqi'])
+                    request_click(act['buchu'])
                     time.sleep(1.)
                     continue
-                # assert None not in left_cards
-                # assert None not in right_cards
+                assert None not in left_cards
+                assert None not in right_cards
                 self.history[1].extend(right_cards)
                 self.history[2].extend(left_cards)
                 last_cards = left_cards
@@ -276,12 +256,14 @@ class Simulator(multiprocessing.Process):
                 handcards = [card for card in handcards if card is not None]
                 remain_cards = total_cards - Card.char2onehot60(handcards + self.history[0] + self.history[1] + self.history[2])
                 print('current handcards: ', handcards)
-                left_cnt, right_cnt = get_opponent_cnts(self.current_screen, self.tiny_templates)
-                print('left cnt: ', left_cnt, 'right cnt: ', right_cnt)
-                if left_cnt <= 0:
-                    left_cnt = 1
-                if right_cnt <= 0:
-                    right_cnt = 1
+                # left_cnt, right_cnt = get_opponent_cnts(self.current_screen, self.tiny_templates)
+                # print('left cnt: ', left_cnt, 'right cnt: ', right_cnt)
+                left_cnt = 17 - len(self.history[2])
+                right_cnt = 17 - len(self.history[1])
+                if self.current_lord_pos == 1:
+                    left_cnt += 3
+                if self.current_lord_pos == 2:
+                    right_cnt += 3
                 # assert left_cnt > 0 and right_cnt > 0
                 # to be the same as C++ side, right comes before left
 
@@ -305,9 +287,9 @@ class Simulator(multiprocessing.Process):
 
                 self.history[0].extend(intention)
                 print('intention is: ', intention)
-                intention.sort(key=lambda k: Card.cards_to_value[k], reverse=True)
+                intention.sort(key=lambda k: Card.cards_to_value[k])
                 if len(intention) == 0:
-                    request_click(act['buchu']) if 'buchu' in act else request_click(act['yaobuqi'])
+                    request_click(act['buchu'])
                 else:
                     i = 0
                     j = 0
@@ -321,8 +303,12 @@ class Simulator(multiprocessing.Process):
                             j += 1
                         else:
                             i += 1
-                    discard(act, bboxes, to_click_idxs)
+                    for bbox in to_click:
+                        request_click(bbox)
+                    time.sleep(0.5)
+                    request_click([1310, 760, 1310, 760])
             time.sleep(1.)
+
 
 if __name__ == '__main__':
     a = 3

@@ -123,6 +123,64 @@ class Configuration:
         '''
 
 
+class ConfigurationOffline:
+    def __init__(self):
+        # path information
+        self.img_root_path = 'photo/'
+        self.video_root_path = 'video/'
+        self.img_path = [self.img_root_path + path for path in os.listdir(self.img_root_path)]
+        self.video_path = [self.video_root_path + '/' + path for path in os.listdir(self.video_root_path)]
+        # self.video_path.sort(key=lambda x: int(re.findall('[0-9].*', x.split('.')[0])[0]))
+        self.array_path = 'array/'
+
+        # some global parameters
+        self.channels = 3
+        self.img_size = np.array([1080, 1920, 3])
+        self.two_words_button_width = 141
+
+        # npy informations
+        self.start_array = np.load(self.array_path + "start.npy")
+        self.tishi_array = np.load(self.array_path + "tishi.npy")
+        self.reverse_array = np.load(self.array_path + "reverse.npy")
+        self.buchu_array = np.load(self.array_path + "buchu.npy")
+        self.bujiao_array = np.load(self.array_path + "bujiao.npy")
+        self.jiaodizhu_array = np.load(self.array_path + "jiaodizhu.npy")
+        self.chupai_array = np.load(self.array_path + "chupai.npy")
+
+        # some parameters defining position informations
+        self.mid_line = 753
+        self.button_up_margin = 723
+        self.button_down_margin = 793
+        self.button_information = {
+            "start": [860, self.start_array],
+            "tishi": [860, self.tishi_array],
+            "reverse": [675, self.reverse_array],
+            "buchu": [486, self.buchu_array],
+            "chupai": [1240, self.chupai_array],
+            "bujiao": [675, self.bujiao_array],
+            "jiaodizhu": [1050, self.jiaodizhu_array],
+        }
+
+        # some parameters defining the load mark
+        # self is load
+        self.self_lord_x = 135
+        self.self_lord_y = 693
+        self.self_lord_color = np.array([154, 146, 10])
+        # left player is load
+        self.left_lord_x = 135
+        self.left_lord_y = 220
+        self.left_lord_color = np.array([154, 147, 12])
+        # right player is load
+        self.right_lord_x = 1810
+        self.right_lord_y = 220
+        self.right_lord_color = np.array([154, 147, 12])
+
+        # some parameters for judging win or lose
+        self.winning_losing_top = 306
+        self.winning_losing_left = 963
+        self.losing_color = np.array([213, 213, 213])
+        self.winning_color = np.array([13, 216, 252])
+
 
 if __name__ == '__main__':
     cf = Configuration()

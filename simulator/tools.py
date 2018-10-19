@@ -15,72 +15,41 @@ from skimage import data, segmentation, color, measure
 from skimage.future import graph
 from matplotlib import pyplot as plt
 import os
-from simulator.config import Configuration
+from simulator.config import ConfigurationOffline
 import time
 from PIL import ImageGrab
 import win32gui
 import skimage.measure
 import win32api, win32con
-cf = Configuration()
+cf_offline = ConfigurationOffline()
 
 DEBUG = False
 
 
-def whether_addic(img):
-    useful_band = img[cf.addict_top, cf.addict_left:cf.addict_left + cf.addict_width, :]
-    for i in range(cf.addict_width):
-        compared = useful_band[i]
-        tru_color = cf.addict_window[i]
-        if not compare_color(tru_color, compared):
-            return False
-    return True
-
-
-def locate_cards_position(img, x_left, x_right, y, y_up, y_bottom, mini=False, thresh=210):
-    while not (np.all(img[y, x_left] > thresh) and np.all(img[y - 5, x_left] > thresh) and np.max(img[y, x_left]) - np.min(img[y, x_left]) < 15):
-        if x_left == img.shape[1] - 1:
-            break
-        x_left += 1
-    while not (np.all(img[y, x_right] > thresh) and np.all(img[y - 5, x_right] > thresh) and np.max(img[y, x_right]) - np.min(img[y, x_right]) < 15):
-        if x_right == 0:
-            break
-        x_right -= 1
-    n_cards = int(round((x_right - x_left - (74 if mini else 140)) / (33 if mini else 55.1)) + 1)
-    if n_cards == 1:
-        spacing = 33 if mini else 55
-    else:
-        spacing = (x_right - x_left - (74 if mini else 140)) / (n_cards - 1)
-    # print(n_cards)
-    # # print(np.var(img[730, x_left]), np.var(img[730, x_right]))
-    if DEBUG:
-        cv2.line(img, (x_left, y_up), (x_left, y_bottom), (0, 255, 0), 3)
-        cv2.line(img, (x_right, y_up), (x_right, y_bottom), (0, 0, 255), 3)
-        cv2.imshow('test', img)
-        cv2.waitKey(0)
-    if x_left > x_right or x_right - x_left < (64 if mini else 130):
-        return []
+def locate_cards_position(img, x_left, x_max, y_up, y_bottom, cards_up, cards_bottom, mini=False):
     bboxes = []
-    for i in range(n_cards):
-        left = x_left + int(i * spacing)
-        bboxes.append([left, y_up, left + int(spacing), y_bottom])
-    # x = x_left + int(13 * scale)
-    # while x < x_right - int(13 * scale):
-    #     x_cmp = x - int(7 * scale)
-    #     if np.all(img[y, x] > 200) and np.all(img[y, x_cmp] > 200) and np.all(img[y, x_cmp - int(3*scale)] > 200):
-    #         if np.all(img[y, x].astype(np.int32) - img[y, x_cmp].astype(np.int32) > 20) and np.mean(img[y, x_cmp:x]) > 200:
-    #             # cv2.line(img, (x, 700), (x, 800), (0, 255, 0), 1)
-    #             # cv2.line(img, (x_cmp, 700), (x_cmp, 800), (0, 0, 255), 1)
-    #             pos.append(x)
-    #             # print('find one')
-    #             x += int(13 * scale)
-    #     x += 1
-    # pos.insert(0, x_left)
-    # bboxes = []
-    # # XYXY format
-    # for p in pos:
-    #     bboxes.append([p, y - int(16 * scale), p + spacing, y + int(36 * scale)])
-    # cv2.imshow('test', img)
-    # cv2.waitKey(0)
+    while True:
+        while not np.all(img[y_up:y_bottom, x_left] > 250):
+            if x_left >= x_max:
+                break
+            x_left += 1
+        if x_left >= x_max:
+            break
+        x_right = x_left
+        while not (np.all(img[y_up:y_bottom, x_right] < 180) and x_right - x_left > (50 if mini else 80)):
+            x_right += 1
+
+        bboxes.append([x_left + 2, cards_up, x_left + (50 if mini else 85), cards_bottom])
+        # bbox = bboxes[-1]
+        # cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0))
+        # cv2.imshow('test', img)
+        # cv2.waitKey()
+        x_left = x_right
+    # if DEBUG:
+    #     for bbox in bboxes:
+    #         cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0))
+    #     cv2.imshow('test', img)
+    #     cv2.waitKey()
     return bboxes
 
     # print((x_right - x_left - 130) / 82.5)
@@ -98,6 +67,13 @@ def load_templates():
         # cv2.imshow('test', res[c][rect[1]:rect[3], rect[0]:rect[2]])
         # cv2.waitKey(0)
     return res
+
+
+def load_mini_templates(templates):
+    mini_templates = dict()
+    for t in templates:
+        mini_templates[t] = cv2.resize(templates[t], (0, 0), fx=0.59, fy=0.59)
+    return mini_templates
 
 
 def load_tiny_templates():
@@ -196,7 +172,7 @@ def show_img(img_array):
     cv2.destroyAllWindows()
 
 
-def compare_color(truth_color, compared_color, difference=cf.max_pixel_difference):
+def compare_color(truth_color, compared_color, difference=0):
     """
     judge whether a pixel belongs to a specific color
     :param truth_color: the standard color ([**, **, **])
@@ -204,57 +180,13 @@ def compare_color(truth_color, compared_color, difference=cf.max_pixel_differenc
     :return:
     """
     cnt = 0
-    for idx in range(cf.channels):
+    for idx in range(cf_offline.channels):
         if np.abs(int(truth_color[idx]) - int(compared_color[idx])) <= difference:
             cnt += 1
     if cnt == 3:
         return True
     else:
         return False
-
-
-def find_all_buttons(effective_band, truth_colors):
-    """
-    find all the buttons
-    :param truth_colors: yellow and blue ([**, **, **])
-    :param effective_band: the band to be scanned
-    :return: a list formed by the start position of all the buttons, if no button is found, return []
-    """
-    yellow_bbox = []
-    blue_bbox = []
-    end_bbox = []
-    end_continue_bbox = []
-    idx = 0
-    while idx < cf.img_size[1]:
-        if compare_color(truth_colors[0], effective_band[idx]):
-            yellow_bbox.append([idx, cf.button_up_margin, idx + cf.two_words_button_width, cf.button_down_margin])
-            idx += cf.two_words_button_width
-        elif compare_color(truth_colors[1], effective_band[idx]):
-            blue_bbox.append([idx, cf.button_up_margin, idx + cf.two_words_button_width, cf.button_down_margin])
-            idx += cf.two_words_button_width
-        elif compare_color(truth_colors[2], effective_band[idx]):
-            end_bbox.append([idx, cf.end_line_y - cf.button_height // 2, idx + cf.end_button_width,
-                             cf.end_line_y + cf.button_height // 2])
-            idx += cf.end_button_width
-        # elif compare_color(truth_colors[3], effective_band[idx]):
-        #     end_continue_bbox.append([idx, cf.end_line_y - cf.button_height // 2, idx + cf.end_button_width,
-        #                      cf.end_line_y + cf.button_height // 2])
-        #     idx += cf.end_button_width
-        else:
-            idx += 1
-    return [yellow_bbox, blue_bbox, end_bbox, end_continue_bbox]
-
-
-def identify_current_button(effective_band, start_x, standard_array):
-    cnt = 0
-    temp = effective_band[start_x]
-    assert standard_array.shape[0] == cf.two_words_button_width or standard_array.shape[0] == cf.end_button_width
-    while cnt < cf.two_words_button_width:
-        if not compare_color(standard_array[cnt], effective_band[start_x + cnt]):
-            return False
-        cnt += 1
-    return True
-
 
 def draw_bounding_box(image, bbox):
     """
@@ -273,69 +205,41 @@ def draw_bounding_box(image, bbox):
     image[start_y:end_y, end_x, :] = 255
     return image
 
-def get_current_button_action(current_img):
-    """
-    get the action represented by the buttons shown in the current image
-    :param current_img: the 3 channels pictures
-    :return: a dictionary whose keys are all the actions represented by the buttons shown in the picture and whose
-    values are the corresponding bounding box of each button
-    """
-    res_actions = {}
-    effective_band = current_img[cf.mid_line, :, :]
-    buttons = find_all_buttons(effective_band=effective_band, truth_colors=cf.colors)
-    if buttons:
-        for specific_color in buttons:    # buttons[0] represents yellow buttons and buttons[1] represents blues buttons
-            if specific_color:
-                for bbox in specific_color:
-                    start_x = bbox[0]     # the start x coordinate value
-                    for action in cf.actions:
-                        if identify_current_button(
-                                effective_band=effective_band,
-                                start_x=start_x,
-                                standard_array=cf.actions[action]
-                        ):
-                            res_actions[action] = bbox
-                            break
-    # non-continuous end
-    effective_band = current_img[cf.end_line_y, :, :]
-    buttons = find_all_buttons(effective_band=effective_band, truth_colors=cf.colors)
-    if buttons:
-        for specific_color in buttons:
-            if specific_color:
-                for bbox in specific_color:
-                    start_x = bbox[0]  # the start x coordinate value
-                    for action in cf.actions:
-                        if identify_current_button(
-                                effective_band=effective_band,
-                                start_x=start_x,
-                                standard_array=cf.actions[action]
-                        ):
-                            res_actions[action] = bbox
-                            break
-    # continuous end
-    effective_band = current_img[cf.end_continue_line_y, :, :]
-    buttons = find_all_buttons(effective_band=effective_band, truth_colors=cf.colors)
-    if buttons:
-        for specific_color in buttons:
-            if specific_color:
-                for bbox in specific_color:
-                    start_x = bbox[0]  # the start x coordinate value
-                    for action in cf.actions:
-                        if identify_current_button(
-                                effective_band=effective_band,
-                                start_x=start_x,
-                                standard_array=cf.actions[action]
-                        ):
-                            res_actions[action] = bbox
-                            break
-    # whether push a window (chuntian)
-    if whether_push_a_window(current_img):
-        res_actions['chuntian_window'] = [cf.push_window_left, cf.push_window_top, cf.push_window_left + cf.push_window_width,
-                                      cf.push_window_top + cf.push_window_height]
-    # whether avoid addiction window
-    if whether_addic(current_img):
-        res_actions['addict_window'] = [989, 149, 1018, 170]
-    return res_actions
+
+def get_current_button_action(current_image):
+    actions = {}
+    # find all buttons
+    top = cf_offline.mid_line
+    for button in cf_offline.button_information:
+        find_flag = True
+        left_pos = cf_offline.button_information[button][0]
+        button_array = cf_offline.button_information[button][1]
+        effective_band = current_image[top, left_pos:left_pos + cf_offline.two_words_button_width, :]
+        length = effective_band.shape[0]
+        assert (length == button_array.shape[0])
+        for idx in range(length):
+            if not compare_color(button_array[idx], effective_band[idx], difference=0):
+                find_flag = False
+                break
+        if find_flag:
+            actions[button] = [left_pos, cf_offline.button_up_margin, left_pos + cf_offline.two_words_button_width,
+                               cf_offline.button_down_margin]
+    # judge whether end
+    result = is_win(current_image)
+    if result == 0:
+        actions['defeat'] = [1650, 114, 1706, 156]
+    elif result == 1:
+        actions['victory'] = [1650, 114, 1706, 156]
+    return actions
+
+
+def is_win(current_image):
+    if compare_color(cf_offline.winning_color, current_image[cf_offline.winning_losing_top, cf_offline.winning_losing_left, :], 0):
+        return 1
+    elif compare_color(cf_offline.losing_color, current_image[cf_offline.winning_losing_top, cf_offline.winning_losing_left, :], 0):
+        return 0
+    else:
+        return -1
 
 
 def who_is_lord(image):
@@ -344,43 +248,19 @@ def who_is_lord(image):
     :param image: current image
     :return: 0: self is lord, 1: left side player is lord, 2:right side player is lord, -1:no one is lord
     """
-    if compare_color(image[cf.self_lord_y, cf.self_lord_x, :], cf.self_lord_color, 0):
+    if compare_color(image[cf_offline.self_lord_y, cf_offline.self_lord_x, :], cf_offline.self_lord_color, 0):
         return 0
-    elif compare_color(image[cf.left_lord_y, cf.left_lord_x, :], cf.left_lord_color, 10) or compare_color(
-        image[cf.left_lord_y_with_super_mul, cf.left_lord_x, :], cf.left_lord_color, 10):
+    elif compare_color(image[cf_offline.left_lord_y, cf_offline.left_lord_x, :], cf_offline.left_lord_color, 0):
         return 1
-    elif compare_color(
-            image[cf.right_lord_y, cf.right_lord_x, :], cf.right_lord_color, 10
-    ) or compare_color(
-        image[cf.right_lord_y_with_super_mul, cf.right_lord_x, :], cf.right_lord_color, 10
-    ):
+    elif compare_color(image[cf_offline.right_lord_y, cf_offline.right_lord_x, :], cf_offline.right_lord_color, 0):
         return 2
     else:
         return -1
 
 
-def whether_push_a_window(img):
-    color = img[cf.push_window_top, cf.push_window_left, :]
-    if compare_color(cf.push_window_color, color, difference=0):
-        return True
-    else:
-        return False
-
-
 def get_window_rect(hwnd):
     rect = win32gui.GetWindowRect(hwnd)
     return rect
-
-
-def is_win(image):
-    zone_chosen = image[cf.winning_start_y:cf.winning_start_y + cf.winning_square,
-                  cf.winning_start_x:cf.winning_start_x + cf.winning_square, :]
-    red_chnnel_sum = np.sum(zone_chosen[:, :, 2])
-    blue_channel_sum = np.sum(zone_chosen[:, :, 0])
-    if red_chnnel_sum > blue_channel_sum:
-        return 1
-    else:
-        return 0
 
 
 def grab_screen():
@@ -395,7 +275,7 @@ def grab_screen():
     img = ImageGrab.grab(bbox=(rect[0], rect[1], rect[2], rect[3]))
 
     frame = np.array(img)
-    frame = frame[16:-15, 2:-2, :]
+    frame = frame[46:1126, 6:1926, :]
     frame = frame[:, :, [2, 1, 0]]
     cv2.imwrite('test.png', frame)
     # cv2.imwrite(name, frame)
@@ -412,13 +292,13 @@ def click(x,y, offset=(0, 0)):
 def get_cards_bboxes(img, templates, role=0, bboxes=None):
     if bboxes is None:
         if role == 0:
-            bboxes = locate_cards_position(img, 44, 1257, 518, 502, 554, False, 200)
+            bboxes = locate_cards_position(img, 0, img.shape[1] - 1, 870, 880, 860, 930)
         elif role == 1:
-            bboxes = locate_cards_position(img, 280, 645, 240, 180, 215, True, 200)
-            bboxes += locate_cards_position(img, 280, 645, 310, 245, 281, True, 200)
+            bboxes = locate_cards_position(img, 0, img.shape[1] // 2, 467, 477, 460, 500, True)
+            bboxes += locate_cards_position(img, 0, img.shape[1] // 2, 642, 652, 528, 568, True)
         elif role == 2:
-            bboxes = locate_cards_position(img, 645, 1000, 240, 180, 215, True, 200)
-            bboxes += locate_cards_position(img, 645, 1000, 310, 245, 281, True, 200)
+            bboxes = locate_cards_position(img, img.shape[1] // 2, img.shape[1] - 1, 467, 477, 460, 500, True)
+            bboxes += locate_cards_position(img, img.shape[1] // 2, img.shape[1] - 1, 642, 652, 528, 568, True)
         else:
             raise Exception('unexpected role')
     cards = []
@@ -446,9 +326,6 @@ class A(multiprocessing.Process):
 
 
 if __name__ == '__main__':
-    a = A()
-    a.set_test()
-    a.join()
     # img = cv2.imread('./photo/load_right.png')
     # tiny_templates = load_tiny_templates()
     # print(parse_card_cnt(tiny_templates, img, [301, 371, 336, 398], True))
@@ -495,5 +372,22 @@ if __name__ == '__main__':
     # img[251, :, :] = 255
     # img[:, 1210, :] = 255
     # show_img(img)
-    img = cv2.imread('./photo/end_no.png')
-    print(is_win(img))
+    img = cv2.imread('./photo/27.png')
+    # img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    from timeit import default_timer as timer
+
+    templates = load_templates()
+    mini_templates = load_mini_templates(templates)
+    print(get_cards_bboxes(img, templates)[0])
+    print(get_cards_bboxes(img, mini_templates, 1)[0])
+    print(get_cards_bboxes(img, mini_templates, 2)[0])
+    # bboxes = locate_cards_position(img, 0, img.shape[1] - 1, 870, 880)[0]
+
+    # print(','.join([parse_card_type(templates, img, bbox) for bbox in bboxes]))
+
+
+    # img = img[np.mean(img, axis=2) > 230]
+    # cv2.imshow('H', img[:, :, 0])
+    # cv2.imshow('S', img[:, :, 1])
+    # cv2.imshow('V', img[:, :, 2])
+    # cv2.waitKey()

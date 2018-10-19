@@ -6,7 +6,8 @@ import skimage.measure
 import win32api
 import win32con
 import time
-from simulator.tools import *
+import os
+# from simulator.tools import *
 
 
 def print_screen(name):
@@ -16,7 +17,8 @@ def print_screen(name):
     img = ImageGrab.grab(bbox=(rect[0], rect[1], rect[2], rect[3]))
 
     frame = np.array(img)
-    frame = frame[16:-15, 2:-2, :]
+    print(frame.shape)
+    frame = frame[46:1126, 6:1926, :]
     frame = frame[:, :, [2, 1, 0]]
     # cv2.imshow('frame', frame)
     cv2.imwrite(name, frame)
