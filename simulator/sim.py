@@ -48,7 +48,7 @@ class Simulator(multiprocessing.Process):
 
         # instance specific property
         self.window_rect = get_window_rect(hwnd)
-        print(self.window_rect)
+        # print(self.window_rect)
         self.cxt = [18 + self.window_rect[0], 764 + self.window_rect[1]]
         self.current_screen = None
         self.win_rates = {n: StatCounter() for n in self.agent_names}
@@ -200,6 +200,9 @@ class Simulator(multiprocessing.Process):
                         if self.toggle.value == 0:
                             break
                     continue
+                if 'continuous defeat' in act:
+                    request_click(act['continuous defeat'])
+                    continue
                 print('calling', act)
                 handcards, _ = get_cards_bboxes(self.current_screen, self.templates, 0)
                 cards_value, _ = CEnv.get_cards_value(Card.char2color(handcards))
@@ -209,7 +212,6 @@ class Simulator(multiprocessing.Process):
             elif self.state == Simulator.State.PLAYING:
                 if 'defeat' in act or 'victory' in act:
                     request_click(act['defeat'] if 'defeat' in act else act['victory'])
-                    time.sleep(0.5)
                     if self.cached_msg is None:
                         print('other player wins in one step!!!')
                         continue
@@ -245,10 +247,10 @@ class Simulator(multiprocessing.Process):
                 assert None not in right_cards
                 self.history[1].extend(right_cards)
                 self.history[2].extend(left_cards)
-                last_cards = left_cards
-                if not left_cards:
-                    last_cards = right_cards
-                print('last cards', last_cards)
+                # last_cards = left_cards
+                # if not left_cards:
+                #     last_cards = right_cards
+                # print('last cards', last_cards)
                 total_cards = np.ones([60])
                 total_cards[53:56] = 0
                 total_cards[57:60] = 0
@@ -273,7 +275,7 @@ class Simulator(multiprocessing.Process):
                 # assert prob_state.size == 120
                 # assert np.all(prob_state < 1.) and np.all(prob_state >= 0.)
                 # print(prob_state)
-                intention, buffer_comb, buffer_fine = self.predictor.predict(handcards, last_cards, prob_state, self, sim2coord_socket, coord2sim_socket)
+                intention, buffer_comb, buffer_fine = self.predictor.predict(handcards, [left_cards, right_cards], prob_state, self, sim2coord_socket, coord2sim_socket)
                 if self.cached_msg is not None:
                     state, action, fine_mask = self.cached_msg
                     sim2exp_sockets[self.current_lord_pos].send(

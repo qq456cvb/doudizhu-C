@@ -34,14 +34,15 @@ BATCH_SIZE = 8
 MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
-HIDDEN_STATE_DIM = 256 + 256 + 120
+
+HIDDEN_STATE_DIM = 256 + 256 * 2 + 120
 STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
 UPDATE_FREQ = 4
 
 GAMMA = 0.99
 
-MEMORY_SIZE = 3e2
+MEMORY_SIZE = 6e2
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
 STEPS_PER_EPOCH = 1000 // UPDATE_FREQ  # each epoch is 100k played frames
 EVAL_EPISODE = 100
@@ -54,9 +55,6 @@ def esc_pressed():
     global toggle
     toggle.value = 1 - toggle.value
     print("toggle changed to ", toggle.value)
-
-
-
 
 
 def hook():
@@ -114,7 +112,7 @@ if __name__ == '__main__':
     sims = [Simulator(idx=i, hwnd=hwnds[i], pipe_sim2exps=[name_sim2exp + str(j) for j in range(3)], pipe_exps2sim=[name_exp2sim + str(j) for j in range(3)],
                       pipe_sim2coord=name_sim2coord, pipe_coord2sim=name_coord2sim,
                       pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim,
-                      agent_names=agent_names, exploration=0.05, toggle=toggle) for i in range(len(hwnds))]
+                      agent_names=agent_names, exploration=1.0, toggle=toggle) for i in range(len(hwnds))]
 
     manager = SimulatorManager(sims, pipe_sim2mgr=name_sim2mgr, pipe_mgr2sim=name_mgr2sim)
 
@@ -159,16 +157,16 @@ if __name__ == '__main__':
                 *exps,
                 # ScheduledHyperParamSetter('learning_rate',
                 #                           [(60, 5e-5), (100, 2e-5)]),
-                # *[ScheduledHyperParamSetter(
-                #     ObjAttrParam(exp, 'exploration'),
-                #     [(0, 1), (30, 0.5), (100, 0.3), (320, 0.1)],  # 1->0.1 in the first million steps
-                #     interp='linear') for exp in exps],
+                *[ScheduledHyperParamSetter(
+                    ObjAttrParam(sim, 'exploration'),
+                    [(0, 1), (30, 0.5), (100, 0.3), (320, 0.1)],  # 1->0.1 in the first million steps
+                    interp='linear') for sim in sims],
                 # Evaluator(EVAL_EPISODE, agent_names, lambda: Env(agent_names)),
                 HumanHyperParamSetter('learning_rate'),
             ],
-            session_init=ChainInit(
-                [SaverRestore('../TensorPack/Hierarchical_Q/train_log/DQN-9-3-LASTCARDS/model-240000', 'agent1'),
-                 SaverRestore('../TensorPack/MA_Hierarchical_Q/train_log/DQN-60-MA/model-355000')]),
+            # session_init=ChainInit(
+            #     [SaverRestore('../TensorPack/Hierarchical_Q/train_log/DQN-9-3-LASTCARDS/model-240000', 'agent1'),
+            #      SaverRestore('../TensorPack/MA_Hierarchical_Q/train_log/DQN-60-MA/model-355000')]),
             # starting_epoch=0,
             # session_init=SaverRestore('train_log/DQN-54-AUG-STATE/model-75000'),
             steps_per_epoch=STEPS_PER_EPOCH,

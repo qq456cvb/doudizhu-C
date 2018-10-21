@@ -21,6 +21,7 @@ from PIL import ImageGrab
 import win32gui
 import skimage.measure
 import win32api, win32con
+
 cf_offline = ConfigurationOffline()
 
 DEBUG = False
@@ -135,7 +136,8 @@ def parse_card_cnt(templates, img, bbox, binarize=True):
         rect = cv2.boundingRect(pts)
         # cv2.imshow('l', labelMask)
         # cv2.waitKey(0)
-        cnt += str(parse_card_type(templates, subimg, [rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3]], binarize=False))
+        cnt += str(parse_card_type(templates, subimg, [rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3]],
+                                   binarize=False))
     if cnt == '':
         return 0
     cnt = int(cnt)
@@ -188,6 +190,7 @@ def compare_color(truth_color, compared_color, difference=0):
     else:
         return False
 
+
 def draw_bounding_box(image, bbox):
     """
     draw a bounding box of an image
@@ -209,11 +212,11 @@ def draw_bounding_box(image, bbox):
 def get_current_button_action(current_image):
     actions = {}
     # find all buttons
-    top = cf_offline.mid_line
     for button in cf_offline.button_information:
         find_flag = True
-        left_pos = cf_offline.button_information[button][0]
-        button_array = cf_offline.button_information[button][1]
+        top = cf_offline.button_information[button][0]
+        left_pos = cf_offline.button_information[button][1]
+        button_array = cf_offline.button_information[button][2]
         effective_band = current_image[top, left_pos:left_pos + cf_offline.two_words_button_width, :]
         length = effective_band.shape[0]
         assert (length == button_array.shape[0])
@@ -224,6 +227,8 @@ def get_current_button_action(current_image):
         if find_flag:
             actions[button] = [left_pos, cf_offline.button_up_margin, left_pos + cf_offline.two_words_button_width,
                                cf_offline.button_down_margin]
+        if button == "continuous defeat" and find_flag:
+            actions[button] = [1654, 201, 1704, 241]
     # judge whether end
     result = is_win(current_image)
     if result == 0:
@@ -234,9 +239,11 @@ def get_current_button_action(current_image):
 
 
 def is_win(current_image):
-    if compare_color(cf_offline.winning_color, current_image[cf_offline.winning_losing_top, cf_offline.winning_losing_left, :], 0):
+    if compare_color(cf_offline.winning_color,
+                     current_image[cf_offline.winning_losing_top, cf_offline.winning_losing_left, :], 0):
         return 1
-    elif compare_color(cf_offline.losing_color, current_image[cf_offline.winning_losing_top, cf_offline.winning_losing_left, :], 0):
+    elif compare_color(cf_offline.losing_color,
+                       current_image[cf_offline.winning_losing_top, cf_offline.winning_losing_left, :], 0):
         return 0
     else:
         return -1
@@ -282,10 +289,10 @@ def grab_screen():
     return frame
 
 
-def click(x,y, offset=(0, 0)):
+def click(x, y, offset=(0, 0)):
     win32api.SetCursorPos((offset[0] + x, offset[1] + y))
-    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, offset[0] + x, offset[1] + y,0,0)
-    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP,offset[0] + x, offset[1] + y,0,0)
+    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, offset[0] + x, offset[1] + y, 0, 0)
+    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, offset[0] + x, offset[1] + y, 0, 0)
 
 
 # get cards and their bboxes, role = 0 for self, 1 for left, 2 for right
@@ -313,6 +320,8 @@ def get_opponent_cnts(img, templates):
 
 
 import multiprocessing
+
+
 class A(multiprocessing.Process):
     def __init__(self):
         super(A, self).__init__()
@@ -372,10 +381,10 @@ if __name__ == '__main__':
     # img[251, :, :] = 255
     # img[:, 1210, :] = 255
     # show_img(img)
-    img = cv2.imread('./photo/27.png')
+    img = cv2.imread('./debug.png')
     # img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     from timeit import default_timer as timer
-
+    # print(get_current_button_action(img))
     templates = load_templates()
     mini_templates = load_mini_templates(templates)
     print(get_cards_bboxes(img, templates)[0])
@@ -384,7 +393,6 @@ if __name__ == '__main__':
     # bboxes = locate_cards_position(img, 0, img.shape[1] - 1, 870, 880)[0]
 
     # print(','.join([parse_card_type(templates, img, bbox) for bbox in bboxes]))
-
 
     # img = img[np.mean(img, axis=2) > 230]
     # cv2.imshow('H', img[:, :, 0])

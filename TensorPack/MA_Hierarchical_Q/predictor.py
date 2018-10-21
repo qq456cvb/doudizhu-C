@@ -111,8 +111,17 @@ class Predictor:
         idx = np.random.permutation(len(combs))[:num_sample]
         return [combs[i] for i in idx], (masks[idx] if masks is not None else None)
 
-    def get_state_and_action_space(self, is_comb, curr_cards_char=None, last_cards_char=None, prob_state=None, cand_state=None, cand_actions=None, action=None, fine_mask=None):
+    def get_state_and_action_space(self, is_comb, curr_cards_char=None, last_two_cards_char=None, prob_state=None, cand_state=None, cand_actions=None, action=None, fine_mask=None):
+        def cards_char2embedding(cards_char):
+            test = (action_space_onehot60 == Card.char2onehot60(cards_char))
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            return self.encoding[target[0]]
+
         if is_comb:
+            last_cards_char = last_two_cards_char[0]
+            if not last_cards_char:
+                last_cards_char = last_two_cards_char[1]
             combs, fine_mask = self.get_combinations(curr_cards_char, last_cards_char)
             if len(combs) > self.num_actions[0]:
                 combs, fine_mask = self.subsample_combs_masks(combs, fine_mask, self.num_actions[0])
@@ -136,11 +145,11 @@ class Predictor:
             # if len(state) == 0:
             #     assert len(combs) == 0
             #     state = [np.array([encoding[0]])]
-            test = action_space_onehot60 == Card.char2onehot60(last_cards_char)
-            test = np.all(test, axis=1)
-            target = np.where(test)[0]
-            assert target.size == 1
-            extra_state = np.concatenate([self.encoding[target[0]], prob_state])
+            # test = (action_space_onehot60 == Card.char2onehot60(last_cards_char))
+            # test = np.all(test, axis=1)
+            # target = np.where(test)[0]
+            # assert target.size == 1
+            extra_state = np.concatenate([cards_char2embedding(last_two_cards_char[0]), cards_char2embedding(last_two_cards_char[1]),  prob_state])
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
@@ -160,7 +169,7 @@ class Predictor:
         fine_mask_input = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         # first hierarchy
         # print(handcards, last_cards)
-        state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_cards_char=last_cards, prob_state=prob_state)
+        state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_two_cards_char=last_cards, prob_state=prob_state)
         # print(available_actions)
         q_values = self.predictor(state[None, :, :, :], np.array([True]), np.array([fine_mask_input]))[0][0]
         action = np.argmax(q_values)

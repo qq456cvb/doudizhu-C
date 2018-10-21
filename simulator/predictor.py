@@ -1,8 +1,8 @@
-
 from TensorPack.MA_Hierarchical_Q.DQNModel import Model
 from tensorpack import *
 import numpy as np
 import os, sys
+
 if os.name == 'nt':
     sys.path.insert(0, '../../build/Release')
 else:
@@ -10,7 +10,8 @@ else:
 from env import Env, get_combinations_nosplit, get_combinations_recursive
 from logger import Logger
 from utils import to_char
-from card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
+from card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, \
+    augment_action_space, clamp_action_idx
 import numpy as np
 import tensorflow as tf
 from utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
@@ -33,7 +34,8 @@ class Predictor:
             newstates.append(s)
         newstates = np.stack(newstates, axis=0)
         if len(state) < self.num_actions[0]:
-            state = np.concatenate([newstates, np.repeat(newstates[-1:, :, :], self.num_actions[0] - newstates.shape[0], axis=0)], axis=0)
+            state = np.concatenate(
+                [newstates, np.repeat(newstates[-1:, :, :], self.num_actions[0] - newstates.shape[0], axis=0)], axis=0)
         else:
             state = newstates
         return state
@@ -67,7 +69,8 @@ class Predictor:
             # augment mask
             # TODO: known issue: 555444666 will not decompose into 5554 and 66644
             combs = get_combinations_nosplit(mask, card_mask)
-            combs = [([] if len(last_cards_char) == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
+            combs = [([] if len(last_cards_char) == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb]
+                     for comb in combs]
 
             if len(last_cards_char) > 0:
                 idx_must_be_contained = set(
@@ -82,7 +85,8 @@ class Predictor:
             else:
                 fine_mask = None
         else:
-            mask = get_mask_onehot60(curr_cards_char, action_space, None).reshape(len(action_space), 15, 4).sum(-1).astype(
+            mask = get_mask_onehot60(curr_cards_char, action_space, None).reshape(len(action_space), 15, 4).sum(
+                -1).astype(
                 np.uint8)
             valid = mask.sum(-1) > 0
             cards_target = Card.char2onehot60(curr_cards_char).reshape(-1, 4).sum(-1).astype(np.uint8)
@@ -95,8 +99,9 @@ class Predictor:
             if len(last_cards_char) > 0:
                 valid[0] = True
                 idx_must_be_contained = set(
-                    [idx for idx in range(len(action_space)) if valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
-                        bigger_than(CardGroup.to_cardgroup(last_cards_char))])
+                    [idx for idx in range(len(action_space)) if
+                     valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
+                         bigger_than(CardGroup.to_cardgroup(last_cards_char))])
                 combs = [comb for comb in combs if not idx_must_be_contained.isdisjoint(comb)]
                 fine_mask = np.zeros([len(combs), self.num_actions[1]], dtype=np.bool)
                 for i in range(len(combs)):
@@ -113,8 +118,18 @@ class Predictor:
         idx = np.random.permutation(len(combs))[:num_sample]
         return [combs[i] for i in idx], (masks[idx] if masks is not None else None)
 
-    def get_state_and_action_space(self, is_comb, curr_cards_char=None, last_cards_char=None, prob_state=None, cand_state=None, cand_actions=None, action=None, fine_mask=None):
+    def get_state_and_action_space(self, is_comb, curr_cards_char=None, last_two_cards_char=None, prob_state=None,
+                                   cand_state=None, cand_actions=None, action=None, fine_mask=None):
+        def cards_char2embedding(cards_char):
+            test = (action_space_onehot60 == Card.char2onehot60(cards_char))
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            return self.encoding[target[0]]
+
         if is_comb:
+            last_cards_char = last_two_cards_char[0]
+            if not last_cards_char:
+                last_cards_char = last_two_cards_char[1]
             combs, fine_mask = self.get_combinations(curr_cards_char, last_cards_char)
             if len(combs) > self.num_actions[0]:
                 combs, fine_mask = self.subsample_combs_masks(combs, fine_mask, self.num_actions[0])
@@ -138,11 +153,11 @@ class Predictor:
             # if len(state) == 0:
             #     assert len(combs) == 0
             #     state = [np.array([encoding[0]])]
-            test = action_space_onehot60 == Card.char2onehot60(last_cards_char)
-            test = np.all(test, axis=1)
-            target = np.where(test)[0]
-            assert target.size == 1
-            extra_state = np.concatenate([self.encoding[target[0]], prob_state])
+            # test = (action_space_onehot60 == Card.char2onehot60(last_cards_char))
+            # test = np.all(test, axis=1)
+            # target = np.where(test)[0]
+            # assert target.size == 1
+            extra_state = np.concatenate([cards_char2embedding(last_two_cards_char[0]), cards_char2embedding(last_two_cards_char[1]),  prob_state])
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
@@ -157,14 +172,18 @@ class Predictor:
             assert state.shape[0] == self.num_actions[0] and state.shape[1] == self.num_actions[1]
         return state, available_actions, fine_mask
 
+    # last cards contains two information: last, last last
     def predict(self, handcards, last_cards, prob_state, simulator, sim2coord, coord2sim):
         # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
         fine_mask_input = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         # first hierarchy
-        state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_cards_char=last_cards, prob_state=prob_state)
+        state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards,
+                                                                              last_two_cards_char=last_cards,
+                                                                              prob_state=prob_state)
 
         # push to coordinator
-        sim2coord.send(dumps([simulator.name, simulator.agent_names[simulator.current_lord_pos], state, True, fine_mask_input]))
+        sim2coord.send(
+            dumps([simulator.name, simulator.agent_names[simulator.current_lord_pos], state, True, fine_mask_input]))
         # q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
         q_values = loads(coord2sim.recv(copy=False).bytes)
 
@@ -179,10 +198,13 @@ class Predictor:
         buff_comb = [state, action, fine_mask_input]
 
         # second hierarchy
-        state, available_actions, fine_mask = self.get_state_and_action_space(False, cand_state=state, cand_actions=available_actions, action=action, fine_mask=fine_mask)
+        state, available_actions, fine_mask = self.get_state_and_action_space(False, cand_state=state,
+                                                                              cand_actions=available_actions,
+                                                                              action=action, fine_mask=fine_mask)
         if fine_mask is not None:
             fine_mask_input = fine_mask if fine_mask.shape[0] == max(self.num_actions[0], self.num_actions[1]) \
-                else np.pad(fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - fine_mask.shape[0]), 'constant',
+                else np.pad(fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - fine_mask.shape[0]),
+                            'constant',
                             constant_values=(0, 0))
         # push to coordinator
         sim2coord.send(dumps(

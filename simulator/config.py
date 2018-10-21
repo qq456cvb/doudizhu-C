@@ -146,19 +146,22 @@ class ConfigurationOffline:
         self.bujiao_array = np.load(self.array_path + "bujiao.npy")
         self.jiaodizhu_array = np.load(self.array_path + "jiaodizhu.npy")
         self.chupai_array = np.load(self.array_path + "chupai.npy")
+        self.continuous_defeat_array = np.load(self.array_path + "continuous_defeat.npy")
 
         # some parameters defining position informations
         self.mid_line = 753
         self.button_up_margin = 723
         self.button_down_margin = 793
+        # y, x, array
         self.button_information = {
-            "start": [860, self.start_array],
-            "tishi": [860, self.tishi_array],
-            "reverse": [675, self.reverse_array],
-            "buchu": [486, self.buchu_array],
-            "chupai": [1240, self.chupai_array],
-            "bujiao": [675, self.bujiao_array],
-            "jiaodizhu": [1050, self.jiaodizhu_array],
+            "start": [self.mid_line, 860, self.start_array],
+            "tishi": [self.mid_line, 860, self.tishi_array],
+            "reverse": [self.mid_line, 675, self.reverse_array],
+            "buchu": [self.mid_line, 486, self.buchu_array],
+            "chupai": [self.mid_line, 1240, self.chupai_array],
+            "bujiao": [self.mid_line, 675, self.bujiao_array],
+            "jiaodizhu": [self.mid_line, 1050, self.jiaodizhu_array],
+            "continuous defeat": [200, 780, self.continuous_defeat_array],
         }
 
         # some parameters defining the load mark
@@ -183,7 +186,15 @@ class ConfigurationOffline:
 
 
 if __name__ == '__main__':
-    cf = Configuration()
-    print(cf.cend)
-    print(cf.jiaodizhu[0])
-    print(cf.mid_line)
+    import cv2
+
+    # img[:, :, 3] = 0
+    files = ['double.png']
+    for f in files:
+        img = cv2.imread('photo/%s' % f, cv2.IMREAD_UNCHANGED)
+        img[:, :, 3] = 0
+        cv2.imwrite('photo/%s' % f, img)
+    # cf = Configuration()
+    # print(cf.cend)
+    # print(cf.jiaodizhu[0])
+    # print(cf.mid_line)
