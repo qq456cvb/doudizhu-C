@@ -29,11 +29,11 @@ class SimulatorManager(Callback):
 
         self.sim2mgr_socket = self.context.socket(zmq.PULL)
         self.sim2mgr_socket.bind(self.sim2mgr)
-        self.sim2mgr_socket.set_hwm(20)
+        self.sim2mgr_socket.set_hwm(2)
 
         self.mgr2sim_socket = self.context.socket(zmq.ROUTER)
         self.mgr2sim_socket.bind(self.mgr2sim)
-        self.mgr2sim_socket.set_hwm(20)
+        self.mgr2sim_socket.set_hwm(2)
 
         self.simulators = simulators
         for sim in self.simulators:
@@ -80,7 +80,7 @@ class SimulatorManager(Callback):
                     return
 
             self.cxt_switch(sim_name)
-            time.sleep(0.2)
+            # time.sleep(0.2)
             # print(msg[1])
             if msg[1] == SimulatorManager.MSG_TYPE.SCREEN:
                 screen = grab_screen()

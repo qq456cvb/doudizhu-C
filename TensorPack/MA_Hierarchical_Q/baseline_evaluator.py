@@ -110,7 +110,7 @@ class BLEvaluator(Callback):
     def _setup_graph(self):
         # self.lord_win_rate = tf.get_variable('lord_win_rate', shape=[], initializer=tf.constant_initializer(0.),
         #                trainable=False)
-        nr_proc = min(multiprocessing.cpu_count() // 2, 1)
+        nr_proc = min(multiprocessing.cpu_count() // 2, 10)
         self.predictor = Predictor(
             self.trainer.get_predictor([self.agent_name + '/state:0', self.agent_name + '_comb_mask:0', self.agent_name + '/fine_mask:0'], [self.agent_name + '/Qvalue:0']))
         self.pred_funcs = [self.predictor] * nr_proc

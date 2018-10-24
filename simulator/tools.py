@@ -37,11 +37,13 @@ def locate_cards_position(img, x_left, x_max, y_up, y_bottom, cards_up, cards_bo
         if x_left >= x_max:
             break
         x_right = x_left
-        while not (np.all(img[y_up:y_bottom, x_right] < 180) and x_right - x_left > (50 if mini else 80)):
+        while not (np.all(img[y_up:y_bottom, x_right] < 200) and x_right - x_left > (50 if mini else 80)):
             x_right += 1
 
         bboxes.append([x_left + 2, cards_up, x_left + (50 if mini else 85), cards_bottom])
         # bbox = bboxes[-1]
+        # cv2.line(img, (x_left, 50), (x_left, 400), (0, 255, 0))
+        # cv2.line(img, (x_right, 50), (x_right, 400), (255, 0, 0))
         # cv2.rectangle(img, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0))
         # cv2.imshow('test', img)
         # cv2.waitKey()
@@ -381,15 +383,18 @@ if __name__ == '__main__':
     # img[251, :, :] = 255
     # img[:, 1210, :] = 255
     # show_img(img)
+    # img = grab_screen()
+    # cv2.imshow('test', img)
+    # cv2.waitKey(0)
     img = cv2.imread('./debug.png')
     # img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     from timeit import default_timer as timer
     # print(get_current_button_action(img))
     templates = load_templates()
     mini_templates = load_mini_templates(templates)
-    print(get_cards_bboxes(img, templates)[0])
+    # print(get_cards_bboxes(img, templates)[0])
     print(get_cards_bboxes(img, mini_templates, 1)[0])
-    print(get_cards_bboxes(img, mini_templates, 2)[0])
+    # print(get_cards_bboxes(img, mini_templates, 2)[0])
     # bboxes = locate_cards_position(img, 0, img.shape[1] - 1, 870, 880)[0]
 
     # print(','.join([parse_card_type(templates, img, bbox) for bbox in bboxes]))

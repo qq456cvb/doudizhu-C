@@ -49,7 +49,7 @@ class Simulator(multiprocessing.Process):
         # instance specific property
         self.window_rect = get_window_rect(hwnd)
         # print(self.window_rect)
-        self.cxt = [18 + self.window_rect[0], 764 + self.window_rect[1]]
+        self.cxt = [10 + self.window_rect[0], 1150 + self.window_rect[1]]
         self.current_screen = None
         self.win_rates = {n: StatCounter() for n in self.agent_names}
 
@@ -78,30 +78,30 @@ class Simulator(multiprocessing.Process):
 
         sim2coord_socket = context.socket(zmq.PUSH)
         sim2coord_socket.setsockopt(zmq.IDENTITY, self.name.encode('utf-8'))
-        sim2coord_socket.set_hwm(20)
+        sim2coord_socket.set_hwm(2)
         sim2coord_socket.connect(self.sim2coord)
 
         coord2sim_socket = context.socket(zmq.DEALER)
         coord2sim_socket.setsockopt(zmq.IDENTITY, self.name.encode('utf-8'))
-        coord2sim_socket.set_hwm(20)
+        coord2sim_socket.set_hwm(2)
         coord2sim_socket.connect(self.coord2sim)
 
         sim2exp_sockets = []
         for sim2exp in self.sim2exps:
             sim2exp_socket = context.socket(zmq.PUSH)
             sim2exp_socket.setsockopt(zmq.IDENTITY, self.name.encode('utf-8'))
-            sim2exp_socket.set_hwm(20)
+            sim2exp_socket.set_hwm(2)
             sim2exp_socket.connect(sim2exp)
             sim2exp_sockets.append(sim2exp_socket)
 
         sim2mgr_socket = context.socket(zmq.PUSH)
         sim2mgr_socket.setsockopt(zmq.IDENTITY, self.name.encode('utf-8'))
-        sim2mgr_socket.set_hwm(20)
+        sim2mgr_socket.set_hwm(2)
         sim2mgr_socket.connect(self.sim2mgr)
 
         mgr2sim_socket = context.socket(zmq.DEALER)
         mgr2sim_socket.setsockopt(zmq.IDENTITY, self.name.encode('utf-8'))
-        mgr2sim_socket.set_hwm(20)
+        mgr2sim_socket.set_hwm(2)
         mgr2sim_socket.connect(self.mgr2sim)
 
         # while True:

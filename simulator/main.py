@@ -42,9 +42,9 @@ UPDATE_FREQ = 4
 
 GAMMA = 0.99
 
-MEMORY_SIZE = 6e2
+MEMORY_SIZE = 2e3
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
-STEPS_PER_EPOCH = 1000 // UPDATE_FREQ  # each epoch is 100k played frames
+STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
 EVAL_EPISODE = 100
 
 NUM_ACTIONS = None
@@ -107,6 +107,8 @@ if __name__ == '__main__':
     name_mgr2sim = 'tcp://127.0.0.1:6234'
 
     agent_names = ['agent%d' % i for i in range(1, 4)]
+
+    rect = get_window_rect(hwnds[0])
 
     # no exploration now
     sims = [Simulator(idx=i, hwnd=hwnds[i], pipe_sim2exps=[name_sim2exp + str(j) for j in range(3)], pipe_exps2sim=[name_exp2sim + str(j) for j in range(3)],

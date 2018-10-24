@@ -136,7 +136,7 @@ class ExpReplay(DataFlow, Callback):
         # self.exp2sim_socket.bind(pipe_exp2sim)
 
         self.sim2exp_socket = self.context.socket(zmq.PULL)
-        self.sim2exp_socket.set_hwm(20)
+        self.sim2exp_socket.set_hwm(2)
         self.sim2exp_socket.bind(pipe_sim2exp)
 
         self.queue = queue.Queue(maxsize=1000)

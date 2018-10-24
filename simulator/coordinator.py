@@ -19,11 +19,11 @@ class Coordinator(Callback):
         self.agent_names = agent_names
         self.context = zmq.Context()
         self.sim2coord_socket = self.context.socket(zmq.PULL)
-        self.sim2coord_socket.set_hwm(20)
+        self.sim2coord_socket.set_hwm(2)
         self.sim2coord_socket.bind(sim2coord)
 
         self.coord2sim_socket = self.context.socket(zmq.ROUTER)
-        self.coord2sim_socket.set_hwm(20)
+        self.coord2sim_socket.set_hwm(2)
         self.coord2sim_socket.bind(coord2sim)
 
     def _setup_graph(self):
