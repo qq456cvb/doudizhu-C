@@ -28,6 +28,7 @@ from simulator.sim import Simulator
 from simulator.manager import SimulatorManager
 
 toggle = multiprocessing.Value('i', 0)
+toggle.value = 1
 
 
 BATCH_SIZE = 8
@@ -42,9 +43,9 @@ UPDATE_FREQ = 4
 
 GAMMA = 0.99
 
-MEMORY_SIZE = 2e3
+MEMORY_SIZE = 1000
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
-STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
+STEPS_PER_EPOCH = cf_offline.steps_per_epoch
 EVAL_EPISODE = 100
 
 NUM_ACTIONS = None
@@ -86,7 +87,7 @@ class MyDataFLow(DataFlow):
 
 
 if __name__ == '__main__':
-    window_name = 'BlueStacks App Player'
+    window_name = cf_offline.window_name
 
     def callback(h, extra):
         if window_name in win32gui.GetWindowText(h):
@@ -215,5 +216,3 @@ if __name__ == '__main__':
         launch_train_with_config(config, trainer)
 
         hotkey_t.join()
-
-

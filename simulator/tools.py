@@ -278,23 +278,60 @@ def grab_screen():
     #     i = (time.time() - base_time) // 0.5 + 11
     #     print('./video/f%d.png' % i)
     #     yield cv2.imread('./video/f%d.png' % i)
-    hwnd = win32gui.FindWindow(None, 'BlueStacks App Player')
+    hwnd = win32gui.FindWindow(None, cf_offline.window_name)
     rect = win32gui.GetWindowRect(hwnd)
     # rect = [r * 1.5 for r in rect]
     img = ImageGrab.grab(bbox=(rect[0], rect[1], rect[2], rect[3]))
-
     frame = np.array(img)
-    frame = frame[46:1126, 6:1926, :]
+    frame = frame[31:1111, 8:1928, :]
+
     frame = frame[:, :, [2, 1, 0]]
     cv2.imwrite('test.png', frame)
     # cv2.imwrite(name, frame)
-    return frame
+    return np.ascontiguousarray(frame)
 
 
 def click(x, y, offset=(0, 0)):
     win32api.SetCursorPos((offset[0] + x, offset[1] + y))
     win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, offset[0] + x, offset[1] + y, 0, 0)
     win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, offset[0] + x, offset[1] + y, 0, 0)
+
+
+def auto_starter(epoch=0):
+    from subprocess import Popen, PIPE
+    latest_epoch = epoch
+    while True:
+        popen = Popen(["python", "main.py"], stdout=PIPE, encoding='utf-8')
+        while popen.poll() is None:
+            output = popen.stdout.readline()
+            print(output)
+            keep_delete_model('k')
+            try:
+                check_epoch(popen, latest_epoch)
+            except:
+                pass
+        latest_epoch += 1
+
+
+def keep_delete_model(key='k'):
+    import pyautogui
+    click(200, 1000)
+    pyautogui.press(key)
+    pyautogui.press('enter')
+
+
+def check_epoch(popen, latest_epoch):
+    import time
+    import os
+    if not os.path.exists('train_log/DQN-REALDATA'):
+        os.mkdir('train_log/DQN-REALDATA')
+    with open('train_log/DQN-REALDATA/checkpoint', 'r') as file:
+        first_line = file.readline()
+        number_index = first_line.index('-') + 1
+        last_epoch = int(first_line[number_index:-2]) // cf_offline.steps_per_epoch
+        if last_epoch > latest_epoch:
+            popen.terminate()
+            time.sleep(3)
 
 
 # get cards and their bboxes, role = 0 for self, 1 for left, 2 for right
@@ -337,7 +374,24 @@ class A(multiprocessing.Process):
 
 
 if __name__ == '__main__':
-    # img = cv2.imread('./photo/load_right.png')
+    # img = grab_screen()
+    # print(img.shape)
+    # cv2.imshow('test', img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    # from subprocess import Popen, PIPE
+    # popen = Popen(["python", "test.py"], stdout=PIPE)
+    # check_epoch(popen, 0)
+    auto_starter(4)
+
+    # cv2.imwrite('./test.png', img)
+    #
+    # img = cv2.imread('./test.png')
+    # print(img.shape)
+    # # img[cf_offline.mid_line, :, :] = 0
+    # actions = get_current_button_action(img[:, :, :])
+    # print(actions)
+    # show_img(img)
     # tiny_templates = load_tiny_templates()
     # print(parse_card_cnt(tiny_templates, img, [301, 371, 336, 398], True))
     # print(parse_card_cnt(tiny_templates, img, [954, 371, 988, 398], True))
@@ -386,14 +440,15 @@ if __name__ == '__main__':
     # img = grab_screen()
     # cv2.imshow('test', img)
     # cv2.waitKey(0)
-    img = cv2.imread('./debug.png')
-    # img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    from timeit import default_timer as timer
-    # print(get_current_button_action(img))
-    templates = load_templates()
-    mini_templates = load_mini_templates(templates)
-    # print(get_cards_bboxes(img, templates)[0])
-    print(get_cards_bboxes(img, mini_templates, 1)[0])
+    # cv2.destroyAllWindows()
+    # cv2.imwrite('./debug.png', img)
+    # # img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    # from timeit import default_timer as timer
+    # # print(get_current_button_action(img))
+    # templates = load_templates()
+    # mini_templates = load_mini_templates(templates)
+    # # print(get_cards_bboxes(img, templates)[0])
+    # print(get_cards_bboxes(img, mini_templates, 1)[0])
     # print(get_cards_bboxes(img, mini_templates, 2)[0])
     # bboxes = locate_cards_position(img, 0, img.shape[1] - 1, 870, 880)[0]
 
@@ -404,3 +459,14 @@ if __name__ == '__main__':
     # cv2.imshow('S', img[:, :, 1])
     # cv2.imshow('V', img[:, :, 2])
     # cv2.waitKey()
+
+    # from win32gui import *
+    # titles = set()
+    # def foo(hwnd,mouse):
+    #     if IsWindow(hwnd) and IsWindowEnabled(hwnd) and IsWindowVisible(hwnd):
+    #         titles.add(GetWindowText(hwnd))
+    # EnumWindows(foo, 0)
+    # lt = [t for t in titles if t]
+    # lt.sort()
+    # for t in lt:
+    #     print(t)

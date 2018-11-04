@@ -175,6 +175,8 @@ class Simulator(multiprocessing.Process):
 
         game_cnt = 0
         while True:
+            import psutil
+            # print('memory usage is: ', psutil.virtual_memory())
             if self.toggle.value == 0:
                 time.sleep(0.2)
                 continue
@@ -284,6 +286,7 @@ class Simulator(multiprocessing.Process):
 
                     sim2exp_sockets[self.current_lord_pos].send(
                                            dumps([[buffer_comb[0], buffer_fine[0]], buffer_comb[1], 0, False, True,
+
                                                   [buffer_comb[2], buffer_fine[2]]]))
                 self.cached_msg = buffer_fine
 

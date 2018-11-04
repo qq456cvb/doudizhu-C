@@ -45,7 +45,6 @@ class ReplayMemory(object):
     def __init__(self, max_size, state_shape):
         self.max_size = int(max_size)
         self.state_shape = state_shape
-
         self.state = np.zeros((self.max_size, 2,) + state_shape, dtype='float32')
         self.action = np.zeros((self.max_size,), dtype='int32')
         self.reward = np.zeros((self.max_size,), dtype='float32')
@@ -127,7 +126,7 @@ class ExpReplay(DataFlow, Callback):
                  update_frequency,
                  pipe_exp2sim, pipe_sim2exp):
         logger.info('starting expreplay {}'.format(agent_name))
-        init_memory_size = int(init_memory_size)
+        self.init_memory_size = int(init_memory_size)
 
         self.context = zmq.Context()
         # no reply for now

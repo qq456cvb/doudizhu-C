@@ -137,6 +137,9 @@ class ConfigurationOffline:
         self.channels = 3
         self.img_size = np.array([1080, 1920, 3])
         self.two_words_button_width = 141
+        self.window_name = 'Genymotion for personal use - Samsung Galaxy S6 - 5.1.0 - API 22 - 1440x2560 (1920x1080, 640dpi) - 192.168.119.101'
+        self.steps_per_epoch = 50
+        # self.window_name = 'BlueStacks App Player'
 
         # npy informations
         self.start_array = np.load(self.array_path + "start.npy")
