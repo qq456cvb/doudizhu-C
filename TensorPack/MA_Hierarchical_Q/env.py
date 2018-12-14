@@ -1,9 +1,16 @@
 from datetime import datetime
 import numpy as np
-from card import Card, Category
+from card import Card, Category, CardGroup
 from TensorPack.MA_Hierarchical_Q.predictor import Predictor
 from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
     get_mask, action_space_single, action_space_pair, get_category_idx, normalize
+import sys
+import os
+if os.name == 'nt':
+    sys.path.insert(0, '../../build/Release')
+else:
+    sys.path.insert(0, '../../build.linux')
+from mct import mcsearch, CCard, CCardGroup, CCategory
 
 
 class Env:
@@ -88,35 +95,40 @@ class Env:
 
 
 if __name__ == '__main__':
-    env = Env(['1', '2', '3'])
-    predictors = {n: Predictor(lambda x, y, z: [np.random.rand(1, 21)]) for n in env.get_all_agent_names()}
-    agent_names = ['1', '2', '3']
-    cnt = {
-        '1': 0,
-        '2': 0,
-        '3': 0
-    }
-    for _ in range(100):
-        env.reset()
-        env.prepare()
-        done = False
-        while not done:
-            handcards = env.get_curr_handcards()
-            last_cards = env.get_last_outcards()
-            prob_state = env.get_state_prob()
-            action = predictors[env.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
-            winner, done = env.step(action)
-            if done:
-                for agent_name in agent_names:
-                    print(agent_name)
-                    if agent_name == winner:
-                        cnt[agent_name] += 1
-                        print(agent_name, ' wins')
-                    else:
-                        if env.get_all_agent_names().index(winner) + env.get_all_agent_names().index(agent_name) == 3:
-                            cnt[agent_name] += 1
-                            print(agent_name, winner, ' all wins')
-
-    print(cnt)
+    cg = CardGroup.to_cardgroup(['3', '3', '4', '4'])
+    print(cg.len)
+    print(cg.type)
+    # cg = CCardGroup()
+    # env = Env(['1', '2', '3'])
+    # predictors = {n: Predictor(lambda x, y, z: [np.random.rand(1, 21)]) for n in env.get_all_agent_names()}
+    # agent_names = ['1', '2', '3']
+    # cnt = {
+    #     '1': 0,
+    #     '2': 0,
+    #     '3': 0
+    # }
+    # for _ in range(1):
+    #     env.reset()
+    #     env.prepare()
+    #     done = False
+    #     while not done:
+    #
+    #         handcards = env.get_curr_handcards()
+    #         last_cards = env.get_last_outcards()
+    #         prob_state = env.get_state_prob()
+    #         action = predictors[env.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
+    #         winner, done = env.step(action)
+    #         if done:
+    #             for agent_name in agent_names:
+    #                 print(agent_name)
+    #                 if agent_name == winner:
+    #                     cnt[agent_name] += 1
+    #                     print(agent_name, ' wins')
+    #                 else:
+    #                     if env.get_all_agent_names().index(winner) + env.get_all_agent_names().index(agent_name) == 3:
+    #                         cnt[agent_name] += 1
+    #                         print(agent_name, winner, ' all wins')
+    #
+    # print(cnt)
 
 

@@ -297,13 +297,11 @@ class Card:
 
 
 class CardGroup:
-    def __init__(self, cards, t, val):
+    def __init__(self, cards, t, val, len=1):
         self.type = t
         self.cards = cards
         self.value = val
-
-    def __len__(self):
-        return len(self.cards)
+        self.len = len
 
     def bigger_than(self, g):
         if self.type == 'empty':
@@ -320,7 +318,7 @@ class CardGroup:
             else:
                 return False
         if self.type == 'bomb' or \
-                (self.type == g.type and len(self) == len(g) and self.value > g.value):
+                (self.type == g.type and self.len == g.len and self.value > g.value):
             return True
         else:
             return False
@@ -412,13 +410,13 @@ class CardGroup:
                     cnt += 1
                 else:
                     if cnt >= 5:
-                        candidates.append(CardGroup(cand, 'single_seq', Card.to_value(cand[0])))
+                        candidates.append(CardGroup(cand, 'single_seq', Card.to_value(cand[0]), cnt))
                         # for c in cand:
                         #     cards.remove(c)
                     cand = [singles[i]]
                     cnt = 1
             if cnt >= 5:
-                candidates.append(CardGroup(cand, 'single_seq', Card.to_value(cand[0])))
+                candidates.append(CardGroup(cand, 'single_seq', Card.to_value(cand[0]), cnt))
                 # for c in cand:
                 #     cards.remove(c)
 
@@ -433,14 +431,14 @@ class CardGroup:
                     cnt += 1
                 else:
                     if cnt >= 3:
-                        candidates.append(CardGroup(cand, 'double_seq', Card.to_value(cand[0])))
+                        candidates.append(CardGroup(cand, 'double_seq', Card.to_value(cand[0]), cnt))
                         # for c in cand:
                             # if c in cards:
                             #     cards.remove(c)
                     cand = [doubles[i]] * 2
                     cnt = 1
             if cnt >= 3:
-                candidates.append(CardGroup(cand, 'double_seq', Card.to_value(cand[0])))
+                candidates.append(CardGroup(cand, 'double_seq', Card.to_value(cand[0]), cnt))
                 # for c in cand:
                     # if c in cards:
                     #     cards.remove(c)
@@ -456,14 +454,14 @@ class CardGroup:
                     cnt += 1
                 else:
                     if cnt >= 2:
-                        candidates.append(CardGroup(cand, 'triple_seq', Card.to_value(cand[0])))
+                        candidates.append(CardGroup(cand, 'triple_seq', Card.to_value(cand[0]), cnt))
                         # for c in cand:
                         #     if c in cards:
                         #         cards.remove(c)
                     cand = [triples[i]] * 3
                     cnt = 1
             if cnt >= 2:
-                candidates.append(CardGroup(cand, 'triple_seq', Card.to_value(cand[0])))
+                candidates.append(CardGroup(cand, 'triple_seq', Card.to_value(cand[0]), cnt))
                 # for c in cand:
                 #     if c in cards:
                 #         cards.remove(c)
@@ -510,11 +508,11 @@ class CardGroup:
             for extra in list(itertools.combinations(singles, cnt)):
                 candidates.append(
                     CardGroup(cand + list(extra), 'triple_seq+singles',
-                              Card.to_value(cand[0])))
+                              Card.to_value(cand[0]), cnt))
             for extra in list(itertools.combinations(doubles, cnt)):
                 candidates.append(
                     CardGroup(cand + list(extra) * 2, 'triple_seq+doubles',
-                              Card.to_value(cand[0])))
+                              Card.to_value(cand[0]), cnt))
 
         importance = ['empty', 'single', 'double', 'double_seq', 'single_seq', 'triple+single',
                       'triple+double', 'triple_seq+singles', 'triple_seq+doubles',
