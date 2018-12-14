@@ -35,12 +35,12 @@ def play_one_episode(env, func):
     winner = None
     while not done:
         handcards = env.get_curr_handcards()
-        last_cards = env.get_last_outcards()
+        last_two_cards = env.get_last_two_cards()
         prob_state = env.get_state_prob()
         agent = env.get_curr_agent_name()
         # print(agent, handcards)
 
-        action = func[agent].predict(handcards, last_cards, prob_state)
+        action = func[agent].predict(handcards, last_two_cards, prob_state)
         # print(agent, ' gives ', action)
         winner, done = env.step(action)
     return int(winner != env.get_all_agent_names()[0])

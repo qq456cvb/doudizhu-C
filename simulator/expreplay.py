@@ -257,9 +257,12 @@ class ExpReplay(DataFlow, Callback):
         self._init_memory()
 
     def _trigger(self):
+        from simulator.tools import mean_score_logger
         v = self._player_scores
         try:
             mean, max = v.average, v.max
+            logger.info('{} mean_score: {}'.format(self.agent_name, mean))
+            mean_score_logger('{} mean_score: {}\n'.format(self.agent_name, mean))
             self.trainer.monitors.put_scalar('expreplay/mean_score', mean)
             self.trainer.monitors.put_scalar('expreplay/max_score', max)
         except Exception:

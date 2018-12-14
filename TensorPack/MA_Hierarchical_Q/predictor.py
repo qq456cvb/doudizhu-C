@@ -164,12 +164,12 @@ class Predictor:
             assert state.shape[0] == self.num_actions[0] and state.shape[1] == self.num_actions[1]
         return state, available_actions, fine_mask
 
-    def predict(self, handcards, last_cards, prob_state):
+    def predict(self, handcards, last_two_cards, prob_state):
         # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
         fine_mask_input = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         # first hierarchy
         # print(handcards, last_cards)
-        state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_two_cards_char=last_cards, prob_state=prob_state)
+        state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_two_cards_char=last_two_cards, prob_state=prob_state)
         # print(available_actions)
         q_values = self.predictor(state[None, :, :, :], np.array([True]), np.array([fine_mask_input]))[0][0]
         action = np.argmax(q_values)

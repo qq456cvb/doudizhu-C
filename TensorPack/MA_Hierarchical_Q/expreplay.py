@@ -210,7 +210,17 @@ class ExpReplay(DataFlow, Callback):
         return [combs[i] for i in idx], (masks[idx] if masks is not None else None)
 
     def get_state_and_action_spaces(self, action=None):
-        last_cards_char = self.player.get_last_outcards()
+
+        def cards_char2embedding(cards_char):
+            test = (action_space_onehot60 == Card.char2onehot60(cards_char))
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            return self.encoding[target[0]]
+
+        last_two_cards_char = self.player.get_last_two_cards()
+        last_cards_char = last_two_cards_char[0]
+        if not last_cards_char:
+            last_cards_char = last_two_cards_char[1]
         curr_cards_char = self.player.get_curr_handcards()
         if self._comb_mask:
             # print(curr_cards_char, last_cards_char)
@@ -228,11 +238,11 @@ class ExpReplay(DataFlow, Callback):
             state = [np.stack([self.encoding[idx] for idx in comb]) for comb in combs]
             assert len(state) > 0
             prob_state = self.player.get_state_prob()
-            test = action_space_onehot60 == Card.char2onehot60(last_cards_char)
-            test = np.all(test, axis=1)
-            target = np.where(test)[0]
-            assert target.size == 1
-            extra_state = np.concatenate([self.encoding[target[0]], prob_state])
+            # test = action_space_onehot60 == Card.char2onehot60(last_cards_char)
+            # test = np.all(test, axis=1)
+            # target = np.where(test)[0]
+            # assert target.size == 1
+            extra_state = np.concatenate([cards_char2embedding(last_two_cards_char[0]), cards_char2embedding(last_two_cards_char[1]), prob_state])
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
@@ -339,9 +349,9 @@ class ExpReplay(DataFlow, Callback):
         # step for AI farmers
         while not isOver and self.player.get_curr_agent_name() != self.agent_name:
             handcards = self.player.get_curr_handcards()
-            last_cards = self.player.get_last_outcards()
+            last_two_cards = self.player.get_last_two_cards()
             prob_state = self.player.get_state_prob()
-            action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
+            action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_two_cards, prob_state)
             winner, isOver = self.player.step(action)
 
         if isOver:
@@ -369,9 +379,9 @@ class ExpReplay(DataFlow, Callback):
     def prestart(self):
         while self.player.get_curr_agent_name() != self.agent_name:
             handcards = self.player.get_curr_handcards()
-            last_cards = self.player.get_last_outcards()
+            last_two_cards = self.player.get_last_two_cards()
             prob_state = self.player.get_state_prob()
-            action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
+            action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_two_cards, prob_state)
 
             self.player.step(action)
         self._current_ob, self._action_space = self.get_state_and_action_spaces()

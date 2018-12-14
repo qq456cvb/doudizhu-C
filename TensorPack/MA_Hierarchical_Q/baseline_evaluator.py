@@ -36,11 +36,12 @@ def play_one_episode(env, func, role_id):
     while r == 0:
         if env.get_role_ID() == role_id:
             handcards = to_char(env.get_curr_handcards())
-            last_cards = to_char(env.get_last_outcards())
+            last_two_cards = env.get_last_two_cards()
+            last_two_cards = [to_char(cards) for cards in last_two_cards]
             prob_state = env.get_state_prob()
             # print(agent, handcards)
 
-            action = func.predict(handcards, last_cards, prob_state)
+            action = func.predict(handcards, last_two_cards, prob_state)
             # print(agent, ' gives ', action)
             intention = to_value(action)
             r, _, _ = env.step_manual(intention)

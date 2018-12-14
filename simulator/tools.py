@@ -267,26 +267,62 @@ def who_is_lord(image):
         return -1
 
 
+def enter_from_home_page():
+    import time
+    actions = {}
+    while 'start' not in actions:
+        image = grab_screen()
+        actions = get_current_button_action(image)
+        game_window_rect = get_game_window_rect()
+        if get_reward(image):
+            click(cf_offline.button_information['get_reward'][1] + 20, cf_offline.button_information['get_reward'][0] + 15, game_window_rect)
+        if compare_color([127, 65, 28], image[665, 895, :], difference=0):
+            click(895, 665, game_window_rect)
+        if get_game_center(image):
+            click(1681, 144, game_window_rect)
+        time.sleep(0.1)
+
+
+def get_reward(image):
+    useful_band = image[cf_offline.button_information['get_reward'][0],
+                  cf_offline.button_information['get_reward'][1]:cf_offline.button_information['get_reward'][1] + cf_offline.two_words_button_width, :]
+    for idx in range(useful_band.shape[0]):
+        if not compare_color(cf_offline.button_information['get_reward'][2][idx], useful_band[idx], difference=0):
+            return False
+    return True
+
+
+def get_game_center(image):
+    useful_band = image[117, 867:867 + cf_offline.two_words_button_width, :]
+    array = np.load(cf_offline.array_path + 'game_center.npy')
+    for idx in range(useful_band.shape[0]):
+        if not compare_color(array[idx], useful_band[idx], difference=0):
+            return False
+    return True
+
+
 def get_window_rect(hwnd):
     rect = win32gui.GetWindowRect(hwnd)
     return rect
 
 
-def grab_screen():
+def grab_screen(photo_name='test.png'):
     # base_time = time.time()
     # while True:
     #     i = (time.time() - base_time) // 0.5 + 11
     #     print('./video/f%d.png' % i)
     #     yield cv2.imread('./video/f%d.png' % i)
+    # hwnd = win32gui.FindWindow(None, cf_offline.window_name)
     hwnd = win32gui.FindWindow(None, cf_offline.window_name)
     rect = win32gui.GetWindowRect(hwnd)
     # rect = [r * 1.5 for r in rect]
     img = ImageGrab.grab(bbox=(rect[0], rect[1], rect[2], rect[3]))
     frame = np.array(img)
     frame = frame[31:1111, 8:1928, :]
+    # frame = frame[46:1126, 6:1926, :]
 
     frame = frame[:, :, [2, 1, 0]]
-    cv2.imwrite('test.png', frame)
+    cv2.imwrite(photo_name, frame)
     # cv2.imwrite(name, frame)
     return np.ascontiguousarray(frame)
 
@@ -299,23 +335,64 @@ def click(x, y, offset=(0, 0)):
 
 def auto_starter(epoch=0):
     from subprocess import Popen, PIPE
+    import time
     latest_epoch = epoch
-    while True:
-        popen = Popen(["python", "main.py"], stdout=PIPE, encoding='utf-8')
-        while popen.poll() is None:
-            output = popen.stdout.readline()
-            print(output)
+    popen = Popen(["python", "main.py"], stdout=PIPE, encoding='utf-8')
+    while popen.poll() is None:
+        output = popen.stdout.readline()
+        print(output)
+        if "to exit" in output:
+            time.sleep(1)
             keep_delete_model('k')
-            try:
-                check_epoch(popen, latest_epoch)
-            except:
-                pass
-        latest_epoch += 1
+        if "Start Epoch"in output:
+            mean_score_logger(output + '\n')
+        if "Start Epoch {}".format(latest_epoch) in output:
+            popen.terminate()
+            popen.wait()
+            popen.kill()
+            # restart_game()
+
+
+def run_steps_by_steps(current_epoch, final_epoch, steps=2):
+    while current_epoch < final_epoch:
+        current_epoch += steps
+        auto_starter(current_epoch)
+
+
+def mean_score_logger(log_info):
+    file_name = 'train_log/DQN-REALDATA/mean_score.log'
+    with open(file_name, 'a+') as file:
+        file.write(log_info)
+
+
+def get_game_window_rect():
+    window_name = cf_offline.window_name
+
+    def callback(h, extra):
+        if window_name in win32gui.GetWindowText(h):
+            extra.append(h)
+        return True
+    hwnds = []
+    win32gui.EnumWindows(callback, hwnds)
+    active_window = hwnds[0]
+    return get_window_rect(active_window)
+
+
+def restart_game():
+    import time
+    game_window_rect = get_game_window_rect()
+    click(cf_offline.hanging__circle_pos[0], cf_offline.hanging__circle_pos[1], game_window_rect)  # hanging circle
+    time.sleep(2)
+    click(cf_offline.return_pos[0], cf_offline.return_pos[1], game_window_rect)                    # return button
+    time.sleep(2)
+    click(cf_offline.confirm_return_pos[0], cf_offline.confirm_return_pos[1] + 30, game_window_rect)    # confirm return
+    enter_from_home_page()
 
 
 def keep_delete_model(key='k'):
     import pyautogui
-    click(200, 1000)
+    click(200, 1300)
+    # click(80, 1020)
     pyautogui.press(key)
     pyautogui.press('enter')
 
@@ -328,10 +405,10 @@ def check_epoch(popen, latest_epoch):
     with open('train_log/DQN-REALDATA/checkpoint', 'r') as file:
         first_line = file.readline()
         number_index = first_line.index('-') + 1
-        last_epoch = int(first_line[number_index:-2]) // cf_offline.steps_per_epoch
+        last_epoch = int(first_line[number_index:-2]) // cf_offline.steps_per_epoch + 1
         if last_epoch > latest_epoch:
             popen.terminate()
-            time.sleep(3)
+            popen.wait()
 
 
 # get cards and their bboxes, role = 0 for self, 1 for left, 2 for right
@@ -373,8 +450,22 @@ class A(multiprocessing.Process):
         print(self.test)
 
 
+
 if __name__ == '__main__':
+    # print(1)
+    # keep_delete_model()
+    # auto_starter(1000000)
+    # auto_starter(1)
+    # keep_delete_model()
+    # # run_steps_by_steps(285, 100000)
     # img = grab_screen()
+    # # img = cv2.imread('./photo/yes.png')
+    # # print(get_game_center(img))
+    # action = get_current_button_action(img)
+    # show_img(img)
+    # print(action)
+    # # print(img.shape)
+    restart_game()
     # print(img.shape)
     # cv2.imshow('test', img)
     # cv2.waitKey(0)
@@ -382,20 +473,14 @@ if __name__ == '__main__':
     # from subprocess import Popen, PIPE
     # popen = Popen(["python", "test.py"], stdout=PIPE)
     # check_epoch(popen, 0)
-    auto_starter(4)
 
-    # cv2.imwrite('./test.png', img)
-    #
-    # img = cv2.imread('./test.png')
-    # print(img.shape)
-    # # img[cf_offline.mid_line, :, :] = 0
-    # actions = get_current_button_action(img[:, :, :])
-    # print(actions)
-    # show_img(img)
-    # tiny_templates = load_tiny_templates()
-    # print(parse_card_cnt(tiny_templates, img, [301, 371, 336, 398], True))
-    # print(parse_card_cnt(tiny_templates, img, [954, 371, 988, 398], True))
-    # exit()
+    # array_name = 'game_center.npy'
+    # top = 117
+    # left = 867
+    # width = cf_offline.two_words_button_width
+    # array = img[top, left:left + width, :]
+    # np.save(cf_offline.array_path + array_name, array)
+
     # cv2.imshow('img', subimg)
     # cv2.waitKey(0)
     # 4,30 - 1284, 750

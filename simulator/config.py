@@ -138,6 +138,9 @@ class ConfigurationOffline:
         self.img_size = np.array([1080, 1920, 3])
         self.two_words_button_width = 141
         self.window_name = 'Genymotion for personal use - Samsung Galaxy S6 - 5.1.0 - API 22 - 1440x2560 (1920x1080, 640dpi) - 192.168.119.101'
+        # self.window_names = ['Genymotion for personal use - Samsung Galaxy S6 - 5.1.0 - API 22 - 1440x2560 (1920x1080, 640dpi) - 192.168.119.101',
+        #                      'Genymotion for personal use - Samsung Galaxy S6 - 5.1.0 - API 22 - 1440x2560_1 (1920x1080, 640dpi) - 192.168.119.102',
+        #                      'Genymotion for personal use - Samsung Galaxy S6 - 5.1.0 - API 22 - 1440x2560_2 (1920x1080, 640dpi) - 192.168.119.102']
         self.steps_per_epoch = 50
         # self.window_name = 'BlueStacks App Player'
 
@@ -150,6 +153,7 @@ class ConfigurationOffline:
         self.jiaodizhu_array = np.load(self.array_path + "jiaodizhu.npy")
         self.chupai_array = np.load(self.array_path + "chupai.npy")
         self.continuous_defeat_array = np.load(self.array_path + "continuous_defeat.npy")
+        self.get_reward_array = np.load(self.array_path + "get_reward.npy")
 
         # some parameters defining position informations
         self.mid_line = 753
@@ -165,6 +169,7 @@ class ConfigurationOffline:
             "bujiao": [self.mid_line, 675, self.bujiao_array],
             "jiaodizhu": [self.mid_line, 1050, self.jiaodizhu_array],
             "continuous defeat": [200, 780, self.continuous_defeat_array],
+            "get_reward": [704, 876, self.get_reward_array],
         }
 
         # some parameters defining the load mark
@@ -186,6 +191,28 @@ class ConfigurationOffline:
         self.winning_losing_left = 963
         self.losing_color = np.array([213, 213, 213])
         self.winning_color = np.array([13, 216, 252])
+
+        # some parameters for restarting
+        self.hanging_circle_bbox = np.array([1549, 66, 1608, 110])
+        self.return_bbox = np.array([1187, 134, 1253, 193])
+        self.confirm_return_bbox = np.array([1085, 532, 1144, 547])
+        self.happy_battle_bbox = np.array([936, 486, 1000, 499])
+        self.battle_center_bbox = np.array([1650, 114, 1706, 156])
+
+        self.hanging__circle_pos = [(self.hanging_circle_bbox[0] + self.hanging_circle_bbox[2]) // 2,
+                                    (self.hanging_circle_bbox[1] + self.hanging_circle_bbox[3]) // 2]
+        self.return_pos = [(self.return_bbox[0] + self.return_bbox[2]) // 2,
+                           (self.return_bbox[1] + self.return_bbox[3]) // 2]
+        self.happy_battle_pos = [(self.happy_battle_bbox[0] + self.happy_battle_bbox[2]) // 2,
+                                 (self.happy_battle_bbox[1] + self.happy_battle_bbox[3]) // 2]
+        self.battle_center_pos = [(self.battle_center_bbox[0] + self.battle_center_bbox[2]) // 2,
+                                  (self.battle_center_bbox[1] + self.battle_center_bbox[3]) // 2]
+        self.confirm_return_pos = [(self.confirm_return_bbox[0] + self.confirm_return_bbox[2]) // 2,
+                                   (self.confirm_return_bbox[1] + self.confirm_return_bbox[3]) // 2]
+
+        # some parameters for monitor
+        self.start_botton_pos = [80, 1000]
+
 
 
 if __name__ == '__main__':

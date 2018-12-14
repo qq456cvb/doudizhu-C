@@ -209,7 +209,7 @@ class Simulator(multiprocessing.Process):
                 handcards, _ = get_cards_bboxes(self.current_screen, self.templates, 0)
                 cards_value, _ = CEnv.get_cards_value(Card.char2color(handcards))
                 print('cards value: ', cards_value)
-                assert 'jiaodizhu' in act
+                # assert 'jiaodizhu' in act
                 request_click(act['bujiao']) if cards_value < 10 else request_click(act['jiaodizhu'])
             elif self.state == Simulator.State.PLAYING:
                 if 'defeat' in act or 'victory' in act:

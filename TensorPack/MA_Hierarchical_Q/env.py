@@ -28,6 +28,7 @@ class Env:
         self.lord = None
         self.controller = None
         self.last_cards_char = []
+        self.out_cards = [[] for _ in range(3)]
         self.curr_player = None
 
     def prepare(self):
@@ -42,6 +43,7 @@ class Env:
         self.curr_player = self.lord
 
     def step(self, intention):
+        self.out_cards[self.agent_names.index(self.curr_player)] = intention
         if len(intention) == 0:
             self.curr_player = self.agent_names[(self.agent_names.index(self.curr_player) + 1) % len(self.agent_names)]
             return self.curr_player, False
@@ -61,6 +63,10 @@ class Env:
 
     def get_last_outcards(self):
         return self.last_cards_char.copy() if self.curr_player != self.controller else []
+
+    def get_last_two_cards(self):
+        return [self.out_cards[(self.agent_names.index(self.curr_player) + 2) % len(self.agent_names)].copy(),
+                self.out_cards[(self.agent_names.index(self.curr_player) + 1) % len(self.agent_names)].copy()]
 
     def get_curr_handcards(self):
         return self.player_cards[self.curr_player].copy()

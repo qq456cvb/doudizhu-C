@@ -110,6 +110,7 @@ if __name__ == '__main__':
     agent_names = ['agent%d' % i for i in range(1, 4)]
 
     rect = get_window_rect(hwnds[0])
+    print(hwnds)
 
     # no exploration now
     sims = [Simulator(idx=i, hwnd=hwnds[i], pipe_sim2exps=[name_sim2exp + str(j) for j in range(3)], pipe_exps2sim=[name_exp2sim + str(j) for j in range(3)],
@@ -167,10 +168,9 @@ if __name__ == '__main__':
                 # Evaluator(EVAL_EPISODE, agent_names, lambda: Env(agent_names)),
                 HumanHyperParamSetter('learning_rate'),
             ],
-            # session_init=ChainInit(
-            #     [SaverRestore('../TensorPack/Hierarchical_Q/train_log/DQN-9-3-LASTCARDS/model-240000', 'agent1'),
-            #      SaverRestore('../TensorPack/MA_Hierarchical_Q/train_log/DQN-60-MA/model-355000')]),
-            # starting_epoch=0,
+            session_init=ChainInit(
+                [SaverRestore('../TensorPack/MA_Hierarchical_Q/train_log/DQN-60-MA/model-355000')]),
+            # starting_epoch=0,k
             # session_init=SaverRestore('train_log/DQN-54-AUG-STATE/model-75000'),
             steps_per_epoch=STEPS_PER_EPOCH,
             max_epoch=1000,
