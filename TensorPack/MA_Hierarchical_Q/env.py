@@ -38,6 +38,9 @@ class Env:
         self.out_cards = [[] for _ in range(3)]
         self.curr_player = None
 
+    def get_current_idx(self):
+        return self.agent_names.index(self.curr_player)
+
     def prepare(self):
         cards = Env.total_cards.copy()
         np.random.shuffle(cards)
@@ -94,41 +97,60 @@ class Env:
         return prob_state
 
 
+def char2ccardgroup(chars):
+    cg = CardGroup.to_cardgroup(chars)
+    ccg = CCardGroup([CCard(to_value(c) - 3) for c in cg.cards], CCategory(cg.type), cg.value, cg.len)
+    return ccg
+
+
+def ccardgroup2char(cg):
+    return [to_char(int(c) + 3) for c in cg.cards]
+
+
 if __name__ == '__main__':
-    cg = CardGroup.to_cardgroup(['3', '3', '4', '4'])
-    print(cg.len)
-    print(cg.type)
-    # cg = CCardGroup()
-    # env = Env(['1', '2', '3'])
-    # predictors = {n: Predictor(lambda x, y, z: [np.random.rand(1, 21)]) for n in env.get_all_agent_names()}
-    # agent_names = ['1', '2', '3']
-    # cnt = {
-    #     '1': 0,
-    #     '2': 0,
-    #     '3': 0
-    # }
-    # for _ in range(1):
-    #     env.reset()
-    #     env.prepare()
-    #     done = False
-    #     while not done:
-    #
-    #         handcards = env.get_curr_handcards()
-    #         last_cards = env.get_last_outcards()
-    #         prob_state = env.get_state_prob()
-    #         action = predictors[env.get_curr_agent_name()].predict(handcards, last_cards, prob_state)
-    #         winner, done = env.step(action)
-    #         if done:
-    #             for agent_name in agent_names:
-    #                 print(agent_name)
-    #                 if agent_name == winner:
-    #                     cnt[agent_name] += 1
-    #                     print(agent_name, ' wins')
-    #                 else:
-    #                     if env.get_all_agent_names().index(winner) + env.get_all_agent_names().index(agent_name) == 3:
-    #                         cnt[agent_name] += 1
-    #                         print(agent_name, winner, ' all wins')
-    #
-    # print(cnt)
+    # cg = CardGroup.to_cardgroup(['3', '3', '4', '4', '5', '5'])
+    # print(cg.len)
+    # print(cg.type)
+    # ccg = CCardGroup([CCard(to_value(c) - 3) for c in cg.cards], CCategory(cg.type), cg.value, cg.len)
+
+    # python env usage
+    env = Env(['1', '2', '3'])
+    agent_names = ['1', '2', '3']
+    cnt = {
+        '1': 0,
+        '2': 0,
+        '3': 0
+    }
+    for _ in range(1):
+        env.reset()
+        env.prepare()
+        done = False
+        while not done:
+
+            handcards = env.get_curr_handcards()
+            chandcards = [CCard(to_value(c) - 3) for c in handcards]
+            unseen_cards = env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]].copy() \
+                            + env.player_cards[agent_names[(env.get_current_idx() + 2) % len(env.agent_names)]].copy()
+            cunseen_cards = [CCard(to_value(c) - 3) for c in unseen_cards]
+            next_handcards_cnt = len(env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]])
+
+            last_cg = char2ccardgroup(env.last_cards_char)
+            caction = mcsearch(chandcards, cunseen_cards, next_handcards_cnt, last_cg, env.agent_names.index(env.curr_player), env.agent_names.index(env.controller))
+
+            action = ccardgroup2char(caction)
+            print(action)
+            winner, done = env.step(action)
+            if done:
+                for agent_name in agent_names:
+                    print(agent_name)
+                    if agent_name == winner:
+                        cnt[agent_name] += 1
+                        print(agent_name, ' wins')
+                    else:
+                        if env.get_all_agent_names().index(winner) + env.get_all_agent_names().index(agent_name) == 3:
+                            cnt[agent_name] += 1
+                            print(agent_name, winner, ' all wins')
+
+    print(cnt)
 
 
