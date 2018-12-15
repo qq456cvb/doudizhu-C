@@ -62,27 +62,28 @@ def res_fc_block(inputs, units, stack=3):
     for i in range(stack):
         residual = FullyConnected('fc%d' % i, residual, units, activation=tf.nn.relu)
     x = inputs
+    # x = FullyConnected('fc', x, units, activation=tf.nn.relu)
     if inputs.shape[1].value != units:
         x = FullyConnected('fc', x, units, activation=tf.nn.relu)
     return tf.contrib.layers.layer_norm(residual + x, scale=False)
-
+    # return residual + x
 
 BATCH_SIZE = 8
 MAX_NUM_COMBS = 100
 MAX_NUM_GROUPS = 21
 ATTEN_STATE_SHAPE = 60
-HIDDEN_STATE_DIM = 256 + 120
+HIDDEN_STATE_DIM = 256 + 256 + 120
 STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
 ACTION_REPEAT = 4   # aka FRAME_SKIP
-UPDATE_FREQ = 2
+UPDATE_FREQ = 4
 
-GAMMA = 1.0
+GAMMA = 0.99
 
 MEMORY_SIZE = 1e4
 # will consume at least 1e6 * 84 * 84 bytes == 6.6G memory.
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
-EVAL_EPISODE = 200
+EVAL_EPISODE = 100
 
 NUM_ACTIONS = None
 ROM_FILE = None
@@ -149,7 +150,7 @@ class Model(DQNModel):
 
 def get_config():
     expreplay = ExpReplay(
-        predictor_io_names=(['state', 'comb_mask'], ['Qvalue']),
+        predictor_io_names=(['state', 'comb_mask', 'fine_mask'], ['Qvalue']),
         player=get_player(),
         state_shape=STATE_SHAPE,
         num_actions=[MAX_NUM_COMBS, MAX_NUM_GROUPS],
@@ -170,7 +171,7 @@ def get_config():
             ModelSaver(),
             PeriodicTrigger(
                 RunOp(DQNModel.update_target_param, verbose=True),
-                every_k_steps=1000 // UPDATE_FREQ),    # update target network every 10k steps
+                every_k_steps=STEPS_PER_EPOCH // 10),    # update target network every 10k steps
             expreplay,
             # ScheduledHyperParamSetter('learning_rate',
             #                           [(60, 5e-5), (100, 2e-5)]),
@@ -179,7 +180,7 @@ def get_config():
                 [(0, 1), (30, 0.5), (60, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
                 interp='linear'),
             Evaluator(
-                EVAL_EPISODE, ['state', 'comb_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
+                EVAL_EPISODE, ['state', 'comb_mask', 'fine_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
             HumanHyperParamSetter('learning_rate'),
         ],
         # starting_epoch=30,
@@ -216,7 +217,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'DQN-54-AUG-STATE-8-13'))
+            os.path.join('train_log', 'DQN-9-7-LASTCARDS-FARMER-3'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)

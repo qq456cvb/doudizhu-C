@@ -10,6 +10,7 @@ from collections import deque, namedtuple
 import threading
 from six.moves import queue, range
 
+from tensorpack import *
 from tensorpack.dataflow import DataFlow
 from tensorpack.utils import logger
 from tensorpack.utils.utils import get_tqdm, get_rng
@@ -20,13 +21,14 @@ from card import action_space, action_space_onehot60, Card, CardGroup, augment_a
 from utils import to_char, to_value, get_mask_onehot60
 import sys
 import os
+import random
+from TensorPack.MA_Hierarchical_Q.predictor import Predictor
 if os.name == 'nt':
     sys.path.insert(0, '../../build/Release')
 else:
     sys.path.insert(0, '../../build.linux')
-from env import Env as CEnv
 from env import get_combinations_nosplit, get_combinations_recursive
-import random
+
 
 __all__ = ['ExpReplay']
 
@@ -108,7 +110,8 @@ class ExpReplay(DataFlow, Callback):
     """
 
     def __init__(self,
-                 predictor_io_names,
+                 # model,
+                 agent_name,
                  player,
                  state_shape,
                  num_actions,
@@ -117,21 +120,13 @@ class ExpReplay(DataFlow, Callback):
                  init_exploration,
                  update_frequency,
                  encoding_file='../AutoEncoder/encoding.npy'):
-        """
-        Args:
-            predictor_io_names (tuple of list of str): input/output names to
-                predict Q value from state.
-            player (RLEnvironment): the player.
-            history_len (int): length of history frames to concat. Zero-filled
-                initial frames.
-            update_frequency (int): number of new transitions to add to memory
-                after sampling a batch of transitions for training.
-        """
         init_memory_size = int(init_memory_size)
+        # self.model = model
 
         for k, v in locals().items():
             if k != 'self':
                 setattr(self, k, v)
+        self.agent_name = agent_name
         self.exploration = init_exploration
         self.num_actions = num_actions
         self.encoding = np.load(encoding_file)
@@ -145,23 +140,20 @@ class ExpReplay(DataFlow, Callback):
 
         self.mem = ReplayMemory(memory_size, state_shape)
         self.player.reset()
-        # init_cards = np.arange(36)
-        # self.player.prepare_manual(init_cards)
         self.player.prepare()
-        # self._current_ob = self.player.get_state_prob()
         self._comb_mask = True
         self._fine_mask = None
         self._current_ob, self._action_space = self.get_state_and_action_spaces()
         self._player_scores = StatCounter()
         self._current_game_score = StatCounter()
 
-    def get_combinations(self, curr_cards_char, last_cards_value):
+    def get_combinations(self, curr_cards_char, last_cards_char):
         if len(curr_cards_char) > 10:
             card_mask = Card.char2onehot60(curr_cards_char).astype(np.uint8)
             mask = augment_action_space_onehot60
             a = np.expand_dims(1 - card_mask, 0) * mask
             invalid_row_idx = set(np.where(a > 0)[0])
-            if last_cards_value.size == 0:
+            if len(last_cards_char) == 0:
                 invalid_row_idx.add(0)
 
             valid_row_idx = [i for i in range(len(augment_action_space)) if i not in invalid_row_idx]
@@ -172,12 +164,12 @@ class ExpReplay(DataFlow, Callback):
             # augment mask
             # TODO: known issue: 555444666 will not decompose into 5554 and 66644
             combs = get_combinations_nosplit(mask, card_mask)
-            combs = [([] if last_cards_value.size == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
+            combs = [([] if len(last_cards_char) == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
 
-            if last_cards_value.size > 0:
+            if len(last_cards_char) > 0:
                 idx_must_be_contained = set(
                     [idx for idx in valid_row_idx if CardGroup.to_cardgroup(augment_action_space[idx]). \
-                        bigger_than(CardGroup.to_cardgroup(to_char(last_cards_value)))])
+                        bigger_than(CardGroup.to_cardgroup(last_cards_char))])
                 combs = [comb for comb in combs if not idx_must_be_contained.isdisjoint(comb)]
                 self._fine_mask = np.zeros([len(combs), self.num_actions[1]], dtype=np.bool)
                 for i in range(len(combs)):
@@ -194,13 +186,13 @@ class ExpReplay(DataFlow, Callback):
             combs = get_combinations_recursive(mask[valid, :], cards_target)
             idx_mapping = dict(zip(range(valid.shape[0]), np.where(valid)[0]))
 
-            combs = [([] if last_cards_value.size == 0 else [0]) + [idx_mapping[idx] for idx in comb] for comb in combs]
+            combs = [([] if len(last_cards_char) == 0 else [0]) + [idx_mapping[idx] for idx in comb] for comb in combs]
 
-            if last_cards_value.size > 0:
+            if len(last_cards_char) > 0:
                 valid[0] = True
                 idx_must_be_contained = set(
                     [idx for idx in range(len(action_space)) if valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
-                        bigger_than(CardGroup.to_cardgroup(to_char(last_cards_value)))])
+                        bigger_than(CardGroup.to_cardgroup(last_cards_char))])
                 combs = [comb for comb in combs if not idx_must_be_contained.isdisjoint(comb)]
                 self._fine_mask = np.zeros([len(combs), self.num_actions[1]], dtype=np.bool)
                 for i in range(len(combs)):
@@ -218,14 +210,27 @@ class ExpReplay(DataFlow, Callback):
         return [combs[i] for i in idx], (masks[idx] if masks is not None else None)
 
     def get_state_and_action_spaces(self, action=None):
-        last_cards_value = self.player.get_last_outcards()
-        curr_cards_char = to_char(self.player.get_curr_handcards())
+
+        def cards_char2embedding(cards_char):
+            test = (action_space_onehot60 == Card.char2onehot60(cards_char))
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            return self.encoding[target[0]]
+
+        last_two_cards_char = self.player.get_last_two_cards()
+        last_cards_char = last_two_cards_char[0]
+        if not last_cards_char:
+            last_cards_char = last_two_cards_char[1]
+        curr_cards_char = self.player.get_curr_handcards()
         if self._comb_mask:
-            combs = self.get_combinations(curr_cards_char, last_cards_value)
+            # print(curr_cards_char, last_cards_char)
+            combs = self.get_combinations(curr_cards_char, last_cards_char)
             if len(combs) > self.num_actions[0]:
                 combs, self._fine_mask = self.subsample_combs_masks(combs, self._fine_mask, self.num_actions[0])
             # TODO: utilize temporal relations to speedup
             available_actions = [[action_space[idx] for idx in comb] for comb in combs]
+            # print(available_actions)
+            # print('-------------------------------------------')
             assert len(combs) > 0
             if self._fine_mask is not None:
                 self._fine_mask = self.pad_fine_mask(self._fine_mask)
@@ -233,13 +238,11 @@ class ExpReplay(DataFlow, Callback):
             state = [np.stack([self.encoding[idx] for idx in comb]) for comb in combs]
             assert len(state) > 0
             prob_state = self.player.get_state_prob()
-
-            # add last cards to state to distinguish q values between active and passive conditions
-            test = action_space_onehot60 == Card.val2onehot60(last_cards_value)
-            test = np.all(test, axis=1)
-            target = np.where(test)[0]
-            assert target.size == 1
-            extra_state = np.concatenate([self.encoding[target[0]], prob_state])
+            # test = action_space_onehot60 == Card.char2onehot60(last_cards_char)
+            # test = np.all(test, axis=1)
+            # target = np.where(test)[0]
+            # assert target.size == 1
+            extra_state = np.concatenate([cards_char2embedding(last_two_cards_char[0]), cards_char2embedding(last_two_cards_char[1]), prob_state])
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
@@ -309,7 +312,7 @@ class ExpReplay(DataFlow, Callback):
                 else np.pad(self._fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - self._fine_mask.shape[0]), 'constant', constant_values=(0, 0))
         else:
             fine_mask = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
-        last_cards_value = self.player.get_last_outcards()
+        last_cards_char = self.player.get_last_outcards()
         if self.rng.rand() <= self.exploration:
             if not self._comb_mask and self._fine_mask is not None:
                 q_values = np.random.rand(self.num_actions[1])
@@ -320,7 +323,7 @@ class ExpReplay(DataFlow, Callback):
             else:
                 act = self.rng.choice(range(self.num_actions[0 if comb_mask else 1]))
         else:
-            q_values = self.predictor(old_s[None, :, :, :], np.array([comb_mask]), np.array([fine_mask]))[0][0]
+            q_values = self.curr_predictor(old_s[None, :, :, :], np.array([comb_mask]), np.array([fine_mask]))[0][0]
             if not self._comb_mask and self._fine_mask is not None:
                 q_values = q_values[:self.num_actions[1]]
                 assert np.all(q_values[np.where(np.logical_not(self._fine_mask))[0]] < -100)
@@ -331,61 +334,57 @@ class ExpReplay(DataFlow, Callback):
             # print(act)
             # clamp action to valid range
             act = min(act, self.num_actions[0 if comb_mask else 1] - 1)
+        winner = -1
+        reward = 0
         if comb_mask:
-            reward = 0
             isOver = False
         else:
-            if last_cards_value.size > 0:
+            if len(last_cards_char) > 0:
                 if act > 0:
-                    if not CardGroup.to_cardgroup(self._action_space[act]).bigger_than(CardGroup.to_cardgroup(to_char(last_cards_value))):
-                        print('warning, some error happened')
-            # print(to_char(self.player.get_curr_handcards()))
-            reward, isOver, _ = self.player.step_manual(to_value(self._action_space[act]))
+                    if not CardGroup.to_cardgroup(self._action_space[act]).bigger_than(CardGroup.to_cardgroup(last_cards_char)):
+                        print('warning, some error happened, ', self._action_space[act], last_cards_char)
+                        raise Exception("card comparison error")
+            winner, isOver = self.player.step(self._action_space[act])
 
-            # print(self._action_space[act])
+        # step for AI farmers
+        while not isOver and self.player.get_curr_agent_name() != self.agent_name:
+            handcards = self.player.get_curr_handcards()
+            last_two_cards = self.player.get_last_two_cards()
+            prob_state = self.player.get_state_prob()
+            action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_two_cards, prob_state)
+            winner, isOver = self.player.step(action)
 
-        # step for AI
-        while not isOver and self.player.get_role_ID() != 3:
-            _, reward, _ = self.player.step_auto()
-            isOver = (reward != 0)
-        # reward = -reward
-        reward = np.clip(reward, -1, 1)
+        if isOver:
+            if self.agent_name == winner:
+                reward = 1
+            else:
+                if self.player.get_all_agent_names().index(winner) + self.player.get_all_agent_names().index(self.agent_name) == 3:
+                    reward = 1
+                else:
+                    reward = -1
         self._current_game_score.feed(reward)
 
         if isOver:
-            # print('lord wins' if reward > 0 else 'farmer wins')
             self._player_scores.feed(self._current_game_score.sum)
-            # print(self._current_game_score.sum)
-            while True:
-                self.player.reset()
-                # init_cards = np.arange(36)
-                # self.player.prepare_manual(init_cards)
-                self.player.prepare()
-                self._comb_mask = True
-                early_stop = False
-                while self.player.get_role_ID() != 3:
-                    _, reward, _ = self.player.step_auto()
-                    isOver = (reward != 0)
-                    if isOver:
-                        print('prestart ends too early! now resetting env')
-                        early_stop = True
-                        break
-                if early_stop:
-                    continue
-                self._current_ob, self._action_space = self.get_state_and_action_spaces()
-                break
+            self.player.reset()
+            self.player.prepare()
+            self._comb_mask = True
+            self.prestart()
             self._current_game_score.reset()
         else:
             self._comb_mask = not self._comb_mask
         self._current_ob, self._action_space = self.get_state_and_action_spaces(act if not self._comb_mask else None)
         self.mem.append(Experience(old_s, act, reward, isOver, comb_mask, fine_mask))
 
-    def debug(self, cnt=100000):
-        with get_tqdm(total=cnt) as pbar:
-            for i in range(cnt):
-                self.mem.append(Experience(np.zeros([self.num_actions[0], self.num_actions[1], 256]), 0, 0, False, True if i % 2 == 0 else False))
-                # self._current_ob, self._action_space = self.get_state_and_action_spaces(None)
-                pbar.update()
+    def prestart(self):
+        while self.player.get_curr_agent_name() != self.agent_name:
+            handcards = self.player.get_curr_handcards()
+            last_two_cards = self.player.get_last_two_cards()
+            prob_state = self.player.get_state_prob()
+            action = self.predictors[self.player.get_curr_agent_name()].predict(handcards, last_two_cards, prob_state)
+
+            self.player.step(action)
+        self._current_ob, self._action_space = self.get_state_and_action_spaces()
 
     def get_data(self):
         # wait for memory to be initialized
@@ -411,12 +410,12 @@ class ExpReplay(DataFlow, Callback):
         return [state, action, reward, isOver, comb_mask, fine_mask]
 
     def _setup_graph(self):
-        self.predictor = self.trainer.get_predictor(*self.predictor_io_names)
+        self.curr_predictor = self.trainer.get_predictor([self.agent_name + '/state:0', self.agent_name + '_comb_mask:0', self.agent_name + '/fine_mask:0'], [self.agent_name + '/Qvalue:0'])
+        self.predictors = {n: Predictor(self.trainer.get_predictor([n + '/state:0', n + '_comb_mask:0', n + '/fine_mask:0'], [n + '/Qvalue:0'])) for n in self.player.get_all_agent_names()}
 
     def _before_train(self):
-        while self.player.get_role_ID() != 3:
-            self.player.step_auto()
-            self._current_ob, self._action_space = self.get_state_and_action_spaces()
+        self.prestart()
+
         self._init_memory()
         self._simulator_th = self.get_simulator_thread()
         self._simulator_th.start()
@@ -428,7 +427,7 @@ class ExpReplay(DataFlow, Callback):
             self.trainer.monitors.put_scalar('expreplay/mean_score', mean)
             self.trainer.monitors.put_scalar('expreplay/max_score', max)
         except Exception:
-            logger.exception("Cannot log training scores.")
+            logger.exception(self.agent_name + " Cannot log training scores.")
         v.reset()
 
 
@@ -445,22 +444,23 @@ def h():
 
 
 if __name__ == '__main__':
-    def predictor(x):
-        return [np.random.random([1, 100])]
-    player = CEnv()
-    E = ExpReplay(
-        predictor_io_names=(['state', 'comb_mask'], ['Qvalue']),
-        player=CEnv(),
-        state_shape=(100, 21, 256),
-        num_actions=[100, 21],
-        batch_size=16,
-        memory_size=1e4,
-        init_memory_size=1e4,
-        init_exploration=0.,
-        update_frequency=4
-    )
-    E.predictor = predictor
-    E._init_memory()
+    pass
+    # def predictor(x):
+    #     return [np.random.random([1, 100])]
+    # player = CEnv()
+    # E = ExpReplay(
+    #     predictor_io_names=(['state', 'comb_mask'], ['Qvalue']),
+    #     player=CEnv(),
+    #     state_shape=(100, 21, 256),
+    #     num_actions=[100, 21],
+    #     batch_size=16,
+    #     memory_size=1e4,
+    #     init_memory_size=1e4,
+    #     init_exploration=0.,
+    #     update_frequency=4
+    # )
+    # E.predictor = predictor
+    # E._init_memory()
     # for k in E.get_data():
     #     pass
 

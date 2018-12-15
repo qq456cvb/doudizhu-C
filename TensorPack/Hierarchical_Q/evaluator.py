@@ -19,8 +19,7 @@ else:
     sys.path.insert(0, '../../build.linux')
 from env import Env, get_combinations_nosplit, get_combinations_recursive
 from logger import Logger
-from utils import to_char
-from card import Card, action_space, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
+from card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
 import numpy as np
 import tensorflow as tf
 from utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
@@ -28,7 +27,7 @@ from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mas
 from utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
 
 
-encoding = np.load('../AutoEncoder/encoding.npy')
+encoding = None
 
 
 def play_one_episode(env, func, num_actions):
@@ -151,8 +150,14 @@ def play_one_episode(env, func, num_actions):
             #     assert len(combs) == 0
             #     state = [np.array([encoding[0]])]
             prob_state = env.get_state_prob()
+            # add last cards to state to distinguish q values between active and passive conditions
+            test = action_space_onehot60 == Card.val2onehot60(last_cards_value)
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            assert target.size == 1
+            extra_state = np.concatenate([encoding[target[0]], prob_state])
             for i in range(len(state)):
-                state[i] = np.concatenate([state[i], np.tile(prob_state[None, :], [state[i].shape[0], 1])], axis=-1)
+                state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = pad_state(state)
             assert state.shape[0] == num_actions[0] and state.shape[1] == num_actions[1]
         else:
@@ -171,44 +176,53 @@ def play_one_episode(env, func, num_actions):
     # env.prepare_manual(init_cards)
     env.prepare()
     r = 0
+    # f = open('evaluate_record.txt', 'a+')
     while r == 0:
         role_id = env.get_role_ID()
-
-        if role_id == 2:
+        curr_cards_char = to_char(env.get_curr_handcards())
+        # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char, file=f)
+        if role_id == 3:
             last_cards_value = env.get_last_outcards()
             is_active = True if last_cards_value.size == 0 else False
-            curr_cards_char = to_char(env.get_curr_handcards())
-            # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
 
+            # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
+            fine_mask_input = np.ones([max(num_actions[0], num_actions[1])], dtype=np.bool)
             # first hierarchy
             state, available_actions = get_state_and_action_space(True)
-            q_values = func([state[None, :, :, :], np.array([True])])[0][0]
+            q_values = func([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
             action = np.argmax(q_values)
+            assert action < num_actions[0]
             # clamp action to valid range
             action = min(action, num_actions[0] - 1)
 
             # second hierarchy
             state, available_actions = get_state_and_action_space(False, state, available_actions, action)
-            q_values = func([state[None, :, :, :], np.array([False])])[0][0]
+            if fine_mask is not None:
+                fine_mask_input = fine_mask if fine_mask.shape[0] == max(num_actions[0], num_actions[1]) \
+                    else np.pad(fine_mask, (0, max(num_actions[0], num_actions[1]) - fine_mask.shape[0]), 'constant', constant_values=(0, 0))
+            q_values = func([state[None, :, :, :], np.array([False]), np.array([fine_mask_input])])[0][0]
             if fine_mask is not None:
                 q_values = q_values[:num_actions[1]]
+                assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
                 q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
             action = np.nanargmax(q_values)
+            assert action < num_actions[1]
             # clamp action to valid range
             action = min(action, num_actions[1] - 1)
 
             # intention
             intention = to_value(available_actions[action])
             r, _, _ = env.step_manual(intention)
-            # print('lord gives', to_char(intention))
+            # print('lord gives', to_char(intention), file=f)
             assert (intention is not None)
         else:
             intention, r, _ = env.step_auto()
-            # print('farmer gives', to_char(intention))
+            # print('farmer gives', to_char(intention), file=f)
     # if r > 0:
-    #     print('farmer wins')
+    #     print('farmer wins', file=f)
     # else:
-    #     print('lord wins')
+    #     print('lord wins', file=f)
+    # f.close()
     return int(r > 0)
 
 
@@ -271,6 +285,9 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, num_actions, verbose=Fal
 
 class Evaluator(Callback):
     def __init__(self, nr_eval, input_names, output_names, num_actions, get_player_fn):
+        global encoding
+        if encoding is None:
+            encoding = np.load('../AutoEncoder/encoding.npy')
         self.eval_episode = nr_eval
         self.input_names = input_names
         self.output_names = output_names

@@ -15,6 +15,7 @@
 #include "dancing_link.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -525,23 +526,25 @@ public:
         std::vector<int> remains = total - self_cards;
 
         // normalize history order
-        vector<int> history[3] = {
-            toOneHot(clsGameSituation->color_aUnitOutCardList[indexID]),
-            toOneHot(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
-            toOneHot(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
-        };
-        for (int i = 0; i < 3; i++) {
-            remains = remains - history[i];
-        }
-        normalize(remains, 0, 52);
+        vector<int> history = clsGameSituation->color_aUnitOutCardList[indexID];
+        history += clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3];
+        history += clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3];
+        remains = remains - toOneHot(history);
+//        vector<int> history[3] = {
+//            toOneHot(clsGameSituation->color_aUnitOutCardList[indexID]),
+//            toOneHot(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
+//            toOneHot(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
+//        };
+//        for (int i = 0; i < 3; i++) {
+//            remains = remains - history[i];
+//        }
+//        normalize(remains, 0, 52);
 
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot(extra_cards);
         state += self_cards;
         state += remains;
-        state += history[0];
-        state += history[1];
-        state += history[2];
+        state += toOneHot(history);
         state += extra_cards;
 
 
@@ -566,23 +569,25 @@ public:
         std::vector<int> remains = total - self_cards;
 
         // normalize history order
-        vector<int> history[3] = {
-            toOneHot60(clsGameSituation->color_aUnitOutCardList[indexID]),
-            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
-            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
-        };
-        for (int i = 0; i < 3; i++) {
-            remains = remains - history[i];
-        }
-        normalize(remains, 0, 60);
+        vector<int> history = clsGameSituation->color_aUnitOutCardList[indexID];
+        history += clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3];
+        history += clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3];
+        remains = remains - toOneHot60(history);
+//        vector<int> history[3] = {
+//            toOneHot60(clsGameSituation->color_aUnitOutCardList[indexID]),
+//            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
+//            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
+//        };
+//        for (int i = 0; i < 3; i++) {
+//            remains = remains - history[i];
+//        }
+//        normalize(remains, 0, 60);
 
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot60(extra_cards);
         state += self_cards;
         state += remains;
-        state += history[0];
-        state += history[1];
-        state += history[2];
+        state += toOneHot60(history);
         state += extra_cards;
 
 
@@ -624,15 +629,19 @@ public:
         std::vector<int> remains = total - self_cards;
 
         // normalize history order
-        vector<int> history[3] = {
-            toOneHot60(clsGameSituation->color_aUnitOutCardList[indexID]),
-            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
-            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
-        };
-        for (int i = 0; i < 3; i++) {
-            remains = remains - history[i];
-        }
-        normalize(remains, 0, 60);
+        vector<int> history = clsGameSituation->color_aUnitOutCardList[indexID];
+        history += clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3];
+        history += clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3];
+        remains = remains - toOneHot60(history);
+//        vector<int> history[3] = {
+//            toOneHot60(clsGameSituation->color_aUnitOutCardList[indexID]),
+//            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3]),
+//            toOneHot60(clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3])
+//        };
+//        for (int i = 0; i < 3; i++) {
+//            remains = remains - history[i];
+//        }
+//        normalize(remains, 0, 60);
 
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot60(extra_cards);
@@ -648,17 +657,18 @@ public:
 
         // divide by the other two
         // for simplicity, scale by two
-        for (int i = 0; i < remains.size(); i++) {
-            if (remains[i] > 0 && indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
-                if (indexID + 1 == clsGameSituation->nDiZhuID) {
-                    prob1[i] = 1.f;
-                    prob2[i] = 0;
-                } else {
-                    prob1[i] = 0;
-                    prob2[i] = 1.f;
-                }
-            }
-        }
+        // not correct with regard to the history information, disabled now
+//        for (int i = 0; i < remains.size(); i++) {
+//            if (remains[i] > 0 && indexID != clsGameSituation->nDiZhuID && extra_cards[i] == 1) {
+//                if (indexID + 1 == clsGameSituation->nDiZhuID) {
+//                    prob1[i] = 1.f;
+//                    prob2[i] = 0;
+//                } else {
+//                    prob1[i] = 0;
+//                    prob2[i] = 1.f;
+//                }
+//            }
+//        }
 
 //        state += self_cards;
         state += prob1;
@@ -733,6 +743,34 @@ public:
             ptr[i] = value_lastCards[i];
         }
         return result;
+    }
+
+    // 获得上家出的牌，如果自己控手，返回空
+    auto getLastTwoCards() {
+        vector<vector<int>> last_two_cards;
+        for (int i = 2; i > 0; i--) {
+            auto cards = arrHandCardData[(indexID + i) % 3].value_nPutCardList;
+            last_two_cards.push_back(cards);
+        }
+        return last_two_cards;
+//        auto last_two_cards = new vector<py::array_t<int>>();
+//
+//        for (int i = 2; i > 0; i--) {
+//            auto cards = arrHandCardData[(indexID + i) % 3].value_nPutCardList;
+//            auto result = py::array_t<int>(cards.size());
+//            auto buf = result.request();
+//            int *ptr = (int*)buf.ptr;
+//
+//            for (int j = 0; j < value_lastCards.size(); ++j)
+//            {
+//                ptr[j] = value_lastCards[j];
+//            }
+//            last_two_cards->push_back(result);
+//        }
+//
+//        auto capsule = py::capsule(last_two_cards, [](void *v) { delete reinterpret_cast<vector<py::array_t<int>>*>(v); });
+//
+//        return py::array(last_two_cards->size(), last_two_cards->data(), capsule);
     }
 
     // 获得上家出的牌的类型，如果自己控手，返回-1
@@ -1075,6 +1113,7 @@ PYBIND11_MODULE(env, m) {
         .def("get_role_ID", &Env::getRoleID)
         .def("get_curr_handcards", &Env::getCurrCards)
         .def("get_last_outcards", &Env::getLastCards)
+        .def("get_last_two_cards", &Env::getLastTwoCards)
         .def("get_last_outcategory_idx", &Env::getLastCategory)
         .def("get_lord_cnt", &Env::getLordCnt);
     m.def("print_state", &print_state);
