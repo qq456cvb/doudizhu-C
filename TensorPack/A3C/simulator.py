@@ -134,7 +134,7 @@ class SubState:
                         self.category == Category.THREE_TWO.value or \
                         self.category == Category.THREE_ONE_LINE.value or \
                         self.category == Category.THREE_TWO_LINE.value or \
-                        self.category == Category.FOUR_TWO.value:
+                        self.category == Category.FOUR_TAKE_TWO.value:
                     if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
                         self.minor_type = 1
                     self.mode = MODE.MINOR_RESPONSE
@@ -142,7 +142,7 @@ class SubState:
                     discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
                     self.minor_length = get_seq_length(self.category, self.last_cards_value)
                     if self.minor_length is None:
-                        self.minor_length = 2 if self.category == Category.FOUR_TWO.value else 1
+                        self.minor_length = 2 if self.category == Category.FOUR_TAKE_TWO.value else 1
                     self.card_type = self.category
                     return
                 else:
@@ -179,14 +179,14 @@ class SubState:
                     return
                 elif self.category == Category.THREE_ONE.value or \
                         self.category == Category.THREE_TWO.value or \
-                        self.category == Category.FOUR_TWO.value:
+                        self.category == Category.FOUR_TAKE_TWO.value:
                     if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
                         self.minor_type = 1
                     self.mode = MODE.MINOR_RESPONSE
                     self.intention = give_cards_without_minor(action, np.array([]), self.category, None)
                     # modify the state for minor cards
                     discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
-                    self.minor_length = 2 if self.category == Category.FOUR_TWO.value else 1
+                    self.minor_length = 2 if self.category == Category.FOUR_TAKE_TWO.value else 1
                     return
                 else:
                     self.intention = give_cards_without_minor(action, np.array([]), self.category, None)
@@ -285,6 +285,7 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
             if role_id == 2:
                 prob_state, all_state, curr_handcards_value, last_cards_value, last_category = \
                     player.get_state_prob(), player.get_state_all_cards(), player.get_curr_handcards(), player.get_last_outcards(), player.get_last_outcategory_idx()
+                prob_state = np.concatenate([Card.val2onehot60(curr_handcards_value), prob_state])
                 # after taking the last action, get to this state and get this reward/isOver.
                 # If isOver, get to the next-episode state immediately.
                 # This tuple is not the same as the one put into the memory buffer

@@ -26,7 +26,11 @@ else:
     sys.path.insert(0, '../../build.linux')
 from env import Env as CEnv
 from env import get_combinations_nosplit, get_combinations_recursive
+
 import random
+
+
+ROLE_ID_TO_TRAIN = 2
 
 __all__ = ['ExpReplay']
 
@@ -155,13 +159,13 @@ class ExpReplay(DataFlow, Callback):
         self._player_scores = StatCounter()
         self._current_game_score = StatCounter()
 
-    def get_combinations(self, curr_cards_char, last_cards_value):
+    def get_combinations(self, curr_cards_char, last_cards_char):
         if len(curr_cards_char) > 10:
             card_mask = Card.char2onehot60(curr_cards_char).astype(np.uint8)
             mask = augment_action_space_onehot60
             a = np.expand_dims(1 - card_mask, 0) * mask
             invalid_row_idx = set(np.where(a > 0)[0])
-            if last_cards_value.size == 0:
+            if len(last_cards_char) == 0:
                 invalid_row_idx.add(0)
 
             valid_row_idx = [i for i in range(len(augment_action_space)) if i not in invalid_row_idx]
@@ -172,12 +176,12 @@ class ExpReplay(DataFlow, Callback):
             # augment mask
             # TODO: known issue: 555444666 will not decompose into 5554 and 66644
             combs = get_combinations_nosplit(mask, card_mask)
-            combs = [([] if last_cards_value.size == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
+            combs = [([] if len(last_cards_char) == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
 
-            if last_cards_value.size > 0:
+            if len(last_cards_char) > 0:
                 idx_must_be_contained = set(
                     [idx for idx in valid_row_idx if CardGroup.to_cardgroup(augment_action_space[idx]). \
-                        bigger_than(CardGroup.to_cardgroup(to_char(last_cards_value)))])
+                        bigger_than(CardGroup.to_cardgroup(last_cards_char))])
                 combs = [comb for comb in combs if not idx_must_be_contained.isdisjoint(comb)]
                 self._fine_mask = np.zeros([len(combs), self.num_actions[1]], dtype=np.bool)
                 for i in range(len(combs)):
@@ -194,13 +198,13 @@ class ExpReplay(DataFlow, Callback):
             combs = get_combinations_recursive(mask[valid, :], cards_target)
             idx_mapping = dict(zip(range(valid.shape[0]), np.where(valid)[0]))
 
-            combs = [([] if last_cards_value.size == 0 else [0]) + [idx_mapping[idx] for idx in comb] for comb in combs]
+            combs = [([] if len(last_cards_char) == 0 else [0]) + [idx_mapping[idx] for idx in comb] for comb in combs]
 
-            if last_cards_value.size > 0:
+            if len(last_cards_char) > 0:
                 valid[0] = True
                 idx_must_be_contained = set(
                     [idx for idx in range(len(action_space)) if valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
-                        bigger_than(CardGroup.to_cardgroup(to_char(last_cards_value)))])
+                        bigger_than(CardGroup.to_cardgroup(last_cards_char))])
                 combs = [comb for comb in combs if not idx_must_be_contained.isdisjoint(comb)]
                 self._fine_mask = np.zeros([len(combs), self.num_actions[1]], dtype=np.bool)
                 for i in range(len(combs)):
@@ -218,14 +222,28 @@ class ExpReplay(DataFlow, Callback):
         return [combs[i] for i in idx], (masks[idx] if masks is not None else None)
 
     def get_state_and_action_spaces(self, action=None):
-        last_cards_value = self.player.get_last_outcards()
+
+        def cards_char2embedding(cards_char):
+            test = (action_space_onehot60 == Card.char2onehot60(cards_char))
+            test = np.all(test, axis=1)
+            target = np.where(test)[0]
+            return self.encoding[target[0]]
+
+        last_two_cards_char = self.player.get_last_two_cards()
+        last_two_cards_char = [to_char(cards) for cards in last_two_cards_char]
+        last_cards_char = last_two_cards_char[0]
+        if not last_cards_char:
+            last_cards_char = last_two_cards_char[1]
         curr_cards_char = to_char(self.player.get_curr_handcards())
         if self._comb_mask:
-            combs = self.get_combinations(curr_cards_char, last_cards_value)
+            # print(curr_cards_char, last_cards_char)
+            combs = self.get_combinations(curr_cards_char, last_cards_char)
             if len(combs) > self.num_actions[0]:
                 combs, self._fine_mask = self.subsample_combs_masks(combs, self._fine_mask, self.num_actions[0])
             # TODO: utilize temporal relations to speedup
             available_actions = [[action_space[idx] for idx in comb] for comb in combs]
+            # print(available_actions)
+            # print('-------------------------------------------')
             assert len(combs) > 0
             if self._fine_mask is not None:
                 self._fine_mask = self.pad_fine_mask(self._fine_mask)
@@ -233,13 +251,11 @@ class ExpReplay(DataFlow, Callback):
             state = [np.stack([self.encoding[idx] for idx in comb]) for comb in combs]
             assert len(state) > 0
             prob_state = self.player.get_state_prob()
-
-            # add last cards to state to distinguish q values between active and passive conditions
-            test = action_space_onehot60 == Card.val2onehot60(last_cards_value)
-            test = np.all(test, axis=1)
-            target = np.where(test)[0]
-            assert target.size == 1
-            extra_state = np.concatenate([self.encoding[target[0]], prob_state])
+            # test = action_space_onehot60 == Card.char2onehot60(last_cards_char)
+            # test = np.all(test, axis=1)
+            # target = np.where(test)[0]
+            # assert target.size == 1
+            extra_state = np.concatenate([cards_char2embedding(last_two_cards_char[0]), cards_char2embedding(last_two_cards_char[1]), prob_state])
             for i in range(len(state)):
                 state[i] = np.concatenate([state[i], np.tile(extra_state[None, :], [state[i].shape[0], 1])], axis=-1)
             state = self.pad_state(state)
@@ -345,11 +361,10 @@ class ExpReplay(DataFlow, Callback):
             # print(self._action_space[act])
 
         # step for AI
-        while not isOver and self.player.get_role_ID() != 3:
+        while not isOver and self.player.get_role_ID() != ROLE_ID_TO_TRAIN:
             _, reward, _ = self.player.step_auto()
             isOver = (reward != 0)
         # reward = -reward
-        reward = np.clip(reward, -1, 1)
         self._current_game_score.feed(reward)
 
         if isOver:
@@ -363,7 +378,7 @@ class ExpReplay(DataFlow, Callback):
                 self.player.prepare()
                 self._comb_mask = True
                 early_stop = False
-                while self.player.get_role_ID() != 3:
+                while self.player.get_role_ID() != ROLE_ID_TO_TRAIN:
                     _, reward, _ = self.player.step_auto()
                     isOver = (reward != 0)
                     if isOver:
@@ -414,7 +429,7 @@ class ExpReplay(DataFlow, Callback):
         self.predictor = self.trainer.get_predictor(*self.predictor_io_names)
 
     def _before_train(self):
-        while self.player.get_role_ID() != 3:
+        while self.player.get_role_ID() != ROLE_ID_TO_TRAIN:
             self.player.step_auto()
             self._current_ob, self._action_space = self.get_state_and_action_spaces()
         self._init_memory()

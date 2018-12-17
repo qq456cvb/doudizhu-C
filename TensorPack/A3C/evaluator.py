@@ -18,7 +18,6 @@ if os.name == 'nt':
 else:
     sys.path.insert(0, '../../build.linux')
 from env import Env
-from logger import Logger
 from utils import to_char
 from card import Card, action_space, Category
 import numpy as np
@@ -51,6 +50,7 @@ def play_one_episode(env, func):
         is_active = True if last_cards_value.size == 0 else False
 
         s = env.get_state_prob()
+        s = np.concatenate([Card.char2onehot60(curr_cards_char), s])
         # print(s.shape)
 
         role_id = env.get_role_ID()
@@ -63,9 +63,7 @@ def play_one_episode(env, func):
                 # not valid for active
                 mask[0] = 0
 
-                active_prob, _, lstm_state = func(
-                    [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 60]), lstm_state.reshape(1, -1)]
-                )
+                active_prob, _, lstm_state = func(np.array([role_id]), s.reshape(1, -1), np.zeros([1, 60]), lstm_state.reshape(1, -1))
 
                 # make decision depending on output
                 action_idx = take_action_from_prob(active_prob, mask)
@@ -73,8 +71,7 @@ def play_one_episode(env, func):
                 # print('last cards char', last_cards_char)
                 mask = get_mask(curr_cards_char, action_space, last_cards_char)
 
-                _, passive_prob, lstm_state = func(
-                    [np.array([role_id]), s.reshape(1, -1), last_out_cards.reshape(1, -1), lstm_state.reshape(1, -1)])
+                _, passive_prob, lstm_state = func(np.array([role_id]), s.reshape(1, -1), last_out_cards.reshape(1, -1), lstm_state.reshape(1, -1))
 
                 action_idx = take_action_from_prob(passive_prob, mask)
 

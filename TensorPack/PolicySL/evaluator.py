@@ -17,7 +17,6 @@ if os.name == 'nt':
 else:
     sys.path.insert(0, '../build.linux')
 from env import Env
-from logger import Logger
 from utils import to_char
 from card import Card, action_space, Category
 import numpy as np

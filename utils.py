@@ -812,6 +812,8 @@ def update_params(scope_from, scope_to):
 
     
 if __name__ == '__main__':
+    mask = get_mask(['A', 'A', 'A'], action_space)
+    print(mask[0])
     # _, response_mask, _, _ = get_mask_alter(['A', 'A', 'A', 'J', 'J', '10', '6', '6', '5'], ['9', '9', '9', '5'], False,
     #                                         5)
     pass
