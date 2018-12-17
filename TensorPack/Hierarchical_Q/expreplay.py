@@ -364,7 +364,9 @@ class ExpReplay(DataFlow, Callback):
         while not isOver and self.player.get_role_ID() != ROLE_ID_TO_TRAIN:
             _, reward, _ = self.player.step_auto()
             isOver = (reward != 0)
-        # reward = -reward
+        # if landlord negate the reward
+        if ROLE_ID_TO_TRAIN == 2:
+            reward = -reward
         self._current_game_score.feed(reward)
 
         if isOver:
@@ -445,18 +447,6 @@ class ExpReplay(DataFlow, Callback):
         except Exception:
             logger.exception("Cannot log training scores.")
         v.reset()
-
-
-def h():
-    def f():
-        print(a)
-        print(b)
-    a = 1
-    b = 2
-    f()
-    a += 1
-    b += 1
-    f()
 
 
 if __name__ == '__main__':

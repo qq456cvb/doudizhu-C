@@ -34,6 +34,8 @@ __all__ = ['SimulatorProcess', 'SimulatorMaster',
            'SimulatorProcessStateExchange',
            'TransitionExperience']
 
+ROLE_IDS_TO_TRAIN = [2]
+
 
 class MODE:
     PASSIVE_DECISION = 0
@@ -282,7 +284,7 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
         lstm_state = np.zeros([1024 * 2])
         while True:
             role_id = player.get_role_ID()
-            if role_id == 2:
+            if role_id in ROLE_IDS_TO_TRAIN:
                 prob_state, all_state, curr_handcards_value, last_cards_value, last_category = \
                     player.get_state_prob(), player.get_state_all_cards(), player.get_curr_handcards(), player.get_last_outcards(), player.get_last_outcategory_idx()
                 prob_state = np.concatenate([Card.val2onehot60(curr_handcards_value), prob_state])
@@ -295,8 +297,10 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
                                 None if is_active else to_char(last_cards_value))
                 if is_active:
                     mask[0] = 0
+                last_two_cards = player.get_last_two_cards()
+                last_two_cards_onehot = np.concatenate([Card.val2onehot60(last_two_cards[0]), Card.val2onehot60(last_two_cards[1])])
                 c2s_socket.send(dumps(
-                    (self.identity, role_id, prob_state, all_state, Card.val2onehot60(last_cards_value), mask,
+                    (self.identity, role_id, prob_state, all_state, last_two_cards_onehot, mask,
                      0 if is_active else 1, lstm_state, r, is_over)),
                     copy=False)
                 action_idx, lstm_state = loads(s2c_socket.recv(copy=False).bytes)
@@ -427,7 +431,7 @@ if __name__ == '__main__':
                 mem_valid = [m for m in mem if m.first_st]
                 dr = []
                 for idx, k in enumerate(mem_valid):
-                    R = np.clip(k.reward, -1, 1) + 0.99 * R
+                    R = k.reward + 0.99 * R
                     dr.append(R)
                 dr.reverse()
                 # print(dr)

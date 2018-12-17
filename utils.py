@@ -46,15 +46,13 @@ def to_char(cards):
 def get_mask(cards, action_space, last_cards=None):
     # 1 valid; 0 invalid
     mask = np.zeros([len(action_space)])
-    if cards is None:
-        return mask
-    if len(cards) == 0:
+    if not cards:
         return mask
     for j in range(mask.size):
         if counter_subset(action_space[j], cards):
             mask[j] = 1
-    # mask = mask.astype(bool)
-    if last_cards is None:
+    if not last_cards:
+        mask[0] = 0
         return mask
     if len(last_cards) > 0:
         for j in range(1, mask.size):

@@ -17,44 +17,13 @@ if os.name == 'nt':
 else:
     sys.path.insert(0, '../../build.linux')
 sys.path.insert(0, '../..')
-from TensorPack.Hierarchical_Q.DQNModel import Model as DQNModel
+from TensorPack.Vanilla_Q.DQNModel import Model as DQNModel
 from env import Env as CEnv
 from card import action_space
 import tensorflow.contrib.slim as slim
-from TensorPack.Hierarchical_Q.expreplay import ExpReplay
+from TensorPack.Vanilla_Q.expreplay import ExpReplay
 from TensorPack.ResNetBlock import identity_block, upsample_block, downsample_block
-from TensorPack.Hierarchical_Q.evaluator import Evaluator
-
-
-def conv_block(input, conv_dim, input_dim, res_params, scope):
-    with tf.variable_scope(scope):
-        input_conv = tf.reshape(input, [-1, 1, input_dim, 1])
-        single_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                  kernel_size=[1, 1], stride=[1, 4], padding='SAME')
-
-        pair_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                kernel_size=[1, 2], stride=[1, 4], padding='SAME')
-
-        triple_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                  kernel_size=[1, 3], stride=[1, 4], padding='SAME')
-
-        quadric_conv = slim.conv2d(activation_fn=None, inputs=input_conv, num_outputs=conv_dim,
-                                   kernel_size=[1, 4], stride=[1, 4], padding='SAME')
-
-        conv_list = [single_conv, pair_conv, triple_conv, quadric_conv]
-        conv = tf.concat(conv_list, -1)
-
-        for param in res_params:
-            if param[-1] == 'identity':
-                conv = identity_block(conv, param[0], param[1])
-            elif param[-1] == 'downsampling':
-                conv = downsample_block(conv, param[0], param[1])
-            else:
-                raise Exception('unsupported layer type')
-        assert conv.shape[1] * conv.shape[2] * conv.shape[3] == 1024
-        conv = tf.reshape(conv, [-1, conv.shape[1] * conv.shape[2] * conv.shape[3]])
-        # conv = tf.squeeze(tf.reduce_mean(conv, axis=[2]), axis=[1])
-    return conv
+from TensorPack.Vanilla_Q.evaluator import Evaluator
 
 
 def res_fc_block(inputs, units, stack=3):
@@ -69,12 +38,7 @@ def res_fc_block(inputs, units, stack=3):
     # return residual + x
 
 BATCH_SIZE = 8
-MAX_NUM_COMBS = 100
-MAX_NUM_GROUPS = 21
-ATTEN_STATE_SHAPE = 60
-HIDDEN_STATE_DIM = 256 + 256 * 2 + 120
-STATE_SHAPE = (MAX_NUM_COMBS, MAX_NUM_GROUPS, HIDDEN_STATE_DIM)
-ACTION_REPEAT = 4   # aka FRAME_SKIP
+STATE_SHAPE = (60 + 120 + 256 * 2,)
 UPDATE_FREQ = 4
 
 GAMMA = 0.99
@@ -86,7 +50,6 @@ STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
 EVAL_EPISODE = 100
 
 NUM_ACTIONS = None
-ROM_FILE = None
 METHOD = None
 
 
@@ -98,62 +61,31 @@ class Model(DQNModel):
     def __init__(self):
         super(Model, self).__init__(STATE_SHAPE, METHOD, NUM_ACTIONS, GAMMA)
 
-    # input :B * COMB * N * D
-    # output : B * COMB * D
-    # assume N is padded with big negative numbers
-    def _get_global_feature(self, joint_state):
-        shape = joint_state.shape.as_list()
-        net = tf.reshape(joint_state, [-1, shape[-1]])
-        units = [256, 512, 1024]
-        for i, unit in enumerate(units):
-            with tf.variable_scope('block%i' % i):
-                net = res_fc_block(net, unit)
-        net = tf.reshape(net, [-1, shape[1], shape[2], units[-1]])
-        return tf.reduce_max(net, [2])
-
-    def _get_DQN_prediction_comb(self, state):
+    def _get_DQN_prediction(self, state):
         shape = state.shape.as_list()
         net = tf.reshape(state, [-1, shape[-1]])
-        units = [512, 256, 128]
+        units = [1024, 1024, 512, 512, 256, 256, 128, 128]
         for i, unit in enumerate(units):
             with tf.variable_scope('block%i' % i):
                 net = res_fc_block(net, unit)
         l = net
 
         if self.method != 'Dueling':
-            Q = FullyConnected('fct', l, 1)
+            Q = FullyConnected('fct', l, len(action_space))
         else:
             # Dueling DQN
             V = FullyConnected('fctV', l, 1)
-            As = FullyConnected('fctA', l, 1)
+            As = FullyConnected('fctA', l, len(action_space))
             Q = tf.add(As, V - tf.reduce_mean(As, 1, keep_dims=True))
-        return tf.reshape(Q, [-1, shape[1], 1])
-
-    def _get_DQN_prediction_fine(self, state):
-        shape = state.shape.as_list()
-        net = tf.reshape(state, [-1, shape[-1]])
-        units = [512, 256, 128]
-        for i, unit in enumerate(units):
-            with tf.variable_scope('block%i' % i):
-                net = res_fc_block(net, unit)
-        l = net
-
-        if self.method != 'Dueling':
-            Q = FullyConnected('fct', l, 1)
-        else:
-            # Dueling DQN
-            V = FullyConnected('fctV', l, 1)
-            As = FullyConnected('fctA', l, 1)
-            Q = tf.add(As, V - tf.reduce_mean(As, 1, keep_dims=True))
-        return tf.reshape(Q, [-1, shape[1], 1])
+        return tf.identity(Q, name='Qvalue')
 
 
 def get_config():
     expreplay = ExpReplay(
-        predictor_io_names=(['state', 'comb_mask', 'fine_mask'], ['Qvalue']),
+        predictor_io_names=(['state'], ['Qvalue']),
         player=get_player(),
         state_shape=STATE_SHAPE,
-        num_actions=[MAX_NUM_COMBS, MAX_NUM_GROUPS],
+        num_actions=NUM_ACTIONS,
         batch_size=BATCH_SIZE,
         memory_size=MEMORY_SIZE,
         init_memory_size=INIT_MEMORY_SIZE,
@@ -180,7 +112,7 @@ def get_config():
                 [(0, 1), (30, 0.5), (60, 0.1), (320, 0.01)],   # 1->0.1 in the first million steps
                 interp='linear'),
             Evaluator(
-                EVAL_EPISODE, ['state', 'comb_mask', 'fine_mask'], ['Qvalue'], [MAX_NUM_COMBS, MAX_NUM_GROUPS], get_player),
+                EVAL_EPISODE, ['state'], ['Qvalue'], get_player),
             HumanHyperParamSetter('learning_rate'),
         ],
         # starting_epoch=30,
@@ -204,7 +136,7 @@ if __name__ == '__main__':
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     METHOD = args.algo
     # set num_actions
-    NUM_ACTIONS = max(MAX_NUM_GROUPS, MAX_NUM_COMBS)
+    NUM_ACTIONS = len(action_space)
 
     nr_gpu = get_nr_gpu()
     train_tower = list(range(nr_gpu))
@@ -217,7 +149,7 @@ if __name__ == '__main__':
             output_names=['Qvalue']))
     else:
         logger.set_logger_dir(
-            os.path.join('train_log', 'Hierarchical-DQN'))
+            os.path.join('train_log', 'Vanilla-DQN'))
         config = get_config()
         if args.load:
             config.session_init = get_model_loader(args.load)

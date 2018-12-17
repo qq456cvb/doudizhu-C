@@ -29,7 +29,7 @@ from tensorpack.utils.gpu import get_nr_gpu
 from tensorpack.tfutils.summary import add_moving_summary
 from tensorpack.tfutils import get_current_tower_context, optimizer
 
-from TensorPack.A3C.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience
+from TensorPack.A3C.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience, ROLE_IDS_TO_TRAIN
 from TensorPack.A3C.model_loader import ModelLoader
 from TensorPack.A3C.evaluator import Evaluator
 from TensorPack.PolicySL.Policy_SL_v1_4 import conv_block as policy_conv_block
@@ -46,12 +46,13 @@ else:
     CancelledError = Exception
 
 GAMMA = 0.99
-POLICY_INPUT_DIM = 60 * 3
-POLICY_LAST_INPUT_DIM = 60
+POLICY_INPUT_DIM = 60 + 120
+
+POLICY_LAST_INPUT_DIM = 60 * 2
 POLICY_WEIGHT_DECAY = 1e-3
 VALUE_INPUT_DIM = 60 * 3
 LORD_ID = 2
-SIMULATOR_PROC = 4
+SIMULATOR_PROC = 20
 
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
 STEPS_PER_EPOCH = 2500
@@ -138,7 +139,7 @@ class Model(ModelDesc):
                     passive_logits = slim.fully_connected(passive_fc, len(action_space), activation_fn=None, reuse=True, scope='final_fc')
 
             gathered_output = [active_logits, passive_logits, new_lstm_state]
-            if idx == 1 or idx == 3:
+            if idx not in ROLE_IDS_TO_TRAIN:
                 for k in range(len(gathered_output)):
                     gathered_output[k] = tf.stop_gradient(gathered_output[k])
             gathered_outputs.append(gathered_output)
@@ -404,21 +405,21 @@ class MySimulatorMaster(SimulatorMaster, Callback):
     def _parse_memory(self, init_r, client):
         # for each agent's memory
         for role_id in range(1, 4):
-            if role_id != 2:
+            if role_id not in ROLE_IDS_TO_TRAIN:
                 continue
             mem = client.memory[role_id - 1]
 
             mem.reverse()
             R = float(init_r)
             for idx, k in enumerate(mem):
-                R = np.clip(k.reward, -1, 1) + GAMMA * R
+                R = k.reward + GAMMA * R
                 self.queue.put([role_id, k.prob_state, k.all_state, k.last_cards_onehot, k.action, k.mode, k.prob, R, k.lstm_state])
 
             client.memory[role_id - 1] = []
 
 
 def train():
-    dirname = os.path.join('train_log', 'a3c_lstm')
+    dirname = os.path.join('train_log', 'A3C-LSTM')
     logger.set_logger_dir(dirname)
 
     # assign GPUs for training & inference
