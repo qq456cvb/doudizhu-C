@@ -137,7 +137,7 @@ class Evaluator(Callback):
     def _trigger_epoch(self):
         t = time.time()
         farmer_win_rate = eval_with_funcs(
-            self.pred_funcs, self.eval_episode, self.get_player_fn, self.num_actions, verbose=False)
+            self.pred_funcs, self.eval_episode, self.get_player_fn, verbose=False)
         t = time.time() - t
         if t > 10 * 60:  # eval takes too long
             self.eval_episode = int(self.eval_episode * 0.94)

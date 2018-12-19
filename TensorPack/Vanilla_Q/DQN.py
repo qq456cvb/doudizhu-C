@@ -24,6 +24,7 @@ import tensorflow.contrib.slim as slim
 from TensorPack.Vanilla_Q.expreplay import ExpReplay
 from TensorPack.ResNetBlock import identity_block, upsample_block, downsample_block
 from TensorPack.Vanilla_Q.evaluator import Evaluator
+from TensorPack.PolicySL.Policy_SL_v1_4 import conv_block
 
 
 def res_fc_block(inputs, units, stack=3):
@@ -64,7 +65,17 @@ class Model(DQNModel):
     def _get_DQN_prediction(self, state):
         shape = state.shape.as_list()
         net = tf.reshape(state, [-1, shape[-1]])
-        units = [1024, 1024, 512, 512, 256, 256, 128, 128]
+        net = tf.concat([conv_block(net[:, :180], 32, 180,
+                          [[128, 3, 'identity'],
+                           [128, 3, 'identity'],
+                           [128, 3, 'downsampling'],
+                           [128, 3, 'identity'],
+                           [128, 3, 'identity'],
+                           [256, 3, 'downsampling'],
+                           [256, 3, 'identity'],
+                           [256, 3, 'identity']
+                           ], 'handcards'), net[:, 180:]], -1)
+        units = [512, 512, 256, 256, 128, 128]
         for i, unit in enumerate(units):
             with tf.variable_scope('block%i' % i):
                 net = res_fc_block(net, unit)
