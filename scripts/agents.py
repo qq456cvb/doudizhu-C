@@ -10,11 +10,13 @@ if os.name == 'nt':
 else:
     sys.path.insert(0, '../build.linux')
 from datetime import datetime
+from tensorpack import *
 from env import Env as CEnv
-from TensorPack.MA_Hierarchical_Q.env import Env
+from TensorPack.MA_Hierarchical_Q.predictor import Predictor
+from TensorPack.MA_Hierarchical_Q.DQNModel import Model
 
 
-weight_path = ''
+weight_path = './model-500000'
 
 
 class Agent:
@@ -34,16 +36,34 @@ class RandomAgent(Agent):
 
 class HCWBAgent(Agent):
     def intention(self, env):
-        intention = CEnv.step_auto_static(Card.char2onehot60(env.get_curr_handcards()), to_value(env.get_last_outcards()))
+        intention = to_char(CEnv.step_auto_static(Card.char2color(env.get_curr_handcards()), to_value(env.get_last_outcards())))
         return intention
 
 
 class CDQNAgent(Agent):
     def __init__(self, role_id, weight_path):
+        def role2agent(role):
+            if role == 2:
+                return 'agent1'
+            elif role == 1:
+                return 'agent3'
+            else:
+                return 'agent2'
         super().__init__(role_id)
+        agent_names = ['agent%d' % i for i in range(1, 4)]
+        model = Model(agent_names, (100, 21, 256 + 256 * 2 + 120), 'Double', (100, 21), 0.99)
+        self.predictor = Predictor(OfflinePredictor(PredictConfig(
+            model=model,
+            session_init=SaverRestore(weight_path),
+            input_names=[role2agent(role_id) + '/state', role2agent(role_id) + '_comb_mask', role2agent(role_id) + '/fine_mask'],
+            output_names=[role2agent(role_id) + 'Qvalue'])))
 
     def intention(self, env):
-        pass
+        handcards = env.get_curr_handcards()
+        last_two_cards = env.get_last_two_cards()
+        prob_state = env.get_state_prob()
+        intention = self.predictor.predict(handcards, last_two_cards, prob_state)
+        return intention
 
 
 def make_agent(which, role_id):

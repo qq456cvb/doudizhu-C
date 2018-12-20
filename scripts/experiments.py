@@ -10,7 +10,7 @@ from scripts.envs import make_env
 from scripts.agents import make_agent
 
 
-types = ['RANDOM', 'HCWB']
+types = ['CDQN']
 
 
 def eval_episode(env, agent):
@@ -32,7 +32,7 @@ def eval_episode(env, agent):
 if __name__ == '__main__':
     for te in types:
         for ta in types:
-            for role_id in [1, 2, 3]:
+            for role_id in [2, 3, 1]:
                 agent = make_agent(ta, role_id)
                 for i in range(1):
                     env = make_env(te)

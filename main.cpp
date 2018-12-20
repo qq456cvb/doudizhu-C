@@ -520,12 +520,12 @@ public:
     py::array_t<int> getState() {
         std::vector<int> state;
         std::vector<int> total(54, 1);
-        auto self_cards = toOneHot(arrHandCardData[indexID].color_nHandCardList);
 
-        std::vector<int> remains = total - self_cards;
+        std::vector<int> remains = total;
 
         // normalize history order
-        vector<int> history = clsGameSituation->color_aUnitOutCardList[indexID];
+        vector<int> history = arrHandCardData[indexID].color_nHandCardList;
+        history += clsGameSituation->color_aUnitOutCardList[indexID];
         history += clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3];
         history += clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3];
         remains = remains - toOneHot(history);
@@ -541,7 +541,7 @@ public:
 
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot(extra_cards);
-        state += self_cards;
+        state += toOneHot(arrHandCardData[indexID].color_nHandCardList);
         state += remains;
         state += toOneHot(history);
         state += extra_cards;
@@ -563,12 +563,12 @@ public:
         std::vector<int> total(60, 1);
         total[53] = total[54] = total[55] = 0;
         total[57] = total[58] = total[59] = 0;
-        auto self_cards = toOneHot60(arrHandCardData[indexID].color_nHandCardList);
 
-        std::vector<int> remains = total - self_cards;
+        std::vector<int> remains = total;
 
         // normalize history order
-        vector<int> history = clsGameSituation->color_aUnitOutCardList[indexID];
+        vector<int> history = arrHandCardData[indexID].color_nHandCardList;
+        history += clsGameSituation->color_aUnitOutCardList[indexID];
         history += clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3];
         history += clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3];
         remains = remains - toOneHot60(history);
@@ -584,7 +584,7 @@ public:
 
         vector<int> extra_cards(std::begin(clsGameSituation->DiPai), std::end(clsGameSituation->DiPai));
         extra_cards = toOneHot60(extra_cards);
-        state += self_cards;
+        state += toOneHot60(arrHandCardData[indexID].color_nHandCardList);
         state += remains;
         state += toOneHot60(history);
         state += extra_cards;
@@ -623,12 +623,12 @@ public:
         std::vector<int> total(60, 1);
         total[53] = total[54] = total[55] = 0;
         total[57] = total[58] = total[59] = 0;
-        auto self_cards = toOneHot60(arrHandCardData[indexID].color_nHandCardList);
 
-        std::vector<int> remains = total - self_cards;
+        std::vector<int> remains = total;
 
         // normalize history order
-        vector<int> history = clsGameSituation->color_aUnitOutCardList[indexID];
+        vector<int> history = arrHandCardData[indexID].color_nHandCardList;
+        history += clsGameSituation->color_aUnitOutCardList[indexID];
         history += clsGameSituation->color_aUnitOutCardList[(indexID + 1) % 3];
         history += clsGameSituation->color_aUnitOutCardList[(indexID + 2) % 3];
         remains = remains - toOneHot60(history);

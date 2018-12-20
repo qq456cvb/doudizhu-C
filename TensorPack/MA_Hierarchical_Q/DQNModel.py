@@ -10,7 +10,6 @@ from tensorpack.tfutils import (
 from tensorpack.tfutils.scope_utils import auto_reuse_variable_scope
 import numpy as np
 from tensorflow.contrib.layers import l2_regularizer
-from conditional import conditional
 
 
 def res_fc_block(inputs, units, stack=3):
