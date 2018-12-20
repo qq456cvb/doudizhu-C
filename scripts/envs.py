@@ -22,7 +22,7 @@ weight_path = './model-500000'
 class RandomEnv(Env):
     def step(self, intention):
         # print(self.get_curr_handcards())
-        print(intention)
+        # print(intention)
         player, done = super().step(intention)
         if player != self.agent_names[0]:
             return 1, done
@@ -39,15 +39,15 @@ class CDQNEnv(Env):
     def __init__(self, weight_path):
         super().__init__()
         agent_names = ['agent%d' % i for i in range(1, 4)]
-        model = Model(agent_names, (100, 21, 256 + 256 * 2 + 120), 'Double', (100, 21), 0.99)
+        model = Model(agent_names, (1000, 21, 256 + 256 * 2 + 120), 'Double', (1000, 21), 0.99)
         self.predictors = {n: Predictor(OfflinePredictor(PredictConfig(
             model=model,
             session_init=SaverRestore(weight_path),
             input_names=[n + '/state', n + '_comb_mask', n + '/fine_mask'],
-            output_names=[n + 'Qvalue']))) for n in self.get_all_agent_names()}
+            output_names=[n + '/Qvalue'])), num_actions=(1000, 21)) for n in self.get_all_agent_names()}
 
     def step(self, intention):
-        print(intention)
+        # print(intention)
         player, done = super().step(intention)
         if player != self.agent_names[0]:
             return 1, done
@@ -59,7 +59,6 @@ class CDQNEnv(Env):
         last_two_cards = self.get_last_two_cards()
         prob_state = self.get_state_prob()
         intention = self.predictors[self.get_curr_agent_name()].predict(handcards, last_two_cards, prob_state)
-        print(intention)
         return self.step(intention)
 
 
@@ -76,7 +75,7 @@ class HCWBEnv(CEnv):
         return to_char(super().get_curr_handcards())
 
     def step(self, intention):
-        print(intention)
+        # print(intention)
         r, done, _ = self.step_manual(to_value(intention))
         return r, done
 
@@ -84,7 +83,7 @@ class HCWBEnv(CEnv):
         intention, r, _ = super().step_auto()
         intention = to_char(intention)
         assert np.all(self.get_state_prob() >= 0) and np.all(self.get_state_prob() <= 1)
-        print(intention)
+        # print(intention)
         return r, r != 0
 
 

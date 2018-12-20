@@ -51,12 +51,12 @@ class CDQNAgent(Agent):
                 return 'agent2'
         super().__init__(role_id)
         agent_names = ['agent%d' % i for i in range(1, 4)]
-        model = Model(agent_names, (100, 21, 256 + 256 * 2 + 120), 'Double', (100, 21), 0.99)
+        model = Model(agent_names, (1000, 21, 256 + 256 * 2 + 120), 'Double', (1000, 21), 0.99)
         self.predictor = Predictor(OfflinePredictor(PredictConfig(
             model=model,
             session_init=SaverRestore(weight_path),
             input_names=[role2agent(role_id) + '/state', role2agent(role_id) + '_comb_mask', role2agent(role_id) + '/fine_mask'],
-            output_names=[role2agent(role_id) + 'Qvalue'])))
+            output_names=[role2agent(role_id) + '/Qvalue'])), num_actions=(1000, 21))
 
     def intention(self, env):
         handcards = env.get_curr_handcards()

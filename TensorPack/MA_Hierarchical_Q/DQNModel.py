@@ -126,7 +126,8 @@ class Model(ModelDesc):
             larger_dim = max(joint_state.shape.as_list()[1], joint_state.shape.as_list()[2])
             padding_np = np.zeros([1, larger_dim], dtype=np.float32)
             padding_np[0, min(joint_state.shape[1], joint_state.shape[2]):] = -1e5
-            padding = tf.Variable(initial_value=padding_np, trainable=False, name='padding')
+            padding = tf.convert_to_tensor(padding_np)
+            # padding = tf.Variable(initial_value=padding_np, trainable=False, name='padding')
             padding = tf.tile(padding, tf.stack(
                 [tf.shape(fine_mask_idx if joint_state.shape[1] > joint_state.shape[2] else comb_mask_idx)[0], 1]))
             padding = tf.scatter_nd(fine_mask_idx if joint_state.shape[1] > joint_state.shape[2] else comb_mask_idx,

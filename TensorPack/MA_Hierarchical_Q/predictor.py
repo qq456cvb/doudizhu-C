@@ -14,10 +14,10 @@ from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mas
 
 
 class Predictor:
-    def __init__(self, predictor):
+    def __init__(self, predictor, num_actions=(100, 21)):
         self.predictor = predictor
-        self.num_actions = [100, 21]
-        self.encoding = np.load('../AutoEncoder/encoding.npy')
+        self.num_actions = num_actions
+        self.encoding = np.load(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../AutoEncoder/encoding.npy'))
         print('predictor loaded')
 
     def pad_state(self, state):

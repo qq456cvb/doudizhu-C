@@ -1,4 +1,5 @@
 from tensorpack.utils.stats import StatCounter
+from tensorpack.utils.utils import get_tqdm
 import sys
 import os
 if os.name == 'nt':
@@ -10,7 +11,7 @@ from scripts.envs import make_env
 from scripts.agents import make_agent
 
 
-types = ['CDQN']
+types = ['RANDOM', 'HCWB', 'CDQN']
 
 
 def eval_episode(env, agent):
@@ -30,6 +31,7 @@ def eval_episode(env, agent):
 
 
 if __name__ == '__main__':
+    f = open('results.txt', 'r+')
     for te in types:
         for ta in types:
             for role_id in [2, 3, 1]:
@@ -37,9 +39,11 @@ if __name__ == '__main__':
                 for i in range(1):
                     env = make_env(te)
                     st = StatCounter()
-                    for j in range(100):
-                        winning_rate = eval_episode(env, agent)
-                        st.feed(winning_rate)
-                        print('one episode')
-                    print('%s with role id %d against %s, winning rate: %f'.format(ta, role_id, te, st.average))
+                    with get_tqdm(total=100) as pbar:
+                        for j in range(100):
+                            winning_rate = eval_episode(env, agent)
+                            st.feed(winning_rate)
+                            pbar.update()
+                    f.write('%s with role id %d against %s, winning rate: %f'.format(ta, role_id, te, st.average))
+    f.close()
 
