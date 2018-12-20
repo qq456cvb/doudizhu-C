@@ -67,21 +67,48 @@ def get_log_info(log_info):
     return log_info
 
 
-def info_verbose(log_info):
+def info_verbose(log_info, e_epoch=None, path=None):
+    from scipy.ndimage.filters import gaussian_filter1d
     epochs = log_info["epoch"]
-    f, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
+    end_epoch = epochs[-1] if not e_epoch else e_epoch
+    f, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=False)
+    trans = 0.3
     # baseline
-    ax1.plot(epochs, log_info["lord"]["baseline_wr"], label="lord")
-    ax1.plot(epochs, log_info["farmer_up"]["baseline_wr"], label="farmer_up")
-    ax1.plot(epochs, log_info["farmer_down"]["baseline_wr"], label="farmer_down")
-    ax1.legend()
+    ax1.plot(epochs[:end_epoch], log_info["lord"]["baseline_wr"][:end_epoch], alpha=trans, color='r')
+    sm = gaussian_filter1d(log_info["lord"]["baseline_wr"][:end_epoch], sigma=10)
+    ax1.plot(epochs[:end_epoch], sm, label="lord", color='r')
+
+    ax1.plot(epochs[:end_epoch], log_info["farmer_up"]["baseline_wr"][:end_epoch], alpha=trans, color='g')
+    sm = gaussian_filter1d(log_info["farmer_up"]["baseline_wr"][:end_epoch], sigma=10)
+    ax1.plot(epochs[:end_epoch], sm, label="farmer_up", color='g')
+
+    ax1.plot(epochs[:end_epoch], log_info["farmer_down"]["baseline_wr"][:end_epoch], alpha=trans, color='b')
+    sm = gaussian_filter1d(log_info["farmer_down"]["baseline_wr"][:end_epoch], sigma=10)
+    ax1.plot(epochs[:end_epoch], sm, label="farmer_down", color='b')
+
+    ax1.legend(loc=4)
+    ax1.set_ylim([0, 0.8])
     ax1.set_title("Baseline")
+    ax1.set_ylabel("Winning Rate", rotation='horizontal')
+    ax1.yaxis.set_label_coords(-0.025, 1.05)
+
     # training
-    ax2.plot(epochs, log_info["lord"]["training_wr"], label="lord")
-    ax2.plot(epochs, log_info["farmer_up"]["training_wr"], label="farmer")
+    ax2.plot(epochs[:end_epoch], log_info["lord"]["training_wr"][:end_epoch], alpha=trans, color='c')
+    sm = gaussian_filter1d(log_info["lord"]["training_wr"][:end_epoch], sigma=10)
+    ax2.plot(epochs[:end_epoch], sm, color='c', label='lord')
+
+    ax2.plot(epochs[:end_epoch], log_info["farmer_up"]["training_wr"][:end_epoch], alpha=trans, color='m')
+    sm = gaussian_filter1d(log_info["farmer_up"]["training_wr"][:end_epoch], sigma=10)
+    ax2.plot(epochs[:end_epoch], sm, color='m', label="farmer")
     ax2.legend()
+    ax2.set_ylim([0, 1])
     ax2.set_title("Training")
+    ax2.set_xlabel("Epoch")
+    ax2.xaxis.set_label_coords(1.05, -0.025)
+
     plt.show()
+    if path:
+        f.savefig(path)
 
 
 def dict_save(log_info, filename):
@@ -104,6 +131,6 @@ if __name__ == '__main__':
     l = json_load(filename)
     log_info = get_log_info(l)
     # dict_save(log_info, filename)
-    info_verbose(log_info)
+    info_verbose(log_info, 200, 'multi-agent.png')
     # print(log_info)
     # info_verbose(log_info)

@@ -126,15 +126,18 @@ if __name__ == '__main__':
         env.prepare()
         done = False
         while not done:
-
+            print('here')
             handcards = env.get_curr_handcards()
             chandcards = [CCard(to_value(c) - 3) for c in handcards]
             unseen_cards = env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]].copy() \
                             + env.player_cards[agent_names[(env.get_current_idx() + 2) % len(env.agent_names)]].copy()
+            print('here')
             cunseen_cards = [CCard(to_value(c) - 3) for c in unseen_cards]
+            print('here')
             next_handcards_cnt = len(env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]])
-
+            print('here')
             last_cg = char2ccardgroup(env.last_cards_char)
+            print(last_cg)
             caction = mcsearch(chandcards, cunseen_cards, next_handcards_cnt, last_cg, env.agent_names.index(env.curr_player), env.agent_names.index(env.controller))
 
             action = ccardgroup2char(caction)
