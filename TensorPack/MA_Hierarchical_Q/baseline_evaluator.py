@@ -18,7 +18,6 @@ if os.name == 'nt':
 else:
     sys.path.insert(0, '../../build.linux')
 from env import Env, get_combinations_nosplit, get_combinations_recursive
-from logger import Logger
 from card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
 from utils import to_char, to_value
 import numpy as np
