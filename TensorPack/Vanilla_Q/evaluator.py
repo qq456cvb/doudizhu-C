@@ -17,78 +17,52 @@ if os.name == 'nt':
     sys.path.insert(0, '../../build/Release')
 else:
     sys.path.insert(0, '../../build.linux')
-from env import Env
-from utils import to_char
-from card import Card, action_space, Category
+from env import Env, get_combinations_nosplit, get_combinations_recursive
+from card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
 import numpy as np
 import tensorflow as tf
 from utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
-from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter, discard_onehot_from_s_60
+from utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter, get_mask_onehot60
 from utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
-from TensorPack.A3C.simulator import ROLE_IDS_TO_TRAIN
+from TensorPack.Vanilla_Q.expreplay import ROLE_ID_TO_TRAIN
+
+
+encoding = None
+
+
+def get_state(env):
+    def cards_char2embedding(cards_char):
+        test = (action_space_onehot60 == Card.char2onehot60(cards_char))
+        test = np.all(test, axis=1)
+        target = np.where(test)[0]
+        return encoding[target[0]]
+
+    s = env.get_state_prob()
+    s = np.concatenate([Card.val2onehot60(env.get_curr_handcards()), s])
+    last_two_cards_char = env.get_last_two_cards()
+    last_two_cards_char = [to_char(c) for c in last_two_cards_char]
+    return np.concatenate(
+        [s, cards_char2embedding(last_two_cards_char[0]), cards_char2embedding(last_two_cards_char[1])])
 
 
 def play_one_episode(env, func):
-    def take_action_from_prob(prob, mask):
-        prob = prob[0]
-        # to avoid numeric difficulty
-        prob[mask == 0] = -1
-        return np.argmax(prob)
 
     env.reset()
-    # init_cards = np.arange(52)
-    # init_cards = np.append(init_cards[::4], init_cards[1::4])
-    # env.prepare_manual(init_cards)
     env.prepare()
     r = 0
-    lstm_state = np.zeros([1024 * 2])
     while r == 0:
-        last_cards_value = env.get_last_outcards()
-        last_cards_char = to_char(last_cards_value)
-        last_two_cards = env.get_last_two_cards()
-        last_two_cards_onehot = np.concatenate(
-            [Card.val2onehot60(last_two_cards[0]), Card.val2onehot60(last_two_cards[1])])
-        curr_cards_char = to_char(env.get_curr_handcards())
-        is_active = True if last_cards_value.size == 0 else False
-
-        s = env.get_state_prob()
-        s = np.concatenate([Card.char2onehot60(curr_cards_char), s])
-        # print(s.shape)
-
         role_id = env.get_role_ID()
-        # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
-
-        if role_id in ROLE_IDS_TO_TRAIN:
-            if is_active:
-                # first get mask
-                mask = get_mask(curr_cards_char, action_space, None)
-                # not valid for active
-                mask[0] = 0
-
-                active_prob, _, lstm_state = func(np.array([role_id]), s.reshape(1, -1), np.zeros([1, 120]), lstm_state.reshape(1, -1))
-
-                # make decision depending on output
-                action_idx = take_action_from_prob(active_prob, mask)
-            else:
-                # print('last cards char', last_cards_char)
-                mask = get_mask(curr_cards_char, action_space, last_cards_char)
-
-                _, passive_prob, lstm_state = func(np.array([role_id]), s.reshape(1, -1), last_two_cards_onehot.reshape(1, -1), lstm_state.reshape(1, -1))
-
-                action_idx = take_action_from_prob(passive_prob, mask)
-
-            # since step auto needs full last card group info, we do not explicitly feed card type
-            intention = to_value(action_space[action_idx])
+        if role_id == ROLE_ID_TO_TRAIN:
+            s = get_state(env)
+            mask = get_mask(to_char(env.get_curr_handcards()), action_space,
+                            to_char(env.get_last_outcards()))
+            q_values = func(s[None, ...])[0][0]
+            q_values[mask == 0] = np.nan
+            act = np.nanargmax(q_values)
+            intention = to_value(action_space[act])
             r, _, _ = env.step_manual(intention)
-            # print('lord gives', to_char(intention))
-            assert (intention is not None)
         else:
             intention, r, _ = env.step_auto()
-            # print('farmer gives', to_char(intention))
-    # if r > 0:
-    #     print('farmer wins')
-    # else:
-    #     print('lord wins')
     return int(r > 0)
 
 
@@ -101,13 +75,8 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
     class Worker(StoppableThread, ShareSessionThread):
         def __init__(self, func, queue):
             super(Worker, self).__init__()
-            self._func = func
+            self.func = func
             self.q = queue
-
-        def func(self, *args, **kwargs):
-            if self.stopped():
-                raise RuntimeError("stopped!")
-            return self._func(*args, **kwargs)
 
         def run(self):
             with self.default_sess():
@@ -151,6 +120,9 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
 
 class Evaluator(Callback):
     def __init__(self, nr_eval, input_names, output_names, get_player_fn):
+        global encoding
+        if encoding is None:
+            encoding = np.load('../AutoEncoder/encoding.npy')
         self.eval_episode = nr_eval
         self.input_names = input_names
         self.output_names = output_names
@@ -159,7 +131,7 @@ class Evaluator(Callback):
     def _setup_graph(self):
         # self.lord_win_rate = tf.get_variable('lord_win_rate', shape=[], initializer=tf.constant_initializer(0.),
         #                trainable=False)
-        nr_proc = min(multiprocessing.cpu_count() // 2, 20)
+        nr_proc = min(multiprocessing.cpu_count() // 2, 1)
         self.pred_funcs = [self.trainer.get_predictor(
             self.input_names, self.output_names)] * nr_proc
 
@@ -186,15 +158,26 @@ class Evaluator(Callback):
 
 
 if __name__ == '__main__':
+    # encoding = np.load('encoding.npy')
+    # print(encoding.shape)
+    # env = Env()
+    # stat = StatCounter()
+    # init_cards = np.arange(21)
+    # # init_cards = np.append(init_cards[::4], init_cards[1::4])
+    # for _ in range(10):
+    #     fw = play_one_episode(env, lambda b: np.random.rand(1, 1, 100) if b[1][0] else np.random.rand(1, 1, 21), [100, 21])
+    #     stat.feed(int(fw))
+    # print('lord win rate: {}'.format(1. - stat.average))
     env = Env()
     stat = StatCounter()
-    init_cards = np.arange(36)
-    # init_cards = np.append(init_cards[::4], init_cards[1::4])
-    for _ in range(100):
+    for i in range(100):
         env.reset()
-        env.prepare_manual(init_cards)
+        print('begin')
+        env.prepare()
         r = 0
         while r == 0:
-            _, r, _ = env.step_auto()
+            role = env.get_role_ID()
+            intention, r, _ = env.step_auto()
+            # print('lord gives' if role == 2 else 'farmer gives', to_char(intention))
         stat.feed(int(r < 0))
-    print('lord win rate: {}'.format(stat.average))
+    print(stat.average)

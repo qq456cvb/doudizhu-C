@@ -11,7 +11,6 @@
 #include <algorithm>
 #include <random>
 #include "game.hpp"
-#include "mctree.h"
 #include "dancing_link.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -850,12 +849,12 @@ public:
             if (indexID == clsGameSituation->nDiZhuID)
             {
                 // py::print("地主 ", indexID, " wins", "sep"_a="");
-                return std::make_tuple(-clsGameSituation->nLandScore * clsGameSituation->nMultiple, true, category_idx);
+                return std::make_tuple(-1, true, category_idx);
             }
             else
             {
                 // py::print("农民 ", indexID, " wins", "sep"_a="");
-                return std::make_tuple(clsGameSituation->nLandScore * clsGameSituation->nMultiple, true, category_idx);
+                return std::make_tuple(1, true, category_idx);
             }
         }
         
@@ -946,12 +945,12 @@ public:
             if (indexID == clsGameSituation->nDiZhuID)
             {
                 // py::print("地主 ", indexID, " wins", "sep"_a="");
-                return std::make_tuple(-clsGameSituation->nLandScore * clsGameSituation->nMultiple, true, category_idx);
+                return std::make_tuple(-1, true, category_idx);
             }
             else
             {
                 // py::print("农民 ", indexID, " wins", "sep"_a="");
-                return std::make_tuple(clsGameSituation->nLandScore * clsGameSituation->nMultiple, true, category_idx);
+                return std::make_tuple(1, true, category_idx);
             }
         }
         
@@ -1066,11 +1065,11 @@ public:
             
             if (indexID == clsGameSituation->nDiZhuID)
             {
-                return std::make_tuple(vector2numpy(intention), -clsGameSituation->nLandScore * clsGameSituation->nMultiple, category_idx);
+                return std::make_tuple(vector2numpy(intention), -1, category_idx);
             }
             else
             {
-                return std::make_tuple(vector2numpy(intention), clsGameSituation->nLandScore * clsGameSituation->nMultiple, category_idx);
+                return std::make_tuple(vector2numpy(intention), 1, category_idx);
             }
         }
         
@@ -1116,9 +1115,6 @@ PYBIND11_MODULE(env, m) {
         .def("get_last_two_cards", &Env::getLastTwoCards)
         .def("get_last_outcategory_idx", &Env::getLastCategory)
         .def("get_lord_cnt", &Env::getLordCnt);
-    m.def("print_state", &print_state);
     m.def("get_combinations_recursive", &get_combinations_recursive);
     m.def("get_combinations_nosplit", &get_combinations_nosplit);
-    py::class_<MCTree>(m, "MCTree")
-        .def(py::init<py::dict>());
 }

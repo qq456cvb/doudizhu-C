@@ -66,7 +66,7 @@ def conv_block(input, conv_dim, input_dim, res_params, scope):
                 conv = upsample_block(conv, param[0], param[1])
             else:
                 raise Exception('unsupported layer type')
-        assert conv.shape[1] * conv.shape[2] * conv.shape[3] == 1024
+        # assert conv.shape[1] * conv.shape[2] * conv.shape[3] == 1024
         conv = tf.reshape(conv, [-1, conv.shape[1] * conv.shape[2] * conv.shape[3]])
         # conv = tf.squeeze(tf.reduce_mean(conv, axis=[2]), axis=[1])
     return conv

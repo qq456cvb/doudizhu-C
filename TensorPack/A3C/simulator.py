@@ -34,6 +34,8 @@ __all__ = ['SimulatorProcess', 'SimulatorMaster',
            'SimulatorProcessStateExchange',
            'TransitionExperience']
 
+ROLE_IDS_TO_TRAIN = [2]
+
 
 class MODE:
     PASSIVE_DECISION = 0
@@ -134,7 +136,7 @@ class SubState:
                         self.category == Category.THREE_TWO.value or \
                         self.category == Category.THREE_ONE_LINE.value or \
                         self.category == Category.THREE_TWO_LINE.value or \
-                        self.category == Category.FOUR_TWO.value:
+                        self.category == Category.FOUR_TAKE_TWO.value:
                     if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
                         self.minor_type = 1
                     self.mode = MODE.MINOR_RESPONSE
@@ -142,7 +144,7 @@ class SubState:
                     discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
                     self.minor_length = get_seq_length(self.category, self.last_cards_value)
                     if self.minor_length is None:
-                        self.minor_length = 2 if self.category == Category.FOUR_TWO.value else 1
+                        self.minor_length = 2 if self.category == Category.FOUR_TAKE_TWO.value else 1
                     self.card_type = self.category
                     return
                 else:
@@ -179,14 +181,14 @@ class SubState:
                     return
                 elif self.category == Category.THREE_ONE.value or \
                         self.category == Category.THREE_TWO.value or \
-                        self.category == Category.FOUR_TWO.value:
+                        self.category == Category.FOUR_TAKE_TWO.value:
                     if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
                         self.minor_type = 1
                     self.mode = MODE.MINOR_RESPONSE
                     self.intention = give_cards_without_minor(action, np.array([]), self.category, None)
                     # modify the state for minor cards
                     discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
-                    self.minor_length = 2 if self.category == Category.FOUR_TWO.value else 1
+                    self.minor_length = 2 if self.category == Category.FOUR_TAKE_TWO.value else 1
                     return
                 else:
                     self.intention = give_cards_without_minor(action, np.array([]), self.category, None)
@@ -282,9 +284,10 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
         lstm_state = np.zeros([1024 * 2])
         while True:
             role_id = player.get_role_ID()
-            if role_id == 2:
+            if role_id in ROLE_IDS_TO_TRAIN:
                 prob_state, all_state, curr_handcards_value, last_cards_value, last_category = \
                     player.get_state_prob(), player.get_state_all_cards(), player.get_curr_handcards(), player.get_last_outcards(), player.get_last_outcategory_idx()
+                prob_state = np.concatenate([Card.val2onehot60(curr_handcards_value), prob_state])
                 # after taking the last action, get to this state and get this reward/isOver.
                 # If isOver, get to the next-episode state immediately.
                 # This tuple is not the same as the one put into the memory buffer
@@ -294,8 +297,10 @@ class SimulatorProcessStateExchange(SimulatorProcessBase):
                                 None if is_active else to_char(last_cards_value))
                 if is_active:
                     mask[0] = 0
+                last_two_cards = player.get_last_two_cards()
+                last_two_cards_onehot = np.concatenate([Card.val2onehot60(last_two_cards[0]), Card.val2onehot60(last_two_cards[1])])
                 c2s_socket.send(dumps(
-                    (self.identity, role_id, prob_state, all_state, Card.val2onehot60(last_cards_value), mask,
+                    (self.identity, role_id, prob_state, all_state, last_two_cards_onehot, mask,
                      0 if is_active else 1, lstm_state, r, is_over)),
                     copy=False)
                 action_idx, lstm_state = loads(s2c_socket.recv(copy=False).bytes)
@@ -426,7 +431,7 @@ if __name__ == '__main__':
                 mem_valid = [m for m in mem if m.first_st]
                 dr = []
                 for idx, k in enumerate(mem_valid):
-                    R = np.clip(k.reward, -1, 1) + 0.99 * R
+                    R = k.reward + 0.99 * R
                     dr.append(R)
                 dr.reverse()
                 # print(dr)

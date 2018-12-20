@@ -105,7 +105,7 @@ class Model(ModelDesc):
         if not get_current_tower_context().is_training:
             return
 
-        reward = tf.clip_by_value(reward, -1, 1)
+        # reward = tf.clip_by_value(reward, -1, 1)
         next_state = tf.identity(joint_state[:, 1, :, :, :], name='next_state')
         next_fine_mask = tf.identity(joint_fine_mask[:, 1, :], name='next_fine_mask')
         action_onehot = tf.one_hot(action, self.num_actions, 1.0, 0.0)

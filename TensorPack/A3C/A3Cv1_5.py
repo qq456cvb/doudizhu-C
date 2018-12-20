@@ -17,18 +17,19 @@ from utils import get_seq_length, pick_minor_targets, to_char, discard_onehot_fr
 from utils import pick_main_cards
 from six.moves import queue
 
-from pyenv import Pyenv
+from card import action_space
+from TensorPack.MA_Hierarchical_Q.env import Env
 import tensorflow.contrib.slim as slim
 import tensorflow.contrib.rnn as rnn
 from tensorpack import *
 from tensorpack.utils.concurrency import ensure_proc_terminate, start_proc_mask_signal
 from tensorpack.utils.serialize import dumps
-from tensorpack.tfutils.gradproc import MapGradient, SummaryGradient, AvgNormGradient
+from tensorpack.tfutils.gradproc import MapGradient, SummaryGradient
 from tensorpack.utils.gpu import get_nr_gpu
 from tensorpack.tfutils.summary import add_moving_summary
 from tensorpack.tfutils import get_current_tower_context, optimizer
 
-from TensorPack.A3C.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience
+from TensorPack.A3C.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience, ROLE_IDS_TO_TRAIN
 from TensorPack.A3C.model_loader import ModelLoader
 from TensorPack.A3C.evaluator import Evaluator
 from TensorPack.PolicySL.Policy_SL_v1_4 import conv_block as policy_conv_block
@@ -45,16 +46,17 @@ else:
     CancelledError = Exception
 
 GAMMA = 0.99
-POLICY_INPUT_DIM = 60 * 3
-POLICY_LAST_INPUT_DIM = 60
+POLICY_INPUT_DIM = 60 + 120
+
+POLICY_LAST_INPUT_DIM = 60 * 2
 POLICY_WEIGHT_DECAY = 1e-3
 VALUE_INPUT_DIM = 60 * 3
 LORD_ID = 2
-SIMULATOR_PROC = 50
+SIMULATOR_PROC = 20
 
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
-STEPS_PER_EPOCH = 1000
-BATCH_SIZE = 64
+STEPS_PER_EPOCH = 2500
+BATCH_SIZE = 8
 PREDICT_BATCH_SIZE = 32
 PREDICTOR_THREAD_PER_GPU = 4
 PREDICTOR_THREAD = None
@@ -70,6 +72,7 @@ class Model(ModelDesc):
         batch_size = tf.shape(role_id)[0]
         gathered_outputs = []
         indices = []
+        # train landlord only
         for idx in range(1, 4):
             with tf.variable_scope('policy_network_%d' % idx):
                 lstm = rnn.BasicLSTMCell(1024, state_is_tuple=False)
@@ -117,7 +120,7 @@ class Model(ModelDesc):
                     fc, new_lstm_state = lstm(flattened, lstm_state_id)
 
                     active_fc = slim.fully_connected(fc, 1024)
-                    active_logits = slim.fully_connected(active_fc, 9085, activation_fn=None, scope='final_fc')
+                    active_logits = slim.fully_connected(active_fc, len(action_space), activation_fn=None, scope='final_fc')
                     with tf.variable_scope('branch_passive'):
                         flattened_last = policy_conv_block(last_cards_id, 32, POLICY_LAST_INPUT_DIM,
                                                            [[128, 3, 'identity'],
@@ -133,10 +136,10 @@ class Model(ModelDesc):
                         passive_attention = slim.fully_connected(inputs=flattened_last, num_outputs=1024,
                                                                       activation_fn=tf.nn.sigmoid)
                         passive_fc = passive_attention * active_fc
-                    passive_logits = slim.fully_connected(passive_fc, 9085, activation_fn=None, reuse=True, scope='final_fc')
+                    passive_logits = slim.fully_connected(passive_fc, len(action_space), activation_fn=None, reuse=True, scope='final_fc')
 
             gathered_output = [active_logits, passive_logits, new_lstm_state]
-            if idx == 1 or idx == 3:
+            if idx not in ROLE_IDS_TO_TRAIN:
                 for k in range(len(gathered_output)):
                     gathered_output[k] = tf.stop_gradient(gathered_output[k])
             gathered_outputs.append(gathered_output)
@@ -218,7 +221,7 @@ class Model(ModelDesc):
         if not is_training:
             return
 
-        action_target_onehot = tf.one_hot(action_target, 9085)
+        action_target_onehot = tf.one_hot(action_target, len(action_space))
 
         # active mode
         active_logpa = tf.reduce_sum(action_target_onehot * tf.log(
@@ -329,7 +332,7 @@ class Model(ModelDesc):
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-4, trainable=False)
         opt = tf.train.AdamOptimizer(lr)
-        gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3)), AvgNormGradient()]
+        gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.5))]
         opt = optimizer.apply_grad_processors(opt, gradprocs)
         return opt
 
@@ -402,21 +405,21 @@ class MySimulatorMaster(SimulatorMaster, Callback):
     def _parse_memory(self, init_r, client):
         # for each agent's memory
         for role_id in range(1, 4):
-            if role_id != 2:
+            if role_id not in ROLE_IDS_TO_TRAIN:
                 continue
             mem = client.memory[role_id - 1]
 
             mem.reverse()
             R = float(init_r)
             for idx, k in enumerate(mem):
-                R = np.clip(k.reward, -1, 1) + GAMMA * R
+                R = k.reward + GAMMA * R
                 self.queue.put([role_id, k.prob_state, k.all_state, k.last_cards_onehot, k.action, k.mode, k.prob, R, k.lstm_state])
 
             client.memory[role_id - 1] = []
 
 
 def train():
-    dirname = os.path.join('train_log', 'a3c_lstm')
+    dirname = os.path.join('train_log', 'A3C-LSTM')
     logger.set_logger_dir(dirname)
 
     # assign GPUs for training & inference
@@ -439,9 +442,14 @@ def train():
 
     # setup simulator processes
     name_base = str(uuid.uuid1())[:6]
-    prefix = '@' if sys.platform.startswith('linux') else ''
-    namec2s = 'ipc://{}sim-c2s-{}'.format(prefix, name_base)
-    names2c = 'ipc://{}sim-s2c-{}'.format(prefix, name_base)
+    if os.name == 'nt':
+        namec2s = 'tcp://127.0.0.1:8000'
+        names2c = 'tcp://127.0.0.1:9000'
+    else:
+        prefix = '@' if sys.platform.startswith('linux') else ''
+        namec2s = 'ipc://{}sim-c2s-{}'.format(prefix, name_base)
+        names2c = 'ipc://{}sim-s2c-{}'.format(prefix, name_base)
+
     procs = [MySimulatorWorker(k, namec2s, names2c) for k in range(SIMULATOR_PROC)]
     ensure_proc_terminate(procs)
     start_proc_mask_signal(procs)
@@ -464,14 +472,14 @@ def train():
             Evaluator(
                 100, ['role_id', 'policy_state_in', 'last_cards_in', 'lstm_state_in'],
                 ['active_prob', 'passive_prob', 'new_lstm_state'], get_player),
-            SendStat(
-                'export http_proxy=socks5://127.0.0.1:1080 https_proxy=socks5://127.0.0.1:1080 && /home/neil/anaconda3/bin/curl --header "Access-Token: o.CUdAMXqiVz9qXTxLYIXc0XkcAfZMpNGM" -d type=note -d title="doudizhu" '
-                '-d body="lord win rate: {lord_win_rate}\n policy loss: {policy_loss_2}\n value loss: {value_loss_2}\n entropy loss: {entropy_loss_2}\n'
-                'true reward: {true_reward_2}\n predict reward: {predict_reward_2}\n advantage: {rms_advantage_2}\n" '
-                '--request POST https://api.pushbullet.com/v2/pushes',
-                ['lord_win_rate', 'policy_loss_2', 'value_loss_2', 'entropy_loss_2',
-                 'true_reward_2', 'predict_reward_2', 'rms_advantage_2']
-                ),
+            # SendStat(
+            #     'export http_proxy=socks5://127.0.0.1:1080 https_proxy=socks5://127.0.0.1:1080 && /home/neil/anaconda3/bin/curl --header "Access-Token: o.CUdAMXqiVz9qXTxLYIXc0XkcAfZMpNGM" -d type=note -d title="doudizhu" '
+            #     '-d body="lord win rate: {lord_win_rate}\n policy loss: {policy_loss_2}\n value loss: {value_loss_2}\n entropy loss: {entropy_loss_2}\n'
+            #     'true reward: {true_reward_2}\n predict reward: {predict_reward_2}\n advantage: {rms_advantage_2}\n" '
+            #     '--request POST https://api.pushbullet.com/v2/pushes',
+            #     ['lord_win_rate', 'policy_loss_2', 'value_loss_2', 'entropy_loss_2',
+            #      'true_reward_2', 'predict_reward_2', 'rms_advantage_2']
+            #     ),
         ],
         # session_init=SaverRestore('./train_log/a3c_action_1d/max-true_reward_2'),
         # session_init=ModelLoader('policy_network_2', 'SL_policy_network', 'value_network', 'SL_value_network'),

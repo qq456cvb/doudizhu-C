@@ -507,7 +507,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
             mem_valid = [m for m in mem if m.first_st]
             dr = []
             for idx, k in enumerate(mem_valid):
-                R = np.clip(k.reward, -1, 1) + GAMMA * R
+                R = k.reward + GAMMA * R
                 dr.append(R)
             dr.reverse()
             mem.reverse()

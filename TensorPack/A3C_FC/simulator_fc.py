@@ -451,7 +451,7 @@ if __name__ == '__main__':
                 mem_valid = [m for m in mem if m.first_st]
                 dr = []
                 for idx, k in enumerate(mem_valid):
-                    R = np.clip(k.reward, -1, 1) + 0.99 * R
+                    R = k.reward + 0.99 * R
                     dr.append(R)
                 dr.reverse()
                 # print(dr)
