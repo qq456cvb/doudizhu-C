@@ -10,6 +10,7 @@ if os.name == 'nt':
     sys.path.insert(0, '../../build/Release')
 else:
     sys.path.insert(0, '../../build.linux')
+from datetime import datetime
 from env import Env as CEnv
 from mct import mcsearch, CCard, CCardGroup, CCategory
 
@@ -17,7 +18,7 @@ from mct import mcsearch, CCard, CCardGroup, CCategory
 class Env:
     total_cards = sorted(to_char(np.arange(3, 16)) * 4 + ['*', '$'], key=lambda k: Card.cards_to_value[k])
 
-    def __init__(self, agent_names):
+    def __init__(self, agent_names=('agent1', 'agent2', 'agent3')):
         seed = (id(self) + int(datetime.now().strftime("%Y%m%d%H%M%S%f"))) % 4294967295
         np.random.seed(seed)
         self.agent_names = agent_names
@@ -38,6 +39,15 @@ class Env:
         self.last_cards_char = []
         self.out_cards = [[] for _ in range(3)]
         self.curr_player = None
+
+    def get_role_ID(self):
+        curr_idx = self.get_current_idx()
+        assert 0 <= curr_idx <= 2
+        if curr_idx == 0:
+            return 2
+        if curr_idx == 1:
+            return 3
+        return 1
 
     def get_current_idx(self):
         return self.agent_names.index(self.curr_player)
@@ -86,12 +96,18 @@ class Env:
         total_cards = np.ones([60])
         total_cards[53:56] = 0
         total_cards[57:60] = 0
+        player_idx = self.get_current_idx()
         remain_cards = total_cards - Card.char2onehot60(self.get_curr_handcards()
-                                                        + self.player_cards[self.agent_names[0]]
-                                                        + self.player_cards[self.agent_names[1]]
-                                                        + self.player_cards[self.agent_names[2]])
-        next_cnt = len(self.player_cards[self.agent_names[(self.agent_names.index(self.curr_player) + 1) % len(self.agent_names)]])
-        next_next_cnt = len(self.player_cards[self.agent_names[(self.agent_names.index(self.curr_player) + 2) % len(self.agent_names)]])
+                                                        + self.histories[self.agent_names[player_idx]]
+                                                        + self.histories[self.agent_names[(player_idx + 1) % 3]]
+                                                        + self.histories[self.agent_names[(player_idx + 2) % 3]])
+        # sanity check
+        # remain_cards_check = Card.char2onehot60(self.player_cards[self.agent_names[(player_idx + 1) % 3]] + self.player_cards[self.agent_names[(player_idx + 2) % 3]])
+        # remain_cards_cp = remain_cards.copy()
+        # normalize(remain_cards_cp, 0, 60)
+        # assert np.all(remain_cards_cp == remain_cards_check)
+        next_cnt = len(self.player_cards[self.agent_names[(player_idx + 1) % len(self.agent_names)]])
+        next_next_cnt = len(self.player_cards[self.agent_names[(player_idx + 2) % len(self.agent_names)]])
         right_prob_state = remain_cards * (next_cnt / (next_cnt + next_next_cnt))
         left_prob_state = remain_cards * (next_next_cnt / (next_cnt + next_next_cnt))
         prob_state = np.concatenate([right_prob_state, left_prob_state])
@@ -122,51 +138,19 @@ if __name__ == '__main__':
     }
 
     # python env usage
-    # env = Env(['1', '2', '3'])
-    # agent_names = ['1', '2', '3']
+    env = Env(['1', '2', '3'])
+    agent_names = ['1', '2', '3']
 
-    # for _ in range(1):
-    #     env.reset()
-    #     env.prepare()
-    #     done = False
-    #     while not done:
-    #
-    #         handcards = env.get_curr_handcards()
-    #
-    #         t = time.perf_counter()
-    #         chandcards = [CCard(to_value(c) - 3) for c in handcards]
-    #         unseen_cards = env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]].copy() \
-    #                         + env.player_cards[agent_names[(env.get_current_idx() + 2) % len(env.agent_names)]].copy()
-    #         cunseen_cards = [CCard(to_value(c) - 3) for c in unseen_cards]
-    #         next_handcards_cnt = len(env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]])
-    #
-    #         last_cg = char2ccardgroup(env.get_last_outcards())
-    #         caction = mcsearch(chandcards, cunseen_cards, next_handcards_cnt, last_cg, env.agent_names.index(env.curr_player), env.agent_names.index(env.controller))
-    #
-    #         action = ccardgroup2char(caction)
-    #         print(action)
-    #         winner, done = env.step(action)
-    #         if done:
-    #             for agent_name in agent_names:
-    #                 if agent_name == winner:
-    #                     cnt[agent_name] += 1
-    #                     print(agent_name, ' wins')
-    #                 else:
-    #                     if env.get_all_agent_names().index(winner) + env.get_all_agent_names().index(agent_name) == 3:
-    #                         cnt[agent_name] += 1
-    #                         print(agent_name, winner, ' all wins')
-    # print(cnt)
-
-    # C env usage
-    # TODO
-    env = CEnv()
     for _ in range(1):
         env.reset()
         env.prepare()
         done = False
         while not done:
-            handcards = to_char(env.get_curr_handcards())
 
+            handcards = env.get_curr_handcards()
+
+            env.get_state_prob()
+            t = time.perf_counter()
             chandcards = [CCard(to_value(c) - 3) for c in handcards]
             unseen_cards = env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]].copy() \
                             + env.player_cards[agent_names[(env.get_current_idx() + 2) % len(env.agent_names)]].copy()
@@ -189,5 +173,38 @@ if __name__ == '__main__':
                             cnt[agent_name] += 1
                             print(agent_name, winner, ' all wins')
     print(cnt)
+
+    # C env usage
+    # TODO
+    env = CEnv()
+    # for _ in range(1):
+    #     env.reset()
+    #     env.prepare()
+    #     done = False
+    #     while not done:
+    #         handcards = to_char(env.get_curr_handcards())
+    #
+    #         chandcards = [CCard(to_value(c) - 3) for c in handcards]
+    #         unseen_cards = env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]].copy() \
+    #                         + env.player_cards[agent_names[(env.get_current_idx() + 2) % len(env.agent_names)]].copy()
+    #         cunseen_cards = [CCard(to_value(c) - 3) for c in unseen_cards]
+    #         next_handcards_cnt = len(env.player_cards[agent_names[(env.get_current_idx() + 1) % len(env.agent_names)]])
+    #
+    #         last_cg = char2ccardgroup(env.get_last_outcards())
+    #         caction = mcsearch(chandcards, cunseen_cards, next_handcards_cnt, last_cg, env.agent_names.index(env.curr_player), env.agent_names.index(env.controller))
+    #
+    #         action = ccardgroup2char(caction)
+    #         print(action)
+    #         winner, done = env.step(action)
+    #         if done:
+    #             for agent_name in agent_names:
+    #                 if agent_name == winner:
+    #                     cnt[agent_name] += 1
+    #                     print(agent_name, ' wins')
+    #                 else:
+    #                     if env.get_all_agent_names().index(winner) + env.get_all_agent_names().index(agent_name) == 3:
+    #                         cnt[agent_name] += 1
+    #                         print(agent_name, winner, ' all wins')
+    # print(cnt)
 
 
