@@ -31,7 +31,7 @@ def eval_episode(env, agent):
 
 
 if __name__ == '__main__':
-    f = open('results.txt', 'r+')
+    f = open('results.txt', 'w+')
     for te in types:
         for ta in types:
             for role_id in [2, 3, 1]:
@@ -44,6 +44,6 @@ if __name__ == '__main__':
                             winning_rate = eval_episode(env, agent)
                             st.feed(winning_rate)
                             pbar.update()
-                    f.write('%s with role id %d against %s, winning rate: %f'.format(ta, role_id, te, st.average))
+                    f.write('%s with role id %d against %s, winning rate: %f\n' % (ta, role_id, te, st.average))
     f.close()
 

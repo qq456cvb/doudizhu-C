@@ -1,7 +1,6 @@
 from datetime import datetime
 import numpy as np
 from card import Card, Category, CardGroup
-from TensorPack.MA_Hierarchical_Q.predictor import Predictor
 from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
     get_mask, action_space_single, action_space_pair, get_category_idx, normalize
 import sys
