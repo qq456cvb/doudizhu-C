@@ -6,9 +6,9 @@ from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
 import sys
 import os
 if os.name == 'nt':
-    sys.path.insert(0, '../build/Release')
+    sys.path.insert(0, './build/Release')
 else:
-    sys.path.insert(0, '../build.linux')
+    sys.path.insert(0, './build.linux')
 from tensorpack import *
 from env import Env as CEnv
 from TensorPack.MA_Hierarchical_Q.env import Env
@@ -16,7 +16,7 @@ from TensorPack.MA_Hierarchical_Q.predictor import Predictor
 from TensorPack.MA_Hierarchical_Q.DQNModel import Model
 
 
-weight_path = './model-500000'
+weight_path = './model-302500'
 
 
 class RandomEnv(Env):
