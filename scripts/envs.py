@@ -62,7 +62,7 @@ class CDQNEnv(Env):
         return self.step(intention)
 
 
-class HCWBEnv(CEnv):
+class RHCPEnv(CEnv):
     def get_last_outcards(self):
         return to_char(super().get_last_outcards())
 
@@ -88,8 +88,8 @@ class HCWBEnv(CEnv):
 
 
 def make_env(which):
-    if which == 'HCWB':
-        return HCWBEnv()
+    if which == 'RHCP':
+        return RHCPEnv()
     elif which == 'RANDOM':
         return RandomEnv()
     elif which == 'CDQN':

@@ -11,7 +11,7 @@ from scripts.envs import make_env
 from scripts.agents import make_agent
 
 
-types = ['RANDOM', 'HCWB', 'CDQN']
+types = ['RANDOM', 'RHCP', 'CDQN']
 
 
 def eval_episode(env, agent):

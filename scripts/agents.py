@@ -34,7 +34,7 @@ class RandomAgent(Agent):
         return intention
 
 
-class HCWBAgent(Agent):
+class RHCPAgent(Agent):
     def intention(self, env):
         intention = to_char(CEnv.step_auto_static(Card.char2color(env.get_curr_handcards()), to_value(env.get_last_outcards())))
         return intention
@@ -67,8 +67,8 @@ class CDQNAgent(Agent):
 
 
 def make_agent(which, role_id):
-    if which == 'HCWB':
-        return HCWBAgent(role_id)
+    if which == 'RHCP':
+        return RHCPAgent(role_id)
     elif which == 'RANDOM':
         return RandomAgent(role_id)
     elif which == 'CDQN':
