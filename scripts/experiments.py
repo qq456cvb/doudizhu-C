@@ -1,5 +1,6 @@
 from tensorpack.utils.stats import StatCounter
 from tensorpack.utils.utils import get_tqdm
+from multiprocessing import *
 import sys
 import os
 if os.name == 'nt':
@@ -30,8 +31,9 @@ def eval_episode(env, agent):
     return int(r > 0)
 
 
-if __name__ == '__main__':
-    f = open('results.txt', 'w+')
+def eval_proc(file_name):
+    print(file_name)
+    f = open(os.path.join('./log') + file_name, 'w+')
     for te in types:
         for ta in types:
             for role_id in [2, 3, 1]:
@@ -46,4 +48,15 @@ if __name__ == '__main__':
                             pbar.update()
                     f.write('%s with role id %d against %s, winning rate: %f\n' % (ta, role_id, te, st.average))
     f.close()
+
+
+if __name__ == '__main__':
+    procs = []
+    for i in range(cpu_count() // 2):
+        procs.append(Process(target=eval_proc, args=('res%d.txt' % i,)))
+    for p in procs:
+        p.start()
+    for p in procs:
+        p.join()
+
 
