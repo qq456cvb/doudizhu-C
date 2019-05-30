@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # File: DQN.py
-# Author: Yuxin Wu <ppwwyyxxc@gmail.com>
 
 import os
 import argparse

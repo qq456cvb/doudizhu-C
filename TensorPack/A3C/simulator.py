@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # File: simulator.py
-# Author: Yuxin Wu <ppwwyyxxc@gmail.com>
 # Adapted by: Neil You on Fight the Lord
 
 import multiprocessing as mp
