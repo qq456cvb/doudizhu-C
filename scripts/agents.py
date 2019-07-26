@@ -6,12 +6,13 @@ from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
 import sys
 import os
 if os.name == 'nt':
-    sys.path.insert(0, '../build/Release')
+    sys.path.insert(0, './build/Release')
 else:
-    sys.path.insert(0, '../build.linux')
+    sys.path.insert(0, './build.linux')
 from datetime import datetime
 from tensorpack import *
 from env import Env as CEnv
+from mct import mcsearch, CCard, CCardGroup, CCategory
 from TensorPack.MA_Hierarchical_Q.predictor import Predictor
 from TensorPack.MA_Hierarchical_Q.DQNModel import Model
 
@@ -34,7 +35,7 @@ class RandomAgent(Agent):
         return intention
 
 
-class HCWBAgent(Agent):
+class RHCPAgent(Agent):
     def intention(self, env):
         intention = to_char(CEnv.step_auto_static(Card.char2color(env.get_curr_handcards()), to_value(env.get_last_outcards())))
         return intention
@@ -66,13 +67,43 @@ class CDQNAgent(Agent):
         return intention
 
 
+class MCTAgent(Agent):
+    def intention(self, env):
+        def char2ccardgroup(chars):
+            cg = CardGroup.to_cardgroup(chars)
+            ccg = CCardGroup([CCard(to_value(c) - 3) for c in cg.cards], CCategory(cg.type), cg.value, cg.len)
+            return ccg
+
+        def ccardgroup2char(cg):
+            return [to_char(int(c) + 3) for c in cg.cards]
+        handcards_char = env.get_curr_handcards()
+        chandcards = [CCard(to_value(c) - 3) for c in handcards_char]
+        player_idx = env.get_current_idx()
+        unseen_cards = env.player_cards[env.agent_names[(player_idx + 1) % 3]] + env.player_cards[env.agent_names[(player_idx + 2) % 3]]
+        cunseen_cards = [CCard(to_value(c) - 3) for c in unseen_cards]
+
+        # print(env.player_cards)
+        next_handcards_cnt = len(env.player_cards[env.agent_names[(player_idx + 1) % 3]])
+
+        last_cg = char2ccardgroup(env.get_last_outcards())
+
+        # print(handcards_char, env.get_last_outcards(), next_handcards_cnt, env.curr_player, env.controller, env.lord)
+        caction = mcsearch(chandcards, cunseen_cards, next_handcards_cnt, last_cg,
+                           (env.agent_names.index(env.curr_player) - env.agent_names.index(env.lord) + 3) % 3,
+                           (env.agent_names.index(env.controller) - env.agent_names.index(env.lord) + 3) % 3, 10, 50, 500)
+        intention = ccardgroup2char(caction)
+        return intention
+
+
 def make_agent(which, role_id):
-    if which == 'HCWB':
-        return HCWBAgent(role_id)
+    if which == 'RHCP':
+        return RHCPAgent(role_id)
     elif which == 'RANDOM':
         return RandomAgent(role_id)
     elif which == 'CDQN':
         return CDQNAgent(role_id, weight_path)
+    elif which == 'MCT':
+        return MCTAgent(role_id)
     else:
         raise Exception('env type not supported')
 
