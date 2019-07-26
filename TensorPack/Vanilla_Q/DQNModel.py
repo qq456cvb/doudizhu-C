@@ -13,6 +13,7 @@ from tensorpack.tfutils import (
 from tensorpack.tfutils.scope_utils import auto_reuse_variable_scope
 import numpy as np
 from tensorflow.contrib.layers import l2_regularizer
+import os
 
 
 class Model(ModelDesc):
@@ -30,6 +31,7 @@ class Model(ModelDesc):
         return [tf.placeholder(tf.float32,
                                (None, 2, self.state_shape[0]),
                                'joint_state'),
+                tf.placeholder(tf.bool, (None, self.num_actions), 'next_mask'),
                 tf.placeholder(tf.int64, (None,), 'action'),
                 tf.placeholder(tf.float32, (None,), 'reward'),
                 tf.placeholder(tf.bool, (None,), 'isOver')]
@@ -44,11 +46,24 @@ class Model(ModelDesc):
     # output : B * A
     @auto_reuse_variable_scope
     def get_DQN_prediction(self, state):
-        return self._get_DQN_prediction(state)
+        state_embeddings = self.get_state_embedding(state)
+        encoding = np.load(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)), '../AutoEncoder/encoding.npy'))
+        actions = tf.convert_to_tensor(encoding)
+        action_embeddings = self.get_action_embedding(actions)
+        return tf.identity(tf.reduce_sum(tf.expand_dims(state_embeddings, 1) * tf.expand_dims(action_embeddings, 0), -1), 'Qvalue')
+
+    @auto_reuse_variable_scope
+    def get_state_embedding(self, state):
+        pass
+
+    @auto_reuse_variable_scope
+    def get_action_embedding(self, action):
+        pass
 
     # joint state: B * 2 * COMB * N * D for now, D = 256
     # dynamic action range
-    def build_graph(self, joint_state, action, reward, isOver):
+    def build_graph(self, joint_state, next_mask, action, reward, isOver):
         state = tf.identity(joint_state[:, 0, ...], name='state')
         self.predict_value = self.get_DQN_prediction(state)
         if not get_current_tower_context().is_training:
@@ -68,11 +83,13 @@ class Model(ModelDesc):
 
         if self.method != 'Double':
             # DQN
-            best_v = tf.reduce_max(targetQ_predict_value, 1)    # N,
+            self.greedy_choice = tf.argmax(targetQ_predict_value + (tf.to_float(next_mask) * 1e4), 1)  # N,
+            predict_onehot = tf.one_hot(self.greedy_choice, self.num_actions, 1.0, 0.0)
+            best_v = tf.reduce_sum(targetQ_predict_value * predict_onehot, 1)
         else:
             # Double-DQN
             next_predict_value = self.get_DQN_prediction(next_state)
-            self.greedy_choice = tf.argmax(next_predict_value, 1)   # N,
+            self.greedy_choice = tf.argmax(next_predict_value + (tf.to_float(next_mask) * 1e4), 1)   # N,
             predict_onehot = tf.one_hot(self.greedy_choice, self.num_actions, 1.0, 0.0)
             best_v = tf.reduce_sum(targetQ_predict_value * predict_onehot, 1)
 

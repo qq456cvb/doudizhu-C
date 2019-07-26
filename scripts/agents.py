@@ -17,7 +17,7 @@ from TensorPack.MA_Hierarchical_Q.predictor import Predictor
 from TensorPack.MA_Hierarchical_Q.DQNModel import Model
 
 
-weight_path = './model-500000'
+weight_path = './model-302500'
 
 
 class Agent:

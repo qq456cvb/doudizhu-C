@@ -11,7 +11,6 @@ else:
     sys.path.insert(0, '../../build.linux')
 from datetime import datetime
 from env import Env as CEnv
-from mct import mcsearch, CCard, CCardGroup, CCategory
 
 
 class Env:

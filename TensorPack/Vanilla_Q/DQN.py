@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # File: DQN.py
-# Author: Yuxin Wu <ppwwyyxxc@gmail.com>
 
 import os
 import argparse
@@ -38,13 +37,14 @@ def res_fc_block(inputs, units, stack=3):
     return tf.contrib.layers.layer_norm(residual + x, scale=False)
     # return residual + x
 
-BATCH_SIZE = 8
+
+BATCH_SIZE = 4
 STATE_SHAPE = (60 + 120 + 256 * 2,)
 UPDATE_FREQ = 4
 
 GAMMA = 0.99
 
-MEMORY_SIZE = 3e3
+MEMORY_SIZE = 1e3
 # will consume at least 1e6 * 84 * 84 bytes == 6.6G memory.
 INIT_MEMORY_SIZE = MEMORY_SIZE // 20
 STEPS_PER_EPOCH = 10000 // UPDATE_FREQ  # each epoch is 100k played frames
@@ -61,6 +61,36 @@ def get_player():
 class Model(DQNModel):
     def __init__(self):
         super(Model, self).__init__(STATE_SHAPE, METHOD, NUM_ACTIONS, GAMMA)
+
+    def get_state_embedding(self, state):
+        with tf.variable_scope('state_embedding'):
+            shape = state.shape.as_list()
+            net = tf.reshape(state, [-1, shape[-1]])
+            net = tf.concat([conv_block(net[:, :180], 32, 180,
+                                        [[128, 3, 'identity'],
+                                         [128, 3, 'identity'],
+                                         [128, 3, 'downsampling'],
+                                         [128, 3, 'identity'],
+                                         [128, 3, 'identity'],
+                                         [256, 3, 'downsampling'],
+                                         [256, 3, 'identity'],
+                                         [256, 3, 'identity']
+                                         ], 'handcards'), net[:, 180:]], -1)
+            units = [512, 256, 128]
+            for i, unit in enumerate(units):
+                with tf.variable_scope('block%i' % i):
+                    net = res_fc_block(net, unit)
+            return net
+
+    def get_action_embedding(self, action):
+        with tf.variable_scope('action_embedding'):
+            shape = tf.shape(action)
+            net = tf.reshape(action, [-1, shape[-1]])
+            units = [512, 256, 128]
+            for i, unit in enumerate(units):
+                with tf.variable_scope('block%i' % i):
+                    net = res_fc_block(net, unit)
+            return net
 
     def _get_DQN_prediction(self, state):
         shape = state.shape.as_list()

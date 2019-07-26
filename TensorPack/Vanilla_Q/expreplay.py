@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # File: expreplay.py
-# Author: Yuxin Wu <ppwwyyxxc@gmail.com>
 # Adapted by: Neil You for Fight the Lord
 
 import numpy as np
@@ -35,7 +34,7 @@ ROLE_ID_TO_TRAIN = 2
 __all__ = ['ExpReplay']
 
 Experience = namedtuple('Experience',
-                        ['joint_state', 'action', 'reward', 'isOver'])
+                        ['joint_state', 'next_mask', 'action', 'reward', 'isOver'])
 
 
 class ReplayMemory(object):
@@ -44,6 +43,7 @@ class ReplayMemory(object):
         self.state_shape = state_shape
 
         self.state = np.zeros((self.max_size,) + state_shape, dtype='float32')
+        self.next_mask = np.zeros((self.max_size, 13527), dtype='bool')
         self.action = np.zeros((self.max_size,), dtype='int32')
         self.reward = np.zeros((self.max_size,), dtype='float32')
         self.isOver = np.zeros((self.max_size,), dtype='bool')
@@ -72,11 +72,13 @@ class ReplayMemory(object):
         reward = self.reward[idx]
         isOver = self.isOver[idx]
         if idx + 2 <= self._curr_size:
+            next_mask = self.next_mask[idx + 1]
             state = self.state[idx:idx+2]
         else:
+            next_mask = self.next_mask[0]
             end = idx + 2 - self._curr_size
             state = self._slice(self.state, idx, end)
-        return state, action, reward, isOver
+        return state, next_mask, action, reward, isOver
 
     def _slice(self, arr, start, end):
         s1 = arr[start:]
@@ -88,6 +90,7 @@ class ReplayMemory(object):
 
     def _assign(self, pos, exp):
         self.state[pos] = exp.joint_state
+        self.next_mask[pos] = exp.next_mask
         self.action[pos] = exp.action
         self.reward[pos] = exp.reward
         self.isOver[pos] = exp.isOver
@@ -184,10 +187,12 @@ class ExpReplay(DataFlow, Callback):
     def _populate_exp(self):
         """ populate a transition by epsilon-greedy"""
         old_s = self._current_ob
+        mask = get_mask(to_char(self.player.get_curr_handcards()), action_space,
+                        to_char(self.player.get_last_outcards()))
         if self.rng.rand() <= self.exploration:
             act = self.rng.choice(range(self.num_actions))
         else:
-            mask = get_mask(to_char(self.player.get_curr_handcards()), action_space, to_char(self.player.get_last_outcards()))
+
             q_values = self.predictor(old_s[None, ...])[0][0]
             q_values[mask == 0] = np.nan
             act = np.nanargmax(q_values)
@@ -225,7 +230,7 @@ class ExpReplay(DataFlow, Callback):
                 break
             self._current_game_score.reset()
         self._current_ob = self.get_state()
-        self.mem.append(Experience(old_s, act, reward, isOver))
+        self.mem.append(Experience(old_s, mask, act, reward, isOver))
 
     def debug(self, cnt=100000):
         with get_tqdm(total=cnt) as pbar:
@@ -250,10 +255,11 @@ class ExpReplay(DataFlow, Callback):
 
     def _process_batch(self, batch_exp):
         state = np.asarray([e[0] for e in batch_exp], dtype='float32')
-        action = np.asarray([e[1] for e in batch_exp], dtype='int32')
-        reward = np.asarray([e[2] for e in batch_exp], dtype='float32')
-        isOver = np.asarray([e[3] for e in batch_exp], dtype='bool')
-        return [state, action, reward, isOver]
+        next_mask = np.asarray([e[1] for e in batch_exp], dtype='bool')
+        action = np.asarray([e[2] for e in batch_exp], dtype='int32')
+        reward = np.asarray([e[3] for e in batch_exp], dtype='float32')
+        isOver = np.asarray([e[4] for e in batch_exp], dtype='bool')
+        return [state, next_mask, action, reward, isOver]
 
     def _setup_graph(self):
         self.predictor = self.trainer.get_predictor(*self.predictor_io_names)
