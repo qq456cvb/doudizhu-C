@@ -713,6 +713,15 @@ public:
         return result;
     }
 
+    auto getLastTwoHandCards() {
+        vector<vector<int>> last_two_cards;
+        for (int i = 2; i > 0; i--) {
+            auto cards = arrHandCardData[(indexID + i) % 3].value_nHandCardList;
+            last_two_cards.push_back(cards);
+        }
+        return last_two_cards;
+    }
+
     py::array_t<int> getCurrValueCards() {
         auto self_cards = arrHandCardData[indexID].color_nHandCardList;
 
@@ -1113,6 +1122,7 @@ PYBIND11_MODULE(env, m) {
         .def("get_curr_handcards", &Env::getCurrCards)
         .def("get_last_outcards", &Env::getLastCards)
         .def("get_last_two_cards", &Env::getLastTwoCards)
+        .def("get_last_two_handcards", &Env::getLastTwoHandCards)
         .def("get_last_outcategory_idx", &Env::getLastCategory)
         .def("get_lord_cnt", &Env::getLordCnt);
     m.def("get_combinations_recursive", &get_combinations_recursive);
