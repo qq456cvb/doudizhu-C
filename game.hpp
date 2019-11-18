@@ -52,7 +52,7 @@ public:
     //
     int DiPai[3] = { 0 };
     //index0~4
-    int value_aAllOutCardList[18] = { {0} };
+    int value_aAllOutCardList[18] = { 0 };
     //
     int value_aUnitOutCardList[3][18] = { {0} };
     //
