@@ -55,4 +55,22 @@ python experiments.py
 * We provide a configured Dou Di Zhu mini-server in https://github.com/qq456cvb/doudizhu-tornado for you to play interactively. NOTE you should build the server and load pretrained model by yourself! Tutorial coming soon!
 * If you meet any problems, open an issue.
 ## References
-See our paper https://arxiv.org/pdf/1901.08925.pdf
+See our paper https://arxiv.org/pdf/1901.08925.pdf. If you find this algorithm useful or use part of its code in your projects, please consider cite
+
+	@article{DBLP:journals/corr/abs-1901-08925,
+        author    = {Yang You and
+                    Liangwei Li and
+                    Baisong Guo and
+                    Weiming Wang and
+                    Cewu Lu},
+        title     = {Combinational Q-Learning for Dou Di Zhu},
+        journal   = {CoRR},
+        volume    = {abs/1901.08925},
+        year      = {2019},
+        url       = {http://arxiv.org/abs/1901.08925},
+        archivePrefix = {arXiv},
+        eprint    = {1901.08925},
+        timestamp = {Sat, 02 Feb 2019 16:56:00 +0100},
+        biburl    = {https://dblp.org/rec/bib/journals/corr/abs-1901-08925},
+        bibsource = {dblp computer science bibliography, https://dblp.org}
+    }
