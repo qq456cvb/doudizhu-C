@@ -2,6 +2,12 @@
 # -*- coding: utf-8 -*-
 # File: expreplay.py
 # Adapted by: Neil You for Fight the Lord
+import os
+import sys
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '..'))
+sys.path.append(ROOT_PATH)
+sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
 
 import numpy as np
 import copy
@@ -20,17 +26,11 @@ from tensorpack.utils.concurrency import LoopThread, ShareSessionThread
 from tensorpack.callbacks.base import Callback
 from card import action_space, action_space_onehot60, Card, CardGroup, augment_action_space_onehot60, clamp_action_idx, augment_action_space
 from utils import to_char, to_value, get_mask_onehot60
-import sys
-import os
 import zmq
 import time
 import time
 import random
 from TensorPack.MA_Hierarchical_Q.predictor import Predictor
-if os.name == 'nt':
-    sys.path.insert(0, '../../build/Release')
-else:
-    sys.path.insert(0, '../../build.linux')
 from env import get_combinations_nosplit, get_combinations_recursive
 
 

@@ -1,0 +1,49 @@
+name: doudizhu
+channels:
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - ca-certificates=2019.11.27=0
+  - certifi=2019.11.28=py36_0
+  - libedit=3.1.20181209=hc058e9b_0
+  - libffi=3.2.1=hd88cf55_4
+  - libgcc-ng=9.1.0=hdf63c60_0
+  - libstdcxx-ng=9.1.0=hdf63c60_0
+  - ncurses=6.1=he6710b0_1
+  - openssl=1.1.1d=h7b6447c_3
+  - pip=19.3.1=py36_0
+  - python=3.6.9=h265db76_0
+  - readline=7.0=h7b6447c_5
+  - setuptools=42.0.2=py36_0
+  - sqlite=3.30.1=h7b6447c_0
+  - tk=8.6.8=hbc83047_0
+  - wheel=0.33.6=py36_0
+  - xz=5.2.4=h14c3975_4
+  - zlib=1.2.11=h7b6447c_3
+  - pip:
+    - absl-py==0.9.0
+    - astor==0.8.1
+    - conditional==1.3
+    - gast==0.3.2
+    - grpcio==1.26.0
+    - h5py==2.10.0
+    - keras-applications==1.0.8
+    - keras-preprocessing==1.1.0
+    - markdown==3.1.1
+    - mock==3.0.5
+    - msgpack==0.6.2
+    - msgpack-numpy==0.4.4.3
+    - numpy==1.18.0
+    - protobuf==3.11.2
+    - pybind11==2.4.3
+    - pyzmq==18.1.1
+    - six==1.13.0
+    - tabulate==0.8.6
+    - tensorboard==1.13.1
+    - tensorflow-estimator==1.13.0
+    - tensorflow-gpu==1.13.2
+    - tensorpack==0.8.5
+    - termcolor==1.1.0
+    - tqdm==4.41.0
+    - werkzeug==0.16.0
+

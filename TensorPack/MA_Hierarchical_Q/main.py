@@ -1,3 +1,9 @@
+import os
+import sys
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '../..'))
+sys.path.append(ROOT_PATH)
+sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
 from tensorpack import *
 from TensorPack.MA_Hierarchical_Q.expreplay import ExpReplay
 from TensorPack.MA_Hierarchical_Q.env import Env
@@ -5,12 +11,6 @@ from TensorPack.MA_Hierarchical_Q.DQNModel import Model
 from TensorPack.MA_Hierarchical_Q.evaluator import Evaluator
 from TensorPack.MA_Hierarchical_Q.baseline_evaluator import BLEvaluator
 import argparse
-import os
-import sys
-if os.name == 'nt':
-    sys.path.insert(0, '../../build/Release')
-else:
-    sys.path.insert(0, '../../build.linux')
 from env import Env as CEnv
 
 

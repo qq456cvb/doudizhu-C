@@ -1,12 +1,12 @@
+import os
+import sys
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '..'))
+sys.path.append(ROOT_PATH)
+sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
 from tensorpack.utils.stats import StatCounter
 from tensorpack.utils.utils import get_tqdm
 from multiprocessing import *
-import sys
-import os
-if os.name == 'nt':
-    sys.path.insert(0, '../build/Release')
-else:
-    sys.path.insert(0, '../build.linux')
 from datetime import datetime
 from scripts.envs import make_env
 from scripts.agents import make_agent

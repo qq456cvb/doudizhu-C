@@ -10,13 +10,13 @@ from tensorpack.utils import logger
 from tensorpack.utils.stats import StatCounter
 from tensorpack.utils.utils import get_tqdm_kwargs
 
-import sys
 import os
+import sys
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '../..'))
+sys.path.append(ROOT_PATH)
+sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
 
-if os.name == 'nt':
-    sys.path.insert(0, '../../build/Release')
-else:
-    sys.path.insert(0, '../../build.linux')
 from env import Env, get_combinations_nosplit, get_combinations_recursive
 from card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
 import numpy as np
