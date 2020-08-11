@@ -1,4 +1,5 @@
-# Dou Di Zhu with Combinational Q-Learning
+# Dou Di Zhu with Combinationatorial Q-Learning
+# Accepted to AIIDE 2020
 ## Step by step training tutorial
 1. Clone the repo
 ``` 
