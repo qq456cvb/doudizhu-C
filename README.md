@@ -57,21 +57,14 @@ python experiments.py
 * If you meet any problems, open an issue.
 ## References
 See our paper https://arxiv.org/pdf/1901.08925.pdf. If you find this algorithm useful or use part of its code in your projects, please consider cite
-
-	@article{DBLP:journals/corr/abs-1901-08925,
-        author    = {Yang You and
-                    Liangwei Li and
-                    Baisong Guo and
-                    Weiming Wang and
-                    Cewu Lu},
-        title     = {Combinational Q-Learning for Dou Di Zhu},
-        journal   = {CoRR},
-        volume    = {abs/1901.08925},
-        year      = {2019},
-        url       = {http://arxiv.org/abs/1901.08925},
-        archivePrefix = {arXiv},
-        eprint    = {1901.08925},
-        timestamp = {Sat, 02 Feb 2019 16:56:00 +0100},
-        biburl    = {https://dblp.org/rec/bib/journals/corr/abs-1901-08925},
-        bibsource = {dblp computer science bibliography, https://dblp.org}
-    }
+```
+@inproceedings{you2020combinatorial,
+  title={Combinatorial Q-Learning for Dou Di Zhu},
+  author={You, Yang and Li, Liangwei and Guo, Baisong and Wang, Weiming and Lu, Cewu},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence and Interactive Digital Entertainment},
+  volume={16},
+  number={1},
+  pages={301--307},
+  year={2020}
+}
+```
