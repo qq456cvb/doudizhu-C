@@ -31,7 +31,7 @@ python main.py
 ```
 
 ## Evaluation against other baselines
-1. Download pretrained model from https://jbox.sjtu.edu.cn/l/L04d4A, then put it into `pretrained_model`
+1. Download pretrained model from https://jbox.sjtu.edu.cn/l/L04d4A or [GoogleDrive](https://drive.google.com/drive/folders/1YTNR5JYNgNfQpQ9DwhQ3ClcyeXKn_17b?usp=sharing), then put it into `pretrained_model`
 2. Build Monte-Carlo baseline and move the lib into root
 ```
 git clone https://github.com/qq456cvb/doudizhu-baseline.git
