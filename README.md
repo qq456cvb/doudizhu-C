@@ -55,6 +55,10 @@ python experiments.py
 * We provide a Monte-Carlo-Tree-Search algorithm in https://github.com/qq456cvb/doudizhu-baseline
 * We provide a configured Dou Di Zhu mini-server in https://github.com/qq456cvb/doudizhu-tornado for you to play interactively. NOTE you should build the server and load pretrained model by yourself! Tutorial coming soon!
 * If you meet any problems, open an issue.
+
+## DouZero
+Recently, another algorithm called DouZero (https://github.com/kwai/DouZero) has been proposed, to whom may be interested in a strong DouDizhu AI. It is also an actively maintained open-source project.
+
 ## References
 See our paper https://arxiv.org/pdf/1901.08925.pdf. If you find this algorithm useful or use part of its code in your projects, please consider cite
 ```
