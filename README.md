@@ -56,6 +56,14 @@ python experiments.py
 * We provide a configured Dou Di Zhu mini-server in https://github.com/qq456cvb/doudizhu-tornado for you to play interactively. NOTE you should build the server and load pretrained model by yourself! Tutorial coming soon!
 * If you meet any problems, open an issue.
 
+<!-- README refined by Cursor -->
+
+## Data and Artifact Mirrors
+
+No verified Hugging Face mirror is available yet for the artifacts below; use the original sources until a complete mirror is uploaded.
+
+Original, external, or pending sources:
+- Pretrained models: [https://drive.google.com/drive/folders/1YTNR5JYNgNfQpQ9DwhQ3ClcyeXKn_17b?usp=sharing](https://drive.google.com/drive/folders/1YTNR5JYNgNfQpQ9DwhQ3ClcyeXKn_17b?usp=sharing). Hugging Face mirror is pending because the source did not expose a retrievable public file URL during this cleanup.
 ## DouZero
 Recently, another algorithm called DouZero (https://github.com/kwai/DouZero) has been proposed, to whom may be interested in a strong DouDizhu AI. It is also an actively maintained open-source project.
 
