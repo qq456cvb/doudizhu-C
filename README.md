@@ -1,75 +1,93 @@
-# Dou Di Zhu with Combinationatorial Q-Learning
-# Accepted to AIIDE 2020
-## Step by step training tutorial
-1. Clone the repo
-``` 
+# Combinatorial Q-Learning for Dou Di Zhu (AIIDE 2020)
+
+A deep reinforcement learning agent for **Dou Di Zhu** (斗地主, "Fight the Landlord"), the popular Chinese three-player card game. The game's challenge for RL is its **combinatorial action space**: at every step a player must choose among a huge number of card combinations. We propose **Combinatorial Q-Learning (CQL)**, which handles this with a two-stage network — a card-group decomposition stage followed by a move proposal stage — together with order-invariant max-pooling to capture relationships between primitive actions. All agents are trained adversarially from scratch with only knowledge of the game rules, and play at a level comparable to human players.
+
+[Paper (AIIDE 2020 proceedings)](https://ojs.aaai.org/index.php/AIIDE/article/view/7445) | [Preprint](https://arxiv.org/pdf/1901.08925.pdf)
+
+The repository ships a fast **C++ game engine** (move generation, hand decomposition via dancing links, full game logic) exposed to Python through **pybind11**, plus [Tensorpack](https://github.com/tensorpack/tensorpack)-based training pipelines for CQL and several baselines.
+
+## Installation
+
+1. Clone the repo and create the conda environment (Python 3.6, TensorFlow 1.13, Tensorpack 0.8.5):
+
+```bash
 git clone https://github.com/qq456cvb/doudizhu-C.git
-```
-2. Change work directory to root
-``` 
 cd doudizhu-C
-```
-3. Create env from environment.yml
-``` 
 conda env create -f environment.yml
-```
-4. Activate env
-```
 conda activate doudizhu
 ```
-5. Build C++ files
-```
+
+2. Build the C++ game environment (requires CMake and pybind11):
+
+```bash
 mkdir build
 cd build
 cmake ..
 make
 ```
-6. Have fun training!
-```
+
+This produces the `env` Python module that the training and evaluation scripts import.
+
+## Training
+
+Train the multi-agent combinatorial Q-learning agents (the main algorithm from the paper):
+
+```bash
 cd TensorPack/MA_Hierarchical_Q
 python main.py
 ```
 
-## Evaluation against other baselines
-1. Download pretrained model from https://jbox.sjtu.edu.cn/l/L04d4A or [GoogleDrive](https://drive.google.com/drive/folders/1YTNR5JYNgNfQpQ9DwhQ3ClcyeXKn_17b?usp=sharing), then put it into `pretrained_model`
-2. Build Monte-Carlo baseline and move the lib into root
+Three agents (landlord and two peasants) are trained adversarially through self-play, each with its own experience replay; training progress is evaluated periodically against rule-based and random baselines.
+
+## Pretrained Models
+
+Download the pretrained checkpoints from [Hugging Face](https://huggingface.co/qq456cvb/doudizhu-C), [SJTU jBox](https://jbox.sjtu.edu.cn/l/L04d4A) or [Google Drive](https://drive.google.com/drive/folders/1YTNR5JYNgNfQpQ9DwhQ3ClcyeXKn_17b?usp=sharing), and put them into `pretrained_model`:
+
+```bash
+hf download qq456cvb/doudizhu-C --local-dir pretrained_model
 ```
+
+## Evaluation
+
+1. Build the Monte-Carlo baseline from [doudizhu-baseline](https://github.com/qq456cvb/doudizhu-baseline) and move the resulting library into the repo root:
+
+```bash
 git clone https://github.com/qq456cvb/doudizhu-baseline.git
 cd doudizhu-baseline/doudizhu
-mkdir build
-cd build
+mkdir build && cd build
 cmake ..
 make
 mv mct.cpython-36m-x86_64-linux-gnu.so [doudizhu-C ROOT]
 ```
-3. Run evaluation scripts in `scripts`
-```
+
+2. Run the evaluation scripts, which play the trained CDQN agent against random and rule-based (RHCP/MCTS) baselines in every seat assignment:
+
+```bash
 cd scripts
 python experiments.py
 ```
+
 ## Directory Structure
-* `TensorPack` contain different RL algorithms to train agents
-* `experiments` contain scripts to evaluate agents' performance against other baselines
-* `simulator` contain scripts to evaluate agents' performance against online gaming platform called "QQ Dou Di Zhu" (we provide it for academic use only, use it at your own risk!)
-## Miscellaneous
-* We provide a Monte-Carlo-Tree-Search algorithm in https://github.com/qq456cvb/doudizhu-baseline
-* We provide a configured Dou Di Zhu mini-server in https://github.com/qq456cvb/doudizhu-tornado for you to play interactively. NOTE you should build the server and load pretrained model by yourself! Tutorial coming soon!
-* If you meet any problems, open an issue.
 
-<!-- README refined by Cursor -->
+- `card.*`, `game.*`, `dancing_link.*`, `main.cpp` — C++ game engine and pybind11 bindings.
+- `TensorPack/MA_Hierarchical_Q` — multi-agent combinatorial Q-learning (the paper's method).
+- `TensorPack/Hierarchical_Q`, `TensorPack/Vanilla_Q` — single-agent hierarchical and naive DQN baselines.
+- `TensorPack/A3C`, `TensorPack/A3C_FC` — A3C baselines.
+- `TensorPack/PolicySL`, `TensorPack/ValueSL` — supervised policy/value pretraining.
+- `scripts` — evaluation of agents against the baselines.
+- `simulator` — scripts to play against the online platform "QQ Dou Di Zhu" (provided for academic use only; use at your own risk!).
 
-## Data and Artifact Mirrors
+## Related Projects
 
-No verified Hugging Face mirror is available yet for the artifacts below; use the original sources until a complete mirror is uploaded.
+- [doudizhu-baseline](https://github.com/qq456cvb/doudizhu-baseline) — Monte-Carlo-Tree-Search baseline for Dou Di Zhu.
+- [doudizhu-tornado](https://github.com/qq456cvb/doudizhu-tornado) — a web mini-server to play against the agents interactively (build the server and load the pretrained model yourself).
+- [DouZero](https://github.com/kwai/DouZero) — a more recent, actively maintained strong Dou Di Zhu AI, for those interested.
 
-Original, external, or pending sources:
-- Pretrained models: [https://drive.google.com/drive/folders/1YTNR5JYNgNfQpQ9DwhQ3ClcyeXKn_17b?usp=sharing](https://drive.google.com/drive/folders/1YTNR5JYNgNfQpQ9DwhQ3ClcyeXKn_17b?usp=sharing). Hugging Face mirror is pending because the source did not expose a retrievable public file URL during this cleanup.
-## DouZero
-Recently, another algorithm called DouZero (https://github.com/kwai/DouZero) has been proposed, to whom may be interested in a strong DouDizhu AI. It is also an actively maintained open-source project.
+## Citation
 
-## References
-See our paper https://arxiv.org/pdf/1901.08925.pdf. If you find this algorithm useful or use part of its code in your projects, please consider cite
-```
+If you find this algorithm useful or use part of its code in your projects, please consider citing:
+
+```bibtex
 @inproceedings{you2020combinatorial,
   title={Combinatorial Q-Learning for Dou Di Zhu},
   author={You, Yang and Li, Liangwei and Guo, Baisong and Wang, Weiming and Lu, Cewu},
