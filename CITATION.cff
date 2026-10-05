@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+message: "If you use this code or data in your research, please cite the paper below."
+title: "Combinatorial Q-Learning for Dou Di Zhu"
+authors:
+  - family-names: "You"
+    given-names: "Yang"
+    orcid: "https://orcid.org/0000-0003-0125-0792"
+  - family-names: "Li"
+    given-names: "Liangwei"
+  - family-names: "Guo"
+    given-names: "Baisong"
+  - family-names: "Wang"
+    given-names: "Weiming"
+  - family-names: "Lu"
+    given-names: "Cewu"
+repository-code: "https://github.com/qq456cvb/doudizhu-C"
+preferred-citation:
+  type: conference-paper
+  title: "Combinatorial Q-Learning for Dou Di Zhu"
+  authors:
+    - family-names: "You"
+      given-names: "Yang"
+      orcid: "https://orcid.org/0000-0003-0125-0792"
+    - family-names: "Li"
+      given-names: "Liangwei"
+    - family-names: "Guo"
+      given-names: "Baisong"
+    - family-names: "Wang"
+      given-names: "Weiming"
+    - family-names: "Lu"
+      given-names: "Cewu"
+  collection-title: "Proceedings of the AAAI Conference on Artificial Intelligence and Interactive Digital Entertainment"
+  conference:
+    name: "AIIDE 2020"
+  year: 2020
+  volume: 16
+  issue: "1"
+  start: 301
+  end: 307
+  url: "https://arxiv.org/abs/1901.08925"
+  identifiers:
+    - type: other
+      value: "arXiv:1901.08925"
+      description: "arXiv preprint"
