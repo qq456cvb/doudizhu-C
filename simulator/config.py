@@ -75,7 +75,7 @@ class Configuration:
         self.yaobuqi = np.load(self.array_path + 'yaobuqi' + '.npy')
         self.alone_chupai = np.load(self.array_path + 'alone_chupai' + '.npy')
         self.end = np.load(self.array_path + 'end' + '.npy')
-        self.cend = np.load(self.array_path + 'continous_end' + '.npy')
+        self.cend = np.load(self.array_path + 'continuous_end' + '.npy')
         self.ming_chupai = np.load(self.array_path + 'ming_chupai' + '.npy')
         self.fail_end = np.load(self.array_path + 'fail_end' + '.npy')
         self.addict_window = np.load(self.array_path + 'addict_window' + '.npy')
@@ -91,7 +91,7 @@ class Configuration:
             'yaobuqi': self.yaobuqi,
             'alone_chupai': self.alone_chupai,
             'end': self.end,
-             # 'continous_end': self.end,
+             # 'continuous_end': self.end,
             'ming_chupai': self.ming_chupai,
             'fail_end': self.fail_end
         }

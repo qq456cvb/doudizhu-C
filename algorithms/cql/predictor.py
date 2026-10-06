@@ -1,30 +1,23 @@
+from tensorpack import *
 import os
 import sys
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
-ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '..'))
+ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '../..'))
 sys.path.insert(0, ROOT_PATH)
 sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
-
-from algorithms.cql.model import Model
-from tensorpack import *
-import numpy as np
-
-from env import Env, get_combinations_nosplit, get_combinations_recursive
-from logger import Logger
-from doudizhu.utils import to_char
-from doudizhu.card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, \
-    augment_action_space, clamp_action_idx
+from env import get_combinations_nosplit, get_combinations_recursive
+from doudizhu.card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, augment_action_space, clamp_action_idx
 import numpy as np
 import tensorflow as tf
 from doudizhu.utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
 from doudizhu.utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter, get_mask_onehot60
-from tensorpack.utils.serialize import dumps, loads
 
 
 class Predictor:
-    def __init__(self):
-        self.num_actions = [100, 21]
-        self.encoding = np.load(os.path.join(ROOT_PATH, 'algorithms/autoencoder/encoding.npy'))
+    def __init__(self, predictor, num_actions=(100, 21)):
+        self.predictor = predictor
+        self.num_actions = num_actions
+        self.encoding = np.load(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../autoencoder/encoding.npy'))
         print('predictor loaded')
 
     def pad_state(self, state):
@@ -36,8 +29,7 @@ class Predictor:
             newstates.append(s)
         newstates = np.stack(newstates, axis=0)
         if len(state) < self.num_actions[0]:
-            state = np.concatenate(
-                [newstates, np.repeat(newstates[-1:, :, :], self.num_actions[0] - newstates.shape[0], axis=0)], axis=0)
+            state = np.concatenate([newstates, np.repeat(newstates[-1:, :, :], self.num_actions[0] - newstates.shape[0], axis=0)], axis=0)
         else:
             state = newstates
         return state
@@ -71,8 +63,7 @@ class Predictor:
             # augment mask
             # TODO: known issue: 555444666 will not decompose into 5554 and 66644
             combs = get_combinations_nosplit(mask, card_mask)
-            combs = [([] if len(last_cards_char) == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb]
-                     for comb in combs]
+            combs = [([] if len(last_cards_char) == 0 else [0]) + [clamp_action_idx(idx_mapping[idx]) for idx in comb] for comb in combs]
 
             if len(last_cards_char) > 0:
                 idx_must_be_contained = set(
@@ -87,8 +78,7 @@ class Predictor:
             else:
                 fine_mask = None
         else:
-            mask = get_mask_onehot60(curr_cards_char, action_space, None).reshape(len(action_space), 15, 4).sum(
-                -1).astype(
+            mask = get_mask_onehot60(curr_cards_char, action_space, None).reshape(len(action_space), 15, 4).sum(-1).astype(
                 np.uint8)
             valid = mask.sum(-1) > 0
             cards_target = Card.char2onehot60(curr_cards_char).reshape(-1, 4).sum(-1).astype(np.uint8)
@@ -101,9 +91,8 @@ class Predictor:
             if len(last_cards_char) > 0:
                 valid[0] = True
                 idx_must_be_contained = set(
-                    [idx for idx in range(len(action_space)) if
-                     valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
-                         bigger_than(CardGroup.to_cardgroup(last_cards_char))])
+                    [idx for idx in range(len(action_space)) if valid[idx] and CardGroup.to_cardgroup(action_space[idx]). \
+                        bigger_than(CardGroup.to_cardgroup(last_cards_char))])
                 combs = [comb for comb in combs if not idx_must_be_contained.isdisjoint(comb)]
                 fine_mask = np.zeros([len(combs), self.num_actions[1]], dtype=np.bool)
                 for i in range(len(combs)):
@@ -120,8 +109,7 @@ class Predictor:
         idx = np.random.permutation(len(combs))[:num_sample]
         return [combs[i] for i in idx], (masks[idx] if masks is not None else None)
 
-    def get_state_and_action_space(self, is_comb, curr_cards_char=None, last_two_cards_char=None, prob_state=None,
-                                   cand_state=None, cand_actions=None, action=None, fine_mask=None):
+    def get_state_and_action_space(self, is_comb, curr_cards_char=None, last_two_cards_char=None, prob_state=None, cand_state=None, cand_actions=None, action=None, fine_mask=None):
         def cards_char2embedding(cards_char):
             test = (action_space_onehot60 == Card.char2onehot60(cards_char))
             test = np.all(test, axis=1)
@@ -174,63 +162,33 @@ class Predictor:
             assert state.shape[0] == self.num_actions[0] and state.shape[1] == self.num_actions[1]
         return state, available_actions, fine_mask
 
-    # last cards contains two information: last, last last
-    def predict(self, handcards, last_cards, prob_state, simulator, sim2coord, coord2sim):
+    def predict(self, handcards, last_two_cards, prob_state):
         # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
         fine_mask_input = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         # first hierarchy
-        state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards,
-                                                                              last_two_cards_char=last_cards,
-                                                                              prob_state=prob_state)
-
-        # push to coordinator
-        sim2coord.send(
-            dumps([simulator.name, simulator.agent_names[simulator.current_lord_pos], state, True, fine_mask_input]))
-        # q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
-        q_values = loads(coord2sim.recv(copy=False).bytes)
-
+        # print(handcards, last_cards)
+        state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards, last_two_cards_char=last_two_cards, prob_state=prob_state)
+        # print(available_actions)
+        q_values = self.predictor(state[None, :, :, :], np.array([True]), np.array([fine_mask_input]))[0][0]
         action = np.argmax(q_values)
         assert action < self.num_actions[0]
         # clamp action to valid range
         action = min(action, self.num_actions[0] - 1)
-        if np.random.rand() < simulator.exploration:
-            action = np.random.randint(self.num_actions[0])
-
-        # prepare buffer for expreplay
-        buff_comb = [state, action, fine_mask_input]
 
         # second hierarchy
-        state, available_actions, fine_mask = self.get_state_and_action_space(False, cand_state=state,
-                                                                              cand_actions=available_actions,
-                                                                              action=action, fine_mask=fine_mask)
+        state, available_actions, fine_mask = self.get_state_and_action_space(False, cand_state=state, cand_actions=available_actions, action=action, fine_mask=fine_mask)
         if fine_mask is not None:
             fine_mask_input = fine_mask if fine_mask.shape[0] == max(self.num_actions[0], self.num_actions[1]) \
-                else np.pad(fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - fine_mask.shape[0]),
-                            'constant',
+                else np.pad(fine_mask, (0, max(self.num_actions[0], self.num_actions[1]) - fine_mask.shape[0]), 'constant',
                             constant_values=(0, 0))
-        # push to coordinator
-        sim2coord.send(dumps(
-            [simulator.name, simulator.agent_names[simulator.current_lord_pos], state,
-             False, fine_mask_input]))
-        # q_values = self.predictor([state[None, :, :, :], np.array([True]), np.array([fine_mask_input])])[0][0]
-        q_values = loads(coord2sim.recv(copy=False).bytes)
-
+        q_values = self.predictor(state[None, :, :, :], np.array([False]), np.array([fine_mask_input]))[0][0]
         if fine_mask is not None:
             q_values = q_values[:self.num_actions[1]]
-            assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
-            # q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
+            # assert np.all(q_values[np.where(np.logical_not(fine_mask))[0]] < -100)
+            q_values[np.where(np.logical_not(fine_mask))[0]] = np.nan
         action = np.nanargmax(q_values)
-
         assert action < self.num_actions[1]
         # clamp action to valid range
         action = min(action, self.num_actions[1] - 1)
-        if np.random.rand() < simulator.exploration:
-            action = np.random.randint(self.num_actions[1])
-            while q_values[action] < -100:
-                action = np.random.randint(self.num_actions[1])
         intention = available_actions[action]
-
-        # prepare buffer for expreplay
-        buff_fine = [state, action, fine_mask_input]
-
-        return intention, buff_comb, buff_fine
+        return intention

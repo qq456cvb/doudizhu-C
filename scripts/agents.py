@@ -2,21 +2,21 @@ import os
 import sys
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
 ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '..'))
-sys.path.append(ROOT_PATH)
+sys.path.insert(0, ROOT_PATH)
 sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
 
 from datetime import datetime
 import numpy as np
-from card import Card, Category, CardGroup, action_space
-from utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
+from doudizhu.card import Card, Category, CardGroup, action_space
+from doudizhu.utils import to_char, to_value, get_mask_alter, give_cards_without_minor, \
     get_mask, action_space_single, action_space_pair, get_category_idx, normalize
 
 from datetime import datetime
 from tensorpack import *
 from env import Env as CEnv
 from mct import mcsearch, CCard, CCardGroup, CCategory
-from TensorPack.MA_Hierarchical_Q.predictor import Predictor
-from TensorPack.MA_Hierarchical_Q.DQNModel import Model
+from algorithms.cql.predictor import Predictor
+from algorithms.cql.model import Model
 
 
 weight_path = os.path.join(ROOT_PATH, 'pretrained_model/model-302500')
