@@ -10,8 +10,8 @@ from tqdm import tqdm
 
 from datetime import datetime
 from tensorpack.utils.utils import get_tqdm
-from envs import make_env
-from agents import make_agent
+from evaluation.envs import make_env
+from evaluation.agents import make_agent
 from multiprocessing import *
 
 

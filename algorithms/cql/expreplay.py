@@ -431,18 +431,6 @@ class ExpReplay(DataFlow, Callback):
         v.reset()
 
 
-def h():
-    def f():
-        print(a)
-        print(b)
-    a = 1
-    b = 2
-    f()
-    a += 1
-    b += 1
-    f()
-
-
 if __name__ == '__main__':
     pass
     # def predictor(x):

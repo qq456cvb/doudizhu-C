@@ -8,8 +8,8 @@ from tensorpack.utils.stats import StatCounter
 from tensorpack.utils.utils import get_tqdm
 from multiprocessing import *
 from datetime import datetime
-from scripts.envs import make_env
-from scripts.agents import make_agent
+from evaluation.envs import make_env
+from evaluation.agents import make_agent
 
 
 types = ['RANDOM', 'RHCP', 'CDQN']

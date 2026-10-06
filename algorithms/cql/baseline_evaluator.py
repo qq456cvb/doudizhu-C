@@ -99,7 +99,7 @@ def eval_with_funcs(predictors, role_id, nr_eval, get_player_fn):
     return peasant_win_rate
 
 
-class BLEvaluator(Callback):
+class BaselineEvaluator(Callback):
     def __init__(self, nr_eval, agent_name, role_id, get_player_fn):
         self.eval_episode = nr_eval
         self.agent_name = agent_name

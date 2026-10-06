@@ -9,7 +9,7 @@ from algorithms.cql.expreplay import ExpReplay
 from doudizhu.env import Env
 from algorithms.cql.model import Model
 from algorithms.cql.evaluator import Evaluator
-from algorithms.cql.baseline_evaluator import BLEvaluator
+from algorithms.cql.baseline_evaluator import BaselineEvaluator
 import argparse
 from env import Env as CEnv
 
@@ -34,7 +34,7 @@ NUM_ACTIONS = None
 METHOD = None
 
 
-class MyDataFLow(DataFlow):
+class MultiAgentDataFlow(DataFlow):
     def __init__(self, exps):
         self.exps = exps
 
@@ -62,11 +62,11 @@ def get_config():
         update_frequency=UPDATE_FREQ
     ) for name in agent_names]
 
-    df = MyDataFLow(exps)
+    df = MultiAgentDataFlow(exps)
 
-    bl_evaluators = [BLEvaluator(EVAL_EPISODE, agent_names[0], 2, lambda: CEnv()),
-                     BLEvaluator(EVAL_EPISODE, agent_names[1], 3, lambda: CEnv()),
-                     BLEvaluator(EVAL_EPISODE, agent_names[2], 1, lambda: CEnv())]
+    bl_evaluators = [BaselineEvaluator(EVAL_EPISODE, agent_names[0], 2, lambda: CEnv()),
+                     BaselineEvaluator(EVAL_EPISODE, agent_names[1], 3, lambda: CEnv()),
+                     BaselineEvaluator(EVAL_EPISODE, agent_names[2], 1, lambda: CEnv())]
 
     return AutoResumeTrainConfig(
         # always_resume=False,

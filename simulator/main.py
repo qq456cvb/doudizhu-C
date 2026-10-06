@@ -73,7 +73,7 @@ def hook():
         ctypes.windll.user32.UnregisterHotKey(None, 1)
 
 
-class MyDataFLow(DataFlow):
+class MultiAgentDataFlow(DataFlow):
     def __init__(self, exps):
         self.exps = exps
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
             pipe_sim2exp=name_sim2exp + str(i)
         ) for i, name in enumerate(agent_names)]
 
-        df = MyDataFLow(exps)
+        df = MultiAgentDataFlow(exps)
 
         return AutoResumeTrainConfig(
             # always_resume=False,
