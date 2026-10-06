@@ -396,7 +396,7 @@ class MySimulatorMaster(SimulatorMaster, Callback):
             for i in range(3):
                 if i != 1:
                     continue
-                    # notice that C++ returns the reward for farmer, transform to the reward in each agent's perspective
+                    # notice that C++ returns the reward for peasant, transform to the reward in each agent's perspective
                 client.memory[i][-1].reward = reward if i != 1 else -reward
             self._parse_memory(0, client)
         # feed state and return action

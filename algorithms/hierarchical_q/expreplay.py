@@ -369,7 +369,7 @@ class ExpReplay(DataFlow, Callback):
         self._current_game_score.feed(reward)
 
         if isOver:
-            # print('lord wins' if reward > 0 else 'farmer wins')
+            # print('lord wins' if reward > 0 else 'peasant wins')
             self._player_scores.feed(self._current_game_score.sum)
             # print(self._current_game_score.sum)
             while True:

@@ -56,7 +56,7 @@ def play_one_episode(env, func):
         # print(s.shape)
 
         role_id = env.get_role_ID()
-        # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
+        # print('%s current cards' % ('lord' if role_id == 2 else 'peasant'), curr_cards_char)
 
         if role_id in ROLE_IDS_TO_TRAIN:
             if is_active:
@@ -84,9 +84,9 @@ def play_one_episode(env, func):
             assert (intention is not None)
         else:
             intention, r, _ = env.step_auto()
-            # print('farmer gives', to_char(intention))
+            # print('peasant gives', to_char(intention))
     # if r > 0:
-    #     print('farmer wins')
+    #     print('peasant wins')
     # else:
     #     print('lord wins')
     return int(r > 0)
@@ -132,7 +132,7 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
         stat.feed(val)
         if verbose:
             if val > 0:
-                logger.info("farmer wins")
+                logger.info("peasant wins")
             else:
                 logger.info("lord wins")
 
@@ -145,8 +145,8 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, verbose=False):
         k.join()
     while q.qsize():
         fetch()
-    farmer_win_rate = stat.average
-    return farmer_win_rate
+    peasant_win_rate = stat.average
+    return peasant_win_rate
 
 
 class Evaluator(Callback):
@@ -165,24 +165,24 @@ class Evaluator(Callback):
 
     def _before_train(self):
         t = time.time()
-        farmer_win_rate = eval_with_funcs(
+        peasant_win_rate = eval_with_funcs(
             self.pred_funcs, self.eval_episode, self.get_player_fn, verbose=False)
         t = time.time() - t
-        logger.info("farmer win rate: {}".format(farmer_win_rate))
-        logger.info("lord win rate: {}".format(1 - farmer_win_rate))
-        # self.lord_win_rate.load(1 - farmer_win_rate)
+        logger.info("peasant win rate: {}".format(peasant_win_rate))
+        logger.info("lord win rate: {}".format(1 - peasant_win_rate))
+        # self.lord_win_rate.load(1 - peasant_win_rate)
         # if t > 10 * 60:  # eval takes too long
         #     self.eval_episode = int(self.eval_episode * 0.94)
 
     def _trigger_epoch(self):
         t = time.time()
-        farmer_win_rate = eval_with_funcs(
+        peasant_win_rate = eval_with_funcs(
             self.pred_funcs, self.eval_episode, self.get_player_fn, verbose=False)
         t = time.time() - t
         if t > 10 * 60:  # eval takes too long
             self.eval_episode = int(self.eval_episode * 0.94)
-        self.trainer.monitors.put_scalar('farmer_win_rate', farmer_win_rate)
-        self.trainer.monitors.put_scalar('lord_win_rate', 1 - farmer_win_rate)
+        self.trainer.monitors.put_scalar('peasant_win_rate', peasant_win_rate)
+        self.trainer.monitors.put_scalar('lord_win_rate', 1 - peasant_win_rate)
 
 
 if __name__ == '__main__':

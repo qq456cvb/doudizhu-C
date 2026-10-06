@@ -163,7 +163,7 @@ class Predictor:
         return state, available_actions, fine_mask
 
     def predict(self, handcards, last_two_cards, prob_state):
-        # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
+        # print('%s current cards' % ('lord' if role_id == 2 else 'peasant'), curr_cards_char)
         fine_mask_input = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         # first hierarchy
         # print(handcards, last_cards)

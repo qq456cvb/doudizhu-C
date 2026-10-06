@@ -407,7 +407,7 @@ if __name__ == '__main__':
                 for i in range(3):
                     j = -1
                     while client.memory[i][j].reward == 0:
-                        # notice that C++ returns the reward for farmer, transform to the reward in each agent's perspective
+                        # notice that C++ returns the reward for peasant, transform to the reward in each agent's perspective
                         client.memory[i][j].reward = reward if i != 1 else -reward
                         if client.memory[i][j].first_st:
                             break

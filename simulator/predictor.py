@@ -176,7 +176,7 @@ class Predictor:
 
     # last cards contains two information: last, last last
     def predict(self, handcards, last_cards, prob_state, simulator, sim2coord, coord2sim):
-        # print('%s current cards' % ('lord' if role_id == 2 else 'farmer'), curr_cards_char)
+        # print('%s current cards' % ('lord' if role_id == 2 else 'peasant'), curr_cards_char)
         fine_mask_input = np.ones([max(self.num_actions[0], self.num_actions[1])], dtype=np.bool)
         # first hierarchy
         state, available_actions, fine_mask = self.get_state_and_action_space(True, curr_cards_char=handcards,

@@ -601,7 +601,7 @@ public:
         return result;
     }
 
-    // since it's a global state, we need to keep card states in order: lord, farmer next to lord, farmer before lord
+    // since it's a global state, we need to keep card states in order: lord, peasant next to lord, peasant before lord
     py::array_t<int> getStateAllCards() {
         auto state = toOneHot60(arrHandCardData[clsGameSituation->nDiZhuID].color_nHandCardList);
         state += toOneHot60(arrHandCardData[(clsGameSituation->nDiZhuID + 1) % 3].color_nHandCardList);

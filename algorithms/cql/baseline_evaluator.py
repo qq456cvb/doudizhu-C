@@ -95,8 +95,8 @@ def eval_with_funcs(predictors, role_id, nr_eval, get_player_fn):
         k.join()
     while q.qsize():
         fetch()
-    farmer_win_rate = stat.average
-    return farmer_win_rate
+    peasant_win_rate = stat.average
+    return peasant_win_rate
 
 
 class BLEvaluator(Callback):
@@ -116,24 +116,24 @@ class BLEvaluator(Callback):
 
     def _before_train(self):
         t = time.time()
-        farmer_win_rate = eval_with_funcs(
+        peasant_win_rate = eval_with_funcs(
             self.pred_funcs, self.role_id, self.eval_episode, self.get_player_fn)
         t = time.time() - t
-        logger.info(("ROLE_ID_[%d]_farmer_win_rate: {}" % self.role_id).format(farmer_win_rate))
-        logger.info(("ROLE_ID_[%d]_lord_win_rate: {}" % self.role_id).format(1 - farmer_win_rate))
-        # self.lord_win_rate.load(1 - farmer_win_rate)
+        logger.info(("ROLE_ID_[%d]_peasant_win_rate: {}" % self.role_id).format(peasant_win_rate))
+        logger.info(("ROLE_ID_[%d]_lord_win_rate: {}" % self.role_id).format(1 - peasant_win_rate))
+        # self.lord_win_rate.load(1 - peasant_win_rate)
         # if t > 10 * 60:  # eval takes too long
         #     self.eval_episode = int(self.eval_episode * 0.94)
 
     def _trigger_epoch(self):
         t = time.time()
-        farmer_win_rate = eval_with_funcs(
+        peasant_win_rate = eval_with_funcs(
             self.pred_funcs, self.role_id, self.eval_episode, self.get_player_fn)
         t = time.time() - t
         # if t > 10 * 60:  # eval takes too long
         #     self.eval_episode = int(self.eval_episode * 0.94)
-        self.trainer.monitors.put_scalar('ROLE_ID_[%d]_farmer_win_rate' % self.role_id, farmer_win_rate)
-        self.trainer.monitors.put_scalar('ROLE_ID_[%d]_lord_win_rate' % self.role_id, 1 - farmer_win_rate)
+        self.trainer.monitors.put_scalar('ROLE_ID_[%d]_peasant_win_rate' % self.role_id, peasant_win_rate)
+        self.trainer.monitors.put_scalar('ROLE_ID_[%d]_lord_win_rate' % self.role_id, 1 - peasant_win_rate)
 
 
 if __name__ == '__main__':
@@ -157,6 +157,6 @@ if __name__ == '__main__':
         while r == 0:
             role = env.get_role_ID()
             intention, r, _ = env.step_auto()
-            # print('lord gives' if role == 2 else 'farmer gives', to_char(intention))
+            # print('lord gives' if role == 2 else 'peasant gives', to_char(intention))
         stat.feed(int(r < 0))
     print(stat.average)

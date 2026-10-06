@@ -346,7 +346,7 @@ class ExpReplay(DataFlow, Callback):
                         raise Exception("card comparison error")
             winner, isOver = self.player.step(self._action_space[act])
 
-        # step for AI farmers
+        # let the other agents play until it is this agent's turn again
         while not isOver and self.player.get_curr_agent_name() != self.agent_name:
             handcards = self.player.get_curr_handcards()
             last_two_cards = self.player.get_last_two_cards()

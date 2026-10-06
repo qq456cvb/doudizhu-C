@@ -1,6 +1,6 @@
-# rid 1 = agent 3 (farmer_up)
+# rid 1 = agent 3 (peasant_up)
 # rid 2 = agent 1 (lord)
-# rid 3 = agent 2 (farmer_down)
+# rid 3 = agent 2 (peasant_down)
 
 import matplotlib.pyplot as plt
 import re
@@ -13,11 +13,11 @@ def get_log_info(log_info):
     #         'baseline_wr': [],
     #         'training_wr': [],
     #     },
-    #     'farmer_up': {
+    #     'peasant_up': {
     #         'baseline_wr': [],
     #         'training_wr': [],
     #     },
-    #     'farmer_down': {
+    #     'peasant_down': {
     #         'baseline_wr': [],
     #         'training_wr': [],
     #     }
@@ -46,20 +46,20 @@ def get_log_info(log_info):
             log_info["lord"]["baseline_wr"].append(
                 float(re.findall("\[2\]_lord_win_rate: (.*?)\n", current_paragraph)[0])
             )
-            log_info["farmer_up"]["baseline_wr"].append(
-                float(re.findall("\[1\]_farmer_win_rate: (.*?)\n", current_paragraph)[0])
+            log_info["peasant_up"]["baseline_wr"].append(
+                float(re.findall("\[1\]_peasant_win_rate: (.*?)\n", current_paragraph)[0])
             )
-            log_info["farmer_down"]["baseline_wr"].append(
-                float(re.findall("\[3\]_farmer_win_rate: (.*?)\n", current_paragraph)[0])
+            log_info["peasant_down"]["baseline_wr"].append(
+                float(re.findall("\[3\]_peasant_win_rate: (.*?)\n", current_paragraph)[0])
             )
             log_info["lord"]["training_wr"].append(
                 float(re.findall("lord_win_rate: (.*?)\n", current_paragraph)[3])
             )
-            log_info["farmer_up"]["training_wr"].append(
-                float(re.findall("farmer_win_rate: (.*?)\n", current_paragraph)[3])
+            log_info["peasant_up"]["training_wr"].append(
+                float(re.findall("peasant_win_rate: (.*?)\n", current_paragraph)[3])
             )
-            log_info["farmer_down"]["training_wr"].append(
-                float(re.findall("farmer_win_rate: (.*?)\n", current_paragraph)[3])
+            log_info["peasant_down"]["training_wr"].append(
+                float(re.findall("peasant_win_rate: (.*?)\n", current_paragraph)[3])
             )
             log_info["epoch"].append(epoch)
         except:
@@ -78,13 +78,13 @@ def info_verbose(log_info, e_epoch=None, path=None):
     sm = gaussian_filter1d(log_info["lord"]["baseline_wr"][:end_epoch], sigma=10)
     ax1.plot(epochs[:end_epoch], sm, label="lord", color='r')
 
-    ax1.plot(epochs[:end_epoch], log_info["farmer_up"]["baseline_wr"][:end_epoch], alpha=trans, color='g')
-    sm = gaussian_filter1d(log_info["farmer_up"]["baseline_wr"][:end_epoch], sigma=10)
-    ax1.plot(epochs[:end_epoch], sm, label="farmer_up", color='g')
+    ax1.plot(epochs[:end_epoch], log_info["peasant_up"]["baseline_wr"][:end_epoch], alpha=trans, color='g')
+    sm = gaussian_filter1d(log_info["peasant_up"]["baseline_wr"][:end_epoch], sigma=10)
+    ax1.plot(epochs[:end_epoch], sm, label="peasant_up", color='g')
 
-    ax1.plot(epochs[:end_epoch], log_info["farmer_down"]["baseline_wr"][:end_epoch], alpha=trans, color='b')
-    sm = gaussian_filter1d(log_info["farmer_down"]["baseline_wr"][:end_epoch], sigma=10)
-    ax1.plot(epochs[:end_epoch], sm, label="farmer_down", color='b')
+    ax1.plot(epochs[:end_epoch], log_info["peasant_down"]["baseline_wr"][:end_epoch], alpha=trans, color='b')
+    sm = gaussian_filter1d(log_info["peasant_down"]["baseline_wr"][:end_epoch], sigma=10)
+    ax1.plot(epochs[:end_epoch], sm, label="peasant_down", color='b')
 
     ax1.legend(loc=4)
     ax1.set_ylim([0, 0.8])
@@ -97,9 +97,9 @@ def info_verbose(log_info, e_epoch=None, path=None):
     sm = gaussian_filter1d(log_info["lord"]["training_wr"][:end_epoch], sigma=10)
     ax2.plot(epochs[:end_epoch], sm, color='c', label='lord')
 
-    ax2.plot(epochs[:end_epoch], log_info["farmer_up"]["training_wr"][:end_epoch], alpha=trans, color='m')
-    sm = gaussian_filter1d(log_info["farmer_up"]["training_wr"][:end_epoch], sigma=10)
-    ax2.plot(epochs[:end_epoch], sm, color='m', label="farmer")
+    ax2.plot(epochs[:end_epoch], log_info["peasant_up"]["training_wr"][:end_epoch], alpha=trans, color='m')
+    sm = gaussian_filter1d(log_info["peasant_up"]["training_wr"][:end_epoch], sigma=10)
+    ax2.plot(epochs[:end_epoch], sm, color='m', label="peasant")
     ax2.legend()
     ax2.set_ylim([0, 1])
     ax2.set_title("Training")
