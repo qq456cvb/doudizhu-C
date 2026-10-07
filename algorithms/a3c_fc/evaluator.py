@@ -44,7 +44,7 @@ def play_one_episode(env, func):
         for i in range(num):
             input_single, input_pair, _, _ = get_masks(handcards, None)
             _, _, _, _, _, _, minor_response_prob = func(
-                [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 9085]), np.array([minor_type])]
+                [np.array([role_id]), s.reshape(1, -1), np.zeros([1, len(action_space)]), np.array([minor_type])]
             )
 
             # give minor cards
@@ -109,7 +109,7 @@ def play_one_episode(env, func):
                 decision_mask, response_mask, _, length_mask = get_mask_alter(curr_cards_char, [], last_category_idx)
 
                 _, _, _, active_decision_prob, active_response_prob, active_seq_prob, _ = func(
-                    [np.array([role_id]), s.reshape(1, -1), np.zeros([1, 9085]), np.zeros([s.shape[0]])]
+                    [np.array([role_id]), s.reshape(1, -1), np.zeros([1, len(action_space)]), np.zeros([s.shape[0]])]
                 )
 
                 # make decision depending on output

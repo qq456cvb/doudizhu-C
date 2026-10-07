@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' el
 from env import Env as CEnv
 from doudizhu.utils import get_seq_length, pick_minor_targets, to_char, discard_onehot_from_s_60
 from doudizhu.utils import pick_main_cards
+from doudizhu.card import action_space
 from six.moves import queue
 
 import tensorflow.contrib.slim as slim
@@ -43,10 +44,10 @@ else:
     CancelledError = Exception
 
 GAMMA = 0.99
-POLICY_INPUT_DIM = 9085
-POLICY_LAST_INPUT_DIM = 9085
+POLICY_INPUT_DIM = len(action_space)   # every input is a legal-move mask over the action space
+POLICY_LAST_INPUT_DIM = len(action_space)
 POLICY_WEIGHT_DECAY = 1e-3
-VALUE_INPUT_DIM = 9085 * 3
+VALUE_INPUT_DIM = len(action_space) * 3
 LORD_ID = 2
 SIMULATOR_PROC = 50
 
