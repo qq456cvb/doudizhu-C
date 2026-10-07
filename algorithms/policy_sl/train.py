@@ -1,6 +1,6 @@
 from tensorpack.tfutils.summary import add_moving_summary
 from tensorpack import *
-from tensorpack.tfutils.gradproc import MapGradient, SummaryGradient
+from tensorpack.tfutils.gradproc import MapGradient
 from tensorpack.tfutils import (
     get_current_tower_context, optimizer)
 from tensorpack.utils.gpu import get_nr_gpu
@@ -15,24 +15,31 @@ sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' el
 
 
 from env import Env
-from doudizhu.card import Card, Category
-from algorithms.policy_sl.evaluator import Evaluator
-from doudizhu.utils import get_seq_length, pick_minor_targets, to_char, discard_onehot_from_s_60
-from doudizhu.utils import pick_main_cards
+from doudizhu.card import action_space, action_index
+from doudizhu.utils import to_char
+from algorithms.policy_sl.evaluator import Evaluator, policy_inputs, LSTM_STATE_DIM
 import multiprocessing
 import numpy as np
 from algorithms.resnet_blocks import identity_block, upsample_block, downsample_block
 import tensorflow as tf
 
 INPUT_DIM = 60 * 3
-LAST_INPUT_DIM = 60
+LAST_INPUT_DIM = 60 * 2
 WEIGHT_DECAY = 5 * 1e-4
 SCOPE = 'SL_policy_network'
+# residual layers of each conv tower, as [num_channel, kernel_size, type]
+CONV_LAYERS = [[128, 3, 'identity'],
+               [128, 3, 'identity'],
+               [128, 3, 'downsampling'],
+               [128, 3, 'identity'],
+               [128, 3, 'identity'],
+               [256, 3, 'downsampling'],
+               [256, 3, 'identity'],
+               [256, 3, 'identity']]
 
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
 STEPS_PER_EPOCH = 1000
 BATCH_SIZE = 1024
-
 
 def conv_block(input, conv_dim, input_dim, res_params, scope):
     with tf.variable_scope(scope):
@@ -102,383 +109,98 @@ class DataFromGeneratorRNG(RNGDataFlow):
 
 
 def data_generator(rng):
+    """Moves of the rule-based players, as (state, last_cards, lstm_state, action, mode) samples.
+
+    Every sample is fed a zero LSTM state, i.e. the LSTM is pretrained as at the start of a game; A3C
+    then carries the state from move to move.
+    """
     env = Env(rng.randint(1 << 31))
-    # logger.info('called')
+    lstm_state = np.zeros([LSTM_STATE_DIM])
 
     while True:
         env.reset()
         env.prepare()
         r = 0
         while r == 0:
-            last_cards_value = env.get_last_outcards()
-            last_cards_char = to_char(last_cards_value)
-            last_out_cards = Card.val2onehot60(last_cards_value)
-            last_category_idx = env.get_last_outcategory_idx()
-            curr_cards_char = to_char(env.get_curr_handcards())
-            is_active = True if last_cards_value.size == 0 else False
+            state, last_cards, mode = policy_inputs(env)
+            intention, r, _ = env.step_auto()
+            action = action_index(to_char(intention))
+            if action is not None:
+                yield state, last_cards, lstm_state, action, mode
 
-            # state = [own hand | next player's card probabilities | the other player's]; the C++ get_state_prob()
-            # used to include the hand itself but no longer does
-            s = np.concatenate([Card.val2onehot60(env.get_curr_handcards()), env.get_state_prob()])
-            # s = s[:60]
-            intention, r, category_idx = env.step_auto()
 
-            if category_idx == 14:
-                continue
-            minor_cards_targets = pick_minor_targets(category_idx, to_char(intention))
-            # self, state, last_cards, passive_decision_target, passive_bomb_target, passive_response_target,
-            # active_decision_target, active_response_target, seq_length_target, minor_response_target, minor_type, mode
-            if not is_active:
-                if category_idx == Category.QUADRIC and category_idx != last_category_idx:
-                    passive_decision_input = 1
-                    passive_bomb_input = intention[0] - 3
-                    yield s, last_out_cards, passive_decision_input, 0, 0, 0, 0, 0, 0, 0, 0
-                    yield s, last_out_cards, 0, passive_bomb_input, 0, 0, 0, 0, 0, 0, 1
+def policy_network(state, last_cards, lstm_state, weight_decay):
+    """One player's policy network. A3C builds its policy networks with this function too, so ModelLoader
+    can initialise them from this one.
 
-                else:
-                    if category_idx == Category.BIGBANG:
-                        passive_decision_input = 2
-                        yield s, last_out_cards, passive_decision_input, 0, 0, 0, 0, 0, 0, 0, 0
-                    else:
-                        if category_idx != Category.EMPTY:
-                            passive_decision_input = 3
-                            # OFFSET_ONE
-                            # 1st, Feb - remove relative card output since shift is hard for the network to learn
-                            passive_response_input = intention[0] - 3
-                            if passive_response_input < 0:
-                                print("something bad happens")
-                                passive_response_input = 0
-                            yield s, last_out_cards, passive_decision_input, 0, 0, 0, 0, 0, 0, 0, 0
-                            yield s, last_out_cards, 0, 0, passive_response_input, 0, 0, 0, 0, 0, 2
-                        else:
-                            passive_decision_input = 0
-                            yield s, last_out_cards, passive_decision_input, 0, 0, 0, 0, 0, 0, 0, 0
+    Returns the logits over action_space when leading (active) and when responding (passive), and the
+    new LSTM state.
+    """
+    lstm = rnn.BasicLSTMCell(LSTM_STATE_DIM // 2, state_is_tuple=False)
+    with slim.arg_scope([slim.fully_connected, slim.conv2d],
+                        weights_regularizer=slim.l2_regularizer(weight_decay)):
+        with tf.variable_scope('branch_main'):
+            flattened_1 = conv_block(state[:, :60], 32, INPUT_DIM // 3, CONV_LAYERS, 'branch_main1')
+            flattened_2 = conv_block(state[:, 60:120], 32, INPUT_DIM // 3, CONV_LAYERS, 'branch_main2')
+            flattened_3 = conv_block(state[:, 120:], 32, INPUT_DIM // 3, CONV_LAYERS, 'branch_main3')
+            flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
 
-            else:
-                seq_length = get_seq_length(category_idx, intention)
+        fc, new_lstm_state = lstm(flattened, lstm_state)
 
-                # ACTIVE OFFSET ONE!
-                active_decision_input = category_idx - 1
-                active_response_input = intention[0] - 3
-                yield s, last_out_cards, 0, 0, 0, active_decision_input, 0, 0, 0, 0, 3
-                yield s, last_out_cards, 0, 0, 0, 0, active_response_input, 0, 0, 0, 4
-
-                if seq_length is not None:
-                    # length offset one
-                    seq_length_input = seq_length - 1
-                    yield s, last_out_cards, 0, 0, 0, 0, 0, seq_length_input, 0, 0, 5
-
-            if minor_cards_targets is not None:
-                main_cards = pick_main_cards(category_idx, to_char(intention))
-                handcards = curr_cards_char.copy()
-                state = s.copy()
-                for main_card in main_cards:
-                    handcards.remove(main_card)
-                cards_onehot = Card.char2onehot60(main_cards)
-
-                # we must make the order in each 4 batch correct...
-                discard_onehot_from_s_60(state, cards_onehot)
-
-                is_pair = False
-                minor_type = 0
-                if category_idx == Category.THREE_TWO or category_idx == Category.THREE_TWO_LINE:
-                    is_pair = True
-                    minor_type = 1
-                for target in minor_cards_targets:
-                    target_val = Card.char2value_3_17(target) - 3
-                    yield state.copy(), last_out_cards, 0, 0, 0, 0, 0, 0, target_val, minor_type, 6
-                    cards = [target]
-                    handcards.remove(target)
-                    if is_pair:
-                        if target not in handcards:
-                            print('something wrong...')
-                            print('minor', target)
-                            print('main_cards', main_cards)
-                            print('handcards', handcards)
-                            print('intention', intention)
-                            print('category_idx', category_idx)
-                        else:
-                            handcards.remove(target)
-                            cards.append(target)
-
-                    # correct for one-hot state
-                    cards_onehot = Card.char2onehot60(cards)
-
-                    # print(s.shape)
-                    # print(cards_onehot.shape)
-                    discard_onehot_from_s_60(state, cards_onehot)
+        active_fc = slim.fully_connected(fc, 1024)
+        active_logits = slim.fully_connected(active_fc, len(action_space), activation_fn=None, scope='final_fc')
+        with tf.variable_scope('branch_passive'):
+            flattened_last = conv_block(last_cards, 32, LAST_INPUT_DIM, CONV_LAYERS, 'last_cards')
+            passive_attention = slim.fully_connected(inputs=flattened_last, num_outputs=1024,
+                                                     activation_fn=tf.nn.sigmoid)
+            passive_fc = passive_attention * active_fc
+        passive_logits = slim.fully_connected(passive_fc, len(action_space), activation_fn=None, reuse=True, scope='final_fc')
+    return active_logits, passive_logits, new_lstm_state
 
 
 class Model(ModelDesc):
-    def get_pred(self, state, last_cards, minor_type):
-        with tf.variable_scope(SCOPE):
-            with slim.arg_scope([slim.fully_connected, slim.conv2d], weights_regularizer=slim.l2_regularizer(WEIGHT_DECAY)):
-                with tf.variable_scope('branch_main'):
-                    flattened_1 = conv_block(state[:, :60], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
-                                                                      [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'downsampling'],
-                                                                      [32, 128, 5, 'identity'],
-                                                                      [32, 128, 5, 'identity'],
-                                                                      [64, 256, 5, 'downsampling'],
-                                                                      [64, 256, 3, 'identity'],
-                                                                      [64, 256, 3, 'identity']
-                                                                      ], 'branch_main1')
-                    flattened_2 = conv_block(state[:, 60:120], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
-                                                                      [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'downsampling'],
-                                                                      [32, 128, 5, 'identity'],
-                                                                      [32, 128, 5, 'identity'],
-                                                                      [64, 256, 5, 'downsampling'],
-                                                                      [64, 256, 3, 'identity'],
-                                                                      [64, 256, 3, 'identity']
-                                                                      ], 'branch_main2')
-                    flattened_3 = conv_block(state[:, 120:], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
-                                                                      [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'downsampling'],
-                                                                      [32, 128, 5, 'identity'],
-                                                                      [32, 128, 5, 'identity'],
-                                                                      [64, 256, 5, 'downsampling'],
-                                                                      [64, 256, 3, 'identity'],
-                                                                      [64, 256, 3, 'identity']
-                                                                      ], 'branch_main3')
-                    flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
-
-                with tf.variable_scope('branch_passive'):
-                    flattened_last = conv_block(last_cards, 32, LAST_INPUT_DIM, [[16, 32, 5, 'identity'],
-                                                                             [16, 32, 5, 'identity'],
-                                                                             [32, 128, 5, 'downsampling'],
-                                                                             [32, 128, 5, 'identity'],
-                                                                             [32, 128, 5, 'identity'],
-                                                                             [64, 256, 5, 'downsampling'],
-                                                                             [64, 256, 3, 'identity'],
-                                                                             [64, 256, 3, 'identity']
-                                                                             ], 'last_cards')
-
-                    # no regularization for LSTM yet
-                    with tf.variable_scope('decision'):
-                        attention_decision = slim.fully_connected(inputs=flattened_last, num_outputs=256,
-                                                                  activation_fn=tf.nn.sigmoid)
-
-                        fc_passive_decision = slim.fully_connected(inputs=flattened, num_outputs=256,
-                                                                   activation_fn=tf.nn.relu)
-                        fc_passive_decision = fc_passive_decision * attention_decision
-                        fc_passive_decision = slim.fully_connected(inputs=fc_passive_decision, num_outputs=64,
-                                                                   activation_fn=tf.nn.relu)
-                        passive_decision_logits = slim.fully_connected(inputs=fc_passive_decision,
-                                                                               num_outputs=4,
-                                                                               activation_fn=None)
-
-                    # bomb and response do not depend on each other
-                    with tf.variable_scope('bomb'):
-                        fc_passive_bomb = slim.fully_connected(inputs=flattened, num_outputs=256,
-                                                               activation_fn=tf.nn.relu)
-                        fc_passive_bomb = slim.fully_connected(inputs=fc_passive_bomb, num_outputs=64,
-                                                               activation_fn=tf.nn.relu)
-                        passive_bomb_logits = slim.fully_connected(inputs=fc_passive_bomb, num_outputs=13,
-                                                                           activation_fn=None)
-
-                    with tf.variable_scope('response'):
-                        attention_response = slim.fully_connected(inputs=flattened_last, num_outputs=256,
-                                                                  activation_fn=tf.nn.sigmoid)
-
-                        fc_passive_response = slim.fully_connected(inputs=flattened, num_outputs=256,
-                                                                   activation_fn=tf.nn.relu)
-                        fc_passive_response = fc_passive_response * attention_response
-                        fc_passive_response = slim.fully_connected(inputs=fc_passive_response, num_outputs=64,
-                                                                   activation_fn=tf.nn.relu)
-                        passive_response_logits = slim.fully_connected(inputs=fc_passive_response,
-                                                                               num_outputs=15,
-                                                                               activation_fn=None)
-
-                with tf.variable_scope('branch_active'):
-                    hidden_size = 256
-                    lstm_active = rnn.BasicLSTMCell(num_units=hidden_size, state_is_tuple=True)
-
-                    with tf.variable_scope('decision'):
-                        fc_active_decision = slim.fully_connected(inputs=flattened, num_outputs=256,
-                                                                  activation_fn=tf.nn.relu)
-                        lstm_active_decision_output, hidden_active_output = tf.nn.dynamic_rnn(lstm_active,
-                                                                                              tf.expand_dims(
-                                                                                                  fc_active_decision,
-                                                                                                  1),
-                                                                                              initial_state=lstm_active.zero_state(
-                                                                                                  tf.shape(
-                                                                                                      fc_active_decision)[
-                                                                                                      0],
-                                                                                                  dtype=tf.float32),
-                                                                                              sequence_length=tf.ones([
-                                                                                                                          tf.shape(
-                                                                                                                              state)[
-                                                                                                                              0]]))
-                        fc_active_decision = slim.fully_connected(
-                            inputs=tf.squeeze(lstm_active_decision_output, axis=[1]), num_outputs=64,
-                            activation_fn=tf.nn.relu)
-                        active_decision_logits = slim.fully_connected(inputs=fc_active_decision, num_outputs=13,
-                                                                              activation_fn=None)
-
-                    with tf.variable_scope('response'):
-                        fc_active_response = slim.fully_connected(inputs=flattened, num_outputs=256,
-                                                                  activation_fn=tf.nn.relu)
-                        lstm_active_response_output, hidden_active_output = tf.nn.dynamic_rnn(lstm_active,
-                                                                                              tf.expand_dims(
-                                                                                                  fc_active_response,
-                                                                                                  1),
-                                                                                              initial_state=hidden_active_output,
-                                                                                              sequence_length=tf.ones([
-                                                                                                                          tf.shape(
-                                                                                                                              state)[
-                                                                                                                              0]]))
-                        fc_active_response = slim.fully_connected(
-                            inputs=tf.squeeze(lstm_active_response_output, axis=[1]), num_outputs=64,
-                            activation_fn=tf.nn.relu)
-                        active_response_logits = slim.fully_connected(inputs=fc_active_response, num_outputs=15,
-                                                                              activation_fn=None)
-
-                    with tf.variable_scope('seq_length'):
-                        fc_active_seq = slim.fully_connected(inputs=flattened, num_outputs=256,
-                                                             activation_fn=tf.nn.relu)
-                        lstm_active_seq_output, _ = tf.nn.dynamic_rnn(lstm_active,
-                                                                      tf.expand_dims(fc_active_seq, 1),
-                                                                      initial_state=hidden_active_output,
-                                                                      sequence_length=tf.ones(
-                                                                          [tf.shape(state)[0]]))
-                        fc_active_seq = slim.fully_connected(inputs=tf.squeeze(lstm_active_seq_output, axis=[1]),
-                                                             num_outputs=64, activation_fn=tf.nn.relu)
-                        active_seq_logits = slim.fully_connected(inputs=fc_active_seq, num_outputs=12,
-                                                                         activation_fn=None)
-
-                with tf.variable_scope('branch_minor'):
-                    fc_minor = slim.fully_connected(inputs=flattened, num_outputs=256,
-                                                    activation_fn=tf.nn.relu)
-                    minor_type_embedding = slim.fully_connected(inputs=tf.one_hot(minor_type, 2), num_outputs=256,
-                                                                activation_fn=tf.nn.sigmoid)
-                    fc_minor = fc_minor * minor_type_embedding
-
-                    fc_minor = slim.fully_connected(inputs=fc_minor, num_outputs=64, activation_fn=tf.nn.relu)
-                    minor_response_logits = slim.fully_connected(inputs=fc_minor, num_outputs=15,
-                                                                         activation_fn=None)
-
-            return passive_decision_logits, passive_bomb_logits, passive_response_logits, \
-                active_decision_logits, active_response_logits, active_seq_logits, minor_response_logits
-
     def inputs(self):
         return [tf.placeholder(tf.float32, [None, INPUT_DIM], 'state_in'),
                 tf.placeholder(tf.float32, [None, LAST_INPUT_DIM], 'last_cards_in'),
-                tf.placeholder(tf.int32, [None], 'passive_decision_in'),
-                tf.placeholder(tf.int32, [None], 'passive_bomb_in'),
-                tf.placeholder(tf.int32, [None], 'passive_response_in'),
-                tf.placeholder(tf.int32, [None], 'active_decision_in'),
-                tf.placeholder(tf.int32, [None], 'active_response_in'),
-                tf.placeholder(tf.int32, [None], 'sequence_length_in'),
-                tf.placeholder(tf.int32, [None], 'minor_response_in'),
-                tf.placeholder(tf.int32, [None], 'minor_type_in'),
+                tf.placeholder(tf.float32, [None, LSTM_STATE_DIM], 'lstm_state_in'),
+                tf.placeholder(tf.int32, [None], 'action_in'),
                 tf.placeholder(tf.int32, [None], 'mode_in')
                 ]
 
-    def build_graph(self, state, last_cards, passive_decision_target, passive_bomb_target, passive_response_target,
-                    active_decision_target, active_response_target, seq_length_target, minor_response_target, minor_type, mode):
-        (passive_decision_logits, passive_bomb_logits, passive_response_logits, active_decision_logits,
-         active_response_logits, active_seq_logits, minor_response_logits) = self.get_pred(state, last_cards, minor_type)
-        passive_decision_prob = tf.nn.softmax(passive_decision_logits, name='passive_decision_prob')
-        passive_bomb_prob = tf.nn.softmax(passive_bomb_logits, name='passive_bomb_prob')
-        passive_response_prob = tf.nn.softmax(passive_response_logits, name='passive_response_prob')
-        active_decision_prob = tf.nn.softmax(active_decision_logits, name='active_decision_prob')
-        active_response_prob = tf.nn.softmax(active_response_logits, name='active_response_prob')
-        active_seq_prob = tf.nn.softmax(active_seq_logits, name='active_seq_prob')
-        minor_response_prob = tf.nn.softmax(minor_response_logits, name='minor_response_prob')
+    def build_graph(self, state, last_cards, lstm_state, action_target, mode):
+        with tf.variable_scope(SCOPE):
+            active_logits, passive_logits, _ = policy_network(state, last_cards, lstm_state, WEIGHT_DECAY)
+        tf.nn.softmax(active_logits, name='active_prob')
+        tf.nn.softmax(passive_logits, name='passive_prob')
         is_training = get_current_tower_context().is_training
         if not is_training:
             return
 
-        # passive mode
-        with tf.variable_scope("passive_mode_loss"):
-            passive_decision_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
-                labels=tf.one_hot(passive_decision_target, 4), logits=passive_decision_logits)
-            passive_bomb_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.one_hot(passive_bomb_target, 13),
-                                                                           logits=passive_bomb_logits)
-            passive_response_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
-                labels=tf.one_hot(passive_response_target, 15), logits=passive_response_logits)
+        # mode 0: leading, use the active logits; mode 1: responding, use the passive ones
+        logits = tf.where(tf.equal(mode, 0), active_logits, passive_logits)
+        xent_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=action_target, logits=logits)
+        accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.argmax(logits, 1), tf.int32), action_target),
+                                          tf.float32), name='accuracy')
 
-        # active mode
-        with tf.variable_scope("active_mode_loss"):
-            active_decision_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
-                labels=tf.one_hot(active_decision_target, 13), logits=active_decision_logits)
-            active_response_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
-                labels=tf.one_hot(active_response_target, 15), logits=active_response_logits)
-            active_seq_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.one_hot(seq_length_target, 12),
-                                                                         logits=active_seq_logits)
-
-        with tf.variable_scope("minor_mode_loss"):
-            minor_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.one_hot(minor_response_target, 15),
-                                                                    logits=minor_response_logits)
-        # vars = tf.trainable_variables()
-        # for v in vars:
-        #     print(v.name)
-        # l2_loss = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope=SCOPE)
-        # NOTE: this collection doesn't always grow with towers.
-        # It only grows with actual variable creation, but not get_variable call.
+        # as in A3C, the active logits are not regularised through branch_passive
         ctx = get_current_tower_context()
         if ctx.has_own_variables:  # be careful of the first tower (name='')
             l2_loss = ctx.get_collection_in_tower(tf.GraphKeys.REGULARIZATION_LOSSES)
         else:
             l2_loss = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-        if len(l2_loss) > 0:
-            logger.info("regularize_cost_from_collection() found {} regularizers "
-                        "in REGULARIZATION_LOSSES collection.".format(len(l2_loss)))
+        l2_active_loss = tf.add_n([l for l in l2_loss if 'branch_passive' not in l.name])
+        l2_passive_loss = tf.add_n(l2_loss)
+        l2_loss = tf.gather(tf.stack([l2_active_loss, l2_passive_loss]), mode)
 
-        l2_main_loss = [l for l in l2_loss if 'branch_main' in l.name]
-        l2_passive_fc_loss = [l for l in l2_loss if
-                              'branch_passive' in l.name and 'decision' not in l.name and 'bomb' not in l.name and 'response' not in l.name]
-        l2_active_fc_loss = [l for l in l2_loss if
-                             'branch_active' in l.name and 'decision' not in l.name and 'response' not in l.name and 'seq_length' not in l.name] \
-                            + [WEIGHT_DECAY * tf.nn.l2_loss(tf.get_default_graph().get_tensor_by_name(
-            SCOPE + '/branch_active/decision/rnn/basic_lstm_cell/kernel:0'))]
-
-        print('l2 loss', len(l2_loss))
-        print('l2 main loss', len(l2_main_loss))
-        print('l2 passive fc loss', len(l2_passive_fc_loss))
-        print('l2 active fc loss', len(l2_active_fc_loss))
-
-        name_scopes = ['branch_passive/decision', 'branch_passive/bomb', 'branch_passive/response',
-                       'branch_active/decision', 'branch_active/response', 'branch_active/seq_length',
-                       'branch_minor']
-
-        # B * 7
-        losses = [passive_decision_loss, passive_bomb_loss, passive_response_loss,
-                  active_decision_loss, active_response_loss, active_seq_loss, minor_loss]
-
-        for i, name in enumerate(name_scopes):
-            l2_branch_loss = l2_main_loss.copy()
-            if 'passive' in name:
-                if 'bomb' in name:
-                    l2_branch_loss += [l for l in l2_loss if name in l.name]
-                else:
-                    l2_branch_loss += l2_passive_fc_loss + [l for l in l2_loss if name in l.name]
-            else:
-                if 'minor' in name:
-                    # do not include lstm regularization in minor loss
-                    l2_branch_loss += l2_active_fc_loss[:-1] + [l for l in l2_loss if name in l.name]
-                else:
-                    l2_branch_loss += l2_active_fc_loss + [l for l in l2_loss if name in l.name]
-
-            losses[i] += tf.add_n(l2_branch_loss)
-            print('losses shape', losses[i].shape)
-            print('l2 branch loss', len(l2_branch_loss))
-
-        losses = tf.stack(losses, axis=1)
-        idx = tf.stack([tf.range(0, tf.shape(state)[0]), mode], axis=1)
-        loss = tf.gather_nd(losses, idx)
-        print(loss.shape)
-        loss = tf.reduce_mean(loss, name='loss')
-
-        add_moving_summary(loss, decay=0.1)
+        xent_loss = tf.reduce_mean(xent_loss, name='xent_loss')
+        loss = tf.add(xent_loss, tf.reduce_mean(l2_loss), name='loss')
+        add_moving_summary(loss, xent_loss, accuracy, decay=0.1)
         return loss
 
     def optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-4, trainable=False)
         opt = tf.train.AdamOptimizer(lr)
         gradprocs = [MapGradient(lambda grad: tf.clip_by_average_norm(grad, 0.3))]
-                     # SummaryGradient()]
         opt = optimizer.apply_grad_processors(opt, gradprocs)
         return opt
 
@@ -495,7 +217,7 @@ def train():
             ','.join(map(str, train_tower))))
     else:
         logger.warn("Without GPU this model will never learn! CPU is only useful for debug.")
-        train_tower = [0], [0]
+        train_tower = [0]
 
     dataflow = DataFromGeneratorRNG(data_generator)
     if os.name == 'nt':
@@ -509,14 +231,8 @@ def train():
         callbacks=[
             ModelSaver(),
             EstimatedTimeLeft(),
-            # ScheduledHyperParamSetter('learning_rate', [(20, 0.0003), (120, 0.0001)]),
-            # ScheduledHyperParamSetter('entropy_beta', [(80, 0.005)]),
-            # HumanHyperParamSetter('learning_rate'),
-            # HumanHyperParamSetter('entropy_beta')
             PeriodicTrigger(Evaluator(
-                100, ['state_in', 'last_cards_in', 'minor_type_in'],
-                ['passive_decision_prob', 'passive_bomb_prob', 'passive_response_prob',
-                 'active_decision_prob', 'active_response_prob', 'active_seq_prob', 'minor_response_prob'], get_player),
+                100, ['state_in', 'last_cards_in', 'lstm_state_in'], ['active_prob', 'passive_prob'], get_player),
                 every_k_epochs=1),
         ],
         steps_per_epoch=STEPS_PER_EPOCH,
@@ -528,11 +244,3 @@ def train():
 
 if __name__ == '__main__':
     train()
-    # e = Env()
-    # for i in range(10000):
-    #     e.reset()
-    #     e.prepare()
-    #     r = 0
-    #     while r == 0:
-    #         intention, r, _ = e.step_auto()
-            # print(intention)

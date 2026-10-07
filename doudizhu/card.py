@@ -527,6 +527,14 @@ class CardGroup:
 action_space = get_action_space()
 action_space_onehot60 = np.array([Card.char2onehot60(a) for a in action_space])
 action_space_category = [action_space[r[0]:r[1]] for r in Category2Range]
+# every action plays a distinct multiset of cards, so the sorted cards identify it
+_action_index = dict((tuple(sorted(a, key=Card.cards.index)), i) for i, a in enumerate(action_space))
+
+
+def action_index(cards):
+    """Index in action_space of the move that plays these char cards (in any order); None if there is none."""
+    return _action_index.get(tuple(sorted(cards, key=Card.cards.index)))
+
 
 augment_action_space = action_space + action_space_category[Category.SINGLE][:13] * 3 + action_space_category[Category.DOUBLE]
 

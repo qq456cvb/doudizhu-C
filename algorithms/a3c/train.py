@@ -4,7 +4,6 @@ import uuid
 import argparse
 
 import tensorflow as tf
-import tensorflow.contrib.rnn as rnn
 import os
 import sys
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -20,7 +19,6 @@ from six.moves import queue
 from doudizhu.card import action_space
 from doudizhu.env import Env
 import tensorflow.contrib.slim as slim
-import tensorflow.contrib.rnn as rnn
 from tensorpack import *
 from tensorpack.utils.concurrency import ensure_proc_terminate, start_proc_mask_signal
 from tensorpack.utils.serialize import dumps
@@ -32,7 +30,7 @@ from tensorpack.tfutils import get_current_tower_context, optimizer
 from algorithms.a3c.simulator import SimulatorProcess, SimulatorMaster, TransitionExperience, ROLE_IDS_TO_TRAIN
 from algorithms.a3c.model_loader import ModelLoader
 from algorithms.a3c.evaluator import Evaluator
-from algorithms.policy_sl.train import conv_block as policy_conv_block
+from algorithms.policy_sl.train import policy_network
 from algorithms.value_sl.train import conv_block as value_conv_block, CONV_LAYERS as VALUE_CONV_LAYERS
 
 import six
@@ -75,68 +73,13 @@ class Model(ModelDesc):
         # train landlord only
         for idx in range(1, 4):
             with tf.variable_scope('policy_network_%d' % idx):
-                lstm = rnn.BasicLSTMCell(1024, state_is_tuple=False)
                 id_idx = tf.where(tf.equal(role_id, idx))
                 indices.append(id_idx)
                 state_id = tf.gather_nd(state, id_idx)
                 last_cards_id = tf.gather_nd(last_cards, id_idx)
                 lstm_state_id = tf.gather_nd(lstm_state, id_idx)
-                with slim.arg_scope([slim.fully_connected, slim.conv2d],
-                                    weights_regularizer=slim.l2_regularizer(POLICY_WEIGHT_DECAY)):
-                    with tf.variable_scope('branch_main'):
-                        flattened_1 = policy_conv_block(state_id[:, :60], 32, POLICY_INPUT_DIM // 3,
-                                                        [[128, 3, 'identity'],
-                                                         [128, 3, 'identity'],
-                                                         [128, 3, 'downsampling'],
-                                                         [128, 3, 'identity'],
-                                                         [128, 3, 'identity'],
-                                                         [256, 3, 'downsampling'],
-                                                         [256, 3, 'identity'],
-                                                         [256, 3, 'identity']
-                                                         ], 'branch_main1')
-                        flattened_2 = policy_conv_block(state_id[:, 60:120], 32, POLICY_INPUT_DIM // 3,
-                                                        [[128, 3, 'identity'],
-                                                         [128, 3, 'identity'],
-                                                         [128, 3, 'downsampling'],
-                                                         [128, 3, 'identity'],
-                                                         [128, 3, 'identity'],
-                                                         [256, 3, 'downsampling'],
-                                                         [256, 3, 'identity'],
-                                                         [256, 3, 'identity']
-                                                         ], 'branch_main2')
-                        flattened_3 = policy_conv_block(state_id[:, 120:], 32, POLICY_INPUT_DIM // 3,
-                                                        [[128, 3, 'identity'],
-                                                         [128, 3, 'identity'],
-                                                         [128, 3, 'downsampling'],
-                                                         [128, 3, 'identity'],
-                                                         [128, 3, 'identity'],
-                                                         [256, 3, 'downsampling'],
-                                                         [256, 3, 'identity'],
-                                                         [256, 3, 'identity']
-                                                         ], 'branch_main3')
-
-                        flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
-
-                    fc, new_lstm_state = lstm(flattened, lstm_state_id)
-
-                    active_fc = slim.fully_connected(fc, 1024)
-                    active_logits = slim.fully_connected(active_fc, len(action_space), activation_fn=None, scope='final_fc')
-                    with tf.variable_scope('branch_passive'):
-                        flattened_last = policy_conv_block(last_cards_id, 32, POLICY_LAST_INPUT_DIM,
-                                                           [[128, 3, 'identity'],
-                                                            [128, 3, 'identity'],
-                                                            [128, 3, 'downsampling'],
-                                                            [128, 3, 'identity'],
-                                                            [128, 3, 'identity'],
-                                                            [256, 3, 'downsampling'],
-                                                            [256, 3, 'identity'],
-                                                            [256, 3, 'identity']
-                                                            ], 'last_cards')
-
-                        passive_attention = slim.fully_connected(inputs=flattened_last, num_outputs=1024,
-                                                                      activation_fn=tf.nn.sigmoid)
-                        passive_fc = passive_attention * active_fc
-                    passive_logits = slim.fully_connected(passive_fc, len(action_space), activation_fn=None, reuse=True, scope='final_fc')
+                active_logits, passive_logits, new_lstm_state = policy_network(
+                    state_id, last_cards_id, lstm_state_id, POLICY_WEIGHT_DECAY)
 
             gathered_output = [active_logits, passive_logits, new_lstm_state]
             if idx not in ROLE_IDS_TO_TRAIN:
