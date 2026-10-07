@@ -2,7 +2,7 @@ import os
 import sys
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
 ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '..'))
-sys.path.append(ROOT_PATH)
+sys.path.insert(0, ROOT_PATH)
 sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
 
 from simulator.tools import *
@@ -10,14 +10,14 @@ import ctypes
 import threading
 
 from simulator.predictor import Predictor
-from card import Card
+from doudizhu.card import Card
 from simulator.coordinator import Coordinator
 import multiprocessing
 import zmq
 from tensorpack.utils.serialize import dumps, loads
 from env import Env as CEnv
-from TensorPack.MA_Hierarchical_Q.DQNModel import Model
-from TensorPack.MA_Hierarchical_Q.env import Env
+from algorithms.cql.model import Model
+from doudizhu.env import Env
 from simulator.expreplay import ExpReplay
 from tensorpack.utils.concurrency import ensure_proc_terminate, start_proc_mask_signal
 import six
@@ -73,7 +73,7 @@ def hook():
         ctypes.windll.user32.UnregisterHotKey(None, 1)
 
 
-class MyDataFLow(DataFlow):
+class MultiAgentDataFlow(DataFlow):
     def __init__(self, exps):
         self.exps = exps
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
             pipe_sim2exp=name_sim2exp + str(i)
         ) for i, name in enumerate(agent_names)]
 
-        df = MyDataFLow(exps)
+        df = MultiAgentDataFlow(exps)
 
         return AutoResumeTrainConfig(
             # always_resume=False,
@@ -170,7 +170,7 @@ if __name__ == '__main__':
                 HumanHyperParamSetter('learning_rate'),
             ],
             session_init=ChainInit(
-                [SaverRestore('../TensorPack/MA_Hierarchical_Q/train_log/DQN-60-MA/model-355000')]),
+                [SaverRestore('../algorithms/cql/train_log/DQN-60-MA/model-355000')]),
             # starting_epoch=0,k
             # session_init=SaverRestore('train_log/DQN-54-AUG-STATE/model-75000'),
             steps_per_epoch=STEPS_PER_EPOCH,

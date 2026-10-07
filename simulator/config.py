@@ -75,7 +75,7 @@ class Configuration:
         self.yaobuqi = np.load(self.array_path + 'yaobuqi' + '.npy')
         self.alone_chupai = np.load(self.array_path + 'alone_chupai' + '.npy')
         self.end = np.load(self.array_path + 'end' + '.npy')
-        self.cend = np.load(self.array_path + 'continous_end' + '.npy')
+        self.cend = np.load(self.array_path + 'continuous_end' + '.npy')
         self.ming_chupai = np.load(self.array_path + 'ming_chupai' + '.npy')
         self.fail_end = np.load(self.array_path + 'fail_end' + '.npy')
         self.addict_window = np.load(self.array_path + 'addict_window' + '.npy')
@@ -91,7 +91,7 @@ class Configuration:
             'yaobuqi': self.yaobuqi,
             'alone_chupai': self.alone_chupai,
             'end': self.end,
-             # 'continous_end': self.end,
+             # 'continuous_end': self.end,
             'ming_chupai': self.ming_chupai,
             'fail_end': self.fail_end
         }
@@ -153,7 +153,6 @@ class ConfigurationOffline:
         self.jiaodizhu_array = np.load(self.array_path + "jiaodizhu.npy")
         self.chupai_array = np.load(self.array_path + "chupai.npy")
         self.continuous_defeat_array = np.load(self.array_path + "continuous_defeat.npy")
-        self.get_reward_array = np.load(self.array_path + "get_reward.npy")
 
         # some parameters defining position informations
         self.mid_line = 753
@@ -169,7 +168,6 @@ class ConfigurationOffline:
             "bujiao": [self.mid_line, 675, self.bujiao_array],
             "jiaodizhu": [self.mid_line, 1050, self.jiaodizhu_array],
             "continuous defeat": [200, 780, self.continuous_defeat_array],
-            "get_reward": [704, 876, self.get_reward_array],
         }
 
         # some parameters defining the load mark

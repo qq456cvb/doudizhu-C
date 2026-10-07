@@ -3,8 +3,11 @@ project(env)
 set (CMAKE_CXX_STANDARD 14)
 
 find_package(pybind11 REQUIRED)
-pybind11_add_module(env main.cpp card.hpp card.cpp game.cpp game.hpp dancing_link.cpp)
+pybind11_add_module(env
+  engine/env.cpp
+  engine/card.cpp engine/card.hpp
+  engine/game.cpp engine/game.hpp
+  engine/dancing_links.cpp engine/dancing_links.hpp)
 if(MSVC)
   target_compile_options(env PRIVATE /utf-8)
 endif()
-# add_executable(main main.cpp game.cpp game.hpp)

@@ -33,8 +33,8 @@ This produces the `env` Python module that the training and evaluation scripts i
 Train the multi-agent combinatorial Q-learning agents (the main algorithm from the paper):
 
 ```bash
-cd TensorPack/MA_Hierarchical_Q
-python main.py
+cd algorithms/cql
+python train.py
 ```
 
 Three agents (landlord and two peasants) are trained adversarially through self-play, each with its own experience replay; training progress is evaluated periodically against rule-based and random baselines.
@@ -63,19 +63,22 @@ mv mct.cpython-36m-x86_64-linux-gnu.so [doudizhu-C ROOT]
 2. Run the evaluation scripts, which play the trained CDQN agent against random and rule-based (RHCP/MCTS) baselines in every seat assignment:
 
 ```bash
-cd scripts
+cd evaluation
 python experiments.py
 ```
 
 ## Directory Structure
 
-- `card.*`, `game.*`, `dancing_link.*`, `main.cpp` — C++ game engine and pybind11 bindings.
-- `TensorPack/MA_Hierarchical_Q` — multi-agent combinatorial Q-learning (the paper's method).
-- `TensorPack/Hierarchical_Q`, `TensorPack/Vanilla_Q` — single-agent hierarchical and naive DQN baselines.
-- `TensorPack/A3C`, `TensorPack/A3C_FC` — A3C baselines.
-- `TensorPack/PolicySL`, `TensorPack/ValueSL` — supervised policy/value pretraining.
-- `scripts` — evaluation of agents against the baselines.
-- `simulator` — scripts to play against the online platform "QQ Dou Di Zhu" (provided for academic use only; use at your own risk!).
+- `engine/` — C++ game engine (`card.*`, `game.*`, `dancing_links.*`) and the pybind11 `env` module (`env.cpp`).
+- `doudizhu/` — shared Python game logic: card encodings and the action space (`card.py`), legal-move masks and helpers (`utils.py`), and a pure-Python game environment (`env.py`).
+- `algorithms/` — Tensorpack training code, one package per method, each with a `train.py` entry point:
+  - `cql/` — multi-agent combinatorial Q-learning (the paper's method).
+  - `hierarchical_q/`, `vanilla_dqn/` — single-agent hierarchical and naive DQN baselines.
+  - `a3c/`, `a3c_fc/` — A3C baselines.
+  - `policy_sl/`, `value_sl/` — supervised policy/value pretraining.
+  - `autoencoder/` — card-group embedding autoencoder; `encoding.npy` holds the embeddings used by `cql`.
+- `evaluation/` — evaluation of agents against the baselines.
+- `simulator/` — scripts to play against the online platform "QQ Dou Di Zhu" (provided for academic use only; use at your own risk!).
 
 ## Related Projects
 
