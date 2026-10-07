@@ -274,31 +274,9 @@ def enter_from_home_page():
         image = grab_screen()
         actions = get_current_button_action(image)
         game_window_rect = get_game_window_rect()
-        if get_reward(image):
-            click(cf_offline.button_information['get_reward'][1] + 20, cf_offline.button_information['get_reward'][0] + 15, game_window_rect)
         if compare_color([127, 65, 28], image[665, 895, :], difference=0):
             click(895, 665, game_window_rect)
-        if get_game_center(image):
-            click(1681, 144, game_window_rect)
         time.sleep(0.1)
-
-
-def get_reward(image):
-    useful_band = image[cf_offline.button_information['get_reward'][0],
-                  cf_offline.button_information['get_reward'][1]:cf_offline.button_information['get_reward'][1] + cf_offline.two_words_button_width, :]
-    for idx in range(useful_band.shape[0]):
-        if not compare_color(cf_offline.button_information['get_reward'][2][idx], useful_band[idx], difference=0):
-            return False
-    return True
-
-
-def get_game_center(image):
-    useful_band = image[117, 867:867 + cf_offline.two_words_button_width, :]
-    array = np.load(cf_offline.array_path + 'game_center.npy')
-    for idx in range(useful_band.shape[0]):
-        if not compare_color(array[idx], useful_band[idx], difference=0):
-            return False
-    return True
 
 
 def get_window_rect(hwnd):

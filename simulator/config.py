@@ -153,7 +153,6 @@ class ConfigurationOffline:
         self.jiaodizhu_array = np.load(self.array_path + "jiaodizhu.npy")
         self.chupai_array = np.load(self.array_path + "chupai.npy")
         self.continuous_defeat_array = np.load(self.array_path + "continuous_defeat.npy")
-        self.get_reward_array = np.load(self.array_path + "get_reward.npy")
 
         # some parameters defining position informations
         self.mid_line = 753
@@ -169,7 +168,6 @@ class ConfigurationOffline:
             "bujiao": [self.mid_line, 675, self.bujiao_array],
             "jiaodizhu": [self.mid_line, 1050, self.jiaodizhu_array],
             "continuous defeat": [200, 780, self.continuous_defeat_array],
-            "get_reward": [704, 876, self.get_reward_array],
         }
 
         # some parameters defining the load mark
