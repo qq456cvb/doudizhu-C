@@ -608,6 +608,8 @@ def get_category_idx(cards):
         return Category.THREE_TWO
     if size == 6 and cards[3] == cards[0]:
         return Category.FOUR_TAKE_ONE
+    if size == 8 and cards[3] == cards[0]:
+        return Category.FOUR_TAKE_TWO
     if cards[0] != cards[1]:
         return Category.SINGLE_LINE
     if cards[0] != cards[2]:
