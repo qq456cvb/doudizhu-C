@@ -29,6 +29,16 @@ INPUT_DIM = 60 * 3
 LAST_INPUT_DIM = 60
 WEIGHT_DECAY = 5 * 1e-4
 SCOPE = 'SL_value_network'
+# residual layers of each conv tower, as [num_channel, kernel_size, type]. The A3C value network is built
+# from the same list so that ModelLoader can initialise it from this network's weights.
+CONV_LAYERS = [[128, 3, 'identity'],
+               [128, 3, 'identity'],
+               [128, 3, 'downsampling'],
+               [128, 3, 'identity'],
+               [128, 3, 'identity'],
+               [256, 3, 'downsampling'],
+               [256, 3, 'identity'],
+               [256, 3, 'identity']]
 
 # number of games per epoch roughly = STEPS_PER_EPOCH * BATCH_SIZE / 100
 STEPS_PER_EPOCH = 1000
@@ -150,33 +160,9 @@ class Model(ModelDesc):
             # not adding regular loss for fc since we need big scalar output [-1, 1]
             with slim.arg_scope([slim.conv2d]):
                 with tf.variable_scope('value_conv'):
-                    flattened_1 = conv_block(state[:, :60], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
-                                                                      [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'downsampling'],
-                                                                      [32, 128, 3, 'identity'],
-                                                                      [32, 128, 3, 'identity'],
-                                                                      [64, 256, 3, 'downsampling'],
-                                                                      [64, 256, 3, 'identity'],
-                                                                      [64, 256, 3, 'identity']
-                                                                      ], 'value_conv1')
-                    flattened_2 = conv_block(state[:, 60:120], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
-                                                                      [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'downsampling'],
-                                                                      [32, 128, 3, 'identity'],
-                                                                      [32, 128, 3, 'identity'],
-                                                                      [64, 256, 3, 'downsampling'],
-                                                                      [64, 256, 3, 'identity'],
-                                                                      [64, 256, 3, 'identity']
-                                                                      ], 'value_conv2')
-                    flattened_3 = conv_block(state[:, 120:], 32, INPUT_DIM // 3, [[16, 32, 5, 'identity'],
-                                                                      [16, 32, 5, 'identity'],
-                                                                      [32, 128, 5, 'downsampling'],
-                                                                      [32, 128, 3, 'identity'],
-                                                                      [32, 128, 3, 'identity'],
-                                                                      [64, 256, 3, 'downsampling'],
-                                                                      [64, 256, 3, 'identity'],
-                                                                      [64, 256, 3, 'identity']
-                                                                      ], 'value_conv3')
+                    flattened_1 = conv_block(state[:, :60], 32, INPUT_DIM // 3, CONV_LAYERS, 'value_conv1')
+                    flattened_2 = conv_block(state[:, 60:120], 32, INPUT_DIM // 3, CONV_LAYERS, 'value_conv2')
+                    flattened_3 = conv_block(state[:, 120:], 32, INPUT_DIM // 3, CONV_LAYERS, 'value_conv3')
                     flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
 
                 with tf.variable_scope('value_fc'):

@@ -33,7 +33,7 @@ from algorithms.a3c.simulator import SimulatorProcess, SimulatorMaster, Transiti
 from algorithms.a3c.model_loader import ModelLoader
 from algorithms.a3c.evaluator import Evaluator
 from algorithms.policy_sl.train import conv_block as policy_conv_block
-from algorithms.value_sl.train import conv_block as value_conv_block
+from algorithms.value_sl.train import conv_block as value_conv_block, CONV_LAYERS as VALUE_CONV_LAYERS
 
 import six
 import numpy as np
@@ -157,33 +157,9 @@ class Model(ModelDesc):
         with tf.variable_scope('value_network'):
             # not adding regular loss for fc since we need big scalar output [-1, 1]
             with tf.variable_scope('value_conv'):
-                flattened_1 = value_conv_block(state[:, :60], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
-                                                                  [128, 3, 'identity'],
-                                                                  [128, 3, 'downsampling'],
-                                                                  [128, 3, 'identity'],
-                                                                  [128, 3, 'identity'],
-                                                                  [256, 3, 'downsampling'],
-                                                                  [256, 3, 'identity'],
-                                                                  [256, 3, 'identity']
-                                                                  ], 'value_conv1')
-                flattened_2 = value_conv_block(state[:, 60:120], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
-                                                                  [128, 3, 'identity'],
-                                                                  [128, 3, 'downsampling'],
-                                                                  [128, 3, 'identity'],
-                                                                  [128, 3, 'identity'],
-                                                                  [256, 3, 'downsampling'],
-                                                                  [256, 3, 'identity'],
-                                                                  [256, 3, 'identity']
-                                                                  ], 'value_conv2')
-                flattened_3 = value_conv_block(state[:, 120:], 32, VALUE_INPUT_DIM // 3, [[128, 3, 'identity'],
-                                                                  [128, 3, 'identity'],
-                                                                  [128, 3, 'downsampling'],
-                                                                  [128, 3, 'identity'],
-                                                                  [128, 3, 'identity'],
-                                                                  [256, 3, 'downsampling'],
-                                                                  [256, 3, 'identity'],
-                                                                  [256, 3, 'identity']
-                                                                  ], 'value_conv3')
+                flattened_1 = value_conv_block(state[:, :60], 32, VALUE_INPUT_DIM // 3, VALUE_CONV_LAYERS, 'value_conv1')
+                flattened_2 = value_conv_block(state[:, 60:120], 32, VALUE_INPUT_DIM // 3, VALUE_CONV_LAYERS, 'value_conv2')
+                flattened_3 = value_conv_block(state[:, 120:], 32, VALUE_INPUT_DIM // 3, VALUE_CONV_LAYERS, 'value_conv3')
                 flattened = tf.concat([flattened_1, flattened_2, flattened_3], axis=1)
 
             with tf.variable_scope('value_fc'):
