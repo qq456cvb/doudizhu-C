@@ -18,13 +18,12 @@ sys.path.insert(0, ROOT_PATH)
 sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
 
 from env import Env
-from logger import Logger
 from doudizhu.utils import to_char
 from doudizhu.card import Card, action_space, Category
 import numpy as np
 from doudizhu.utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
 from doudizhu.utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter, discard_onehot_from_s_60
-from doudizhu.utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
+from doudizhu.utils import gputimeblock, give_cards_without_minor, pick_main_cards
 
 
 def play_one_episode(env, func):
@@ -71,15 +70,15 @@ def play_one_episode(env, func):
         return outputs
 
     def inference_minor_cards60(role_id, category, s, handcards, seq_length, dup_mask, main_cards_char):
-        if category == Category.THREE_ONE.value:
+        if category == Category.THREE_ONE:
             return inference_minor_util60(role_id, handcards, 1, False, dup_mask, main_cards_char)
-        if category == Category.THREE_TWO.value:
+        if category == Category.THREE_TWO:
             return inference_minor_util60(role_id, handcards, 1, True, dup_mask, main_cards_char)
-        if category == Category.THREE_ONE_LINE.value:
+        if category == Category.THREE_ONE_LINE:
             return inference_minor_util60(role_id, handcards, seq_length, False, dup_mask, main_cards_char)
-        if category == Category.THREE_TWO_LINE.value:
+        if category == Category.THREE_TWO_LINE:
             return inference_minor_util60(role_id, handcards, seq_length, True, dup_mask, main_cards_char)
-        if category == Category.FOUR_TWO.value:
+        if category == Category.FOUR_TAKE_ONE:
             return inference_minor_util60(role_id, handcards, 2, False, dup_mask, main_cards_char)
 
     env.reset()
@@ -123,22 +122,22 @@ def play_one_episode(env, func):
 
                 seq_length = 0
                 # next sequence length
-                if active_category_idx == Category.SINGLE_LINE.value or \
-                        active_category_idx == Category.DOUBLE_LINE.value or \
-                        active_category_idx == Category.TRIPLE_LINE.value or \
-                        active_category_idx == Category.THREE_ONE_LINE.value or \
-                        active_category_idx == Category.THREE_TWO_LINE.value:
+                if active_category_idx == Category.SINGLE_LINE or \
+                        active_category_idx == Category.DOUBLE_LINE or \
+                        active_category_idx == Category.TRIPLE_LINE or \
+                        active_category_idx == Category.THREE_ONE_LINE or \
+                        active_category_idx == Category.THREE_TWO_LINE:
                     seq_length = take_action_from_prob(active_seq_prob, length_mask[active_decision][active_response]) + 1
 
                 # give main cards
                 intention = give_cards_without_minor(active_response, last_cards_value, active_category_idx, seq_length)
 
                 # then give minor cards
-                if active_category_idx == Category.THREE_ONE.value or \
-                        active_category_idx == Category.THREE_TWO.value or \
-                        active_category_idx == Category.THREE_ONE_LINE.value or \
-                        active_category_idx == Category.THREE_TWO_LINE.value or \
-                        active_category_idx == Category.FOUR_TWO.value:
+                if active_category_idx == Category.THREE_ONE or \
+                        active_category_idx == Category.THREE_TWO or \
+                        active_category_idx == Category.THREE_ONE_LINE or \
+                        active_category_idx == Category.THREE_TWO_LINE or \
+                        active_category_idx == Category.FOUR_TAKE_ONE:
                     dup_mask = np.ones([15])
                     if seq_length > 0:
                         for i in range(seq_length):
@@ -174,11 +173,11 @@ def play_one_episode(env, func):
                     passive_response = take_action_from_prob(passive_response_prob, response_mask)
 
                     intention = give_cards_without_minor(passive_response, last_cards_value, last_category_idx, None)
-                    if last_category_idx == Category.THREE_ONE.value or \
-                            last_category_idx == Category.THREE_TWO.value or \
-                            last_category_idx == Category.THREE_ONE_LINE.value or \
-                            last_category_idx == Category.THREE_TWO_LINE.value or \
-                            last_category_idx == Category.FOUR_TWO.value:
+                    if last_category_idx == Category.THREE_ONE or \
+                            last_category_idx == Category.THREE_TWO or \
+                            last_category_idx == Category.THREE_ONE_LINE or \
+                            last_category_idx == Category.THREE_TWO_LINE or \
+                            last_category_idx == Category.FOUR_TAKE_ONE:
                         dup_mask = np.ones([15])
                         seq_length = get_seq_length(last_category_idx, last_cards_value)
                         if seq_length:

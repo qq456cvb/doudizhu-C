@@ -33,6 +33,7 @@ def eval_episode(env, agent):
 
 def eval_proc(file_name):
     print(file_name)
+    os.makedirs('./log_more', exist_ok=True)
     f = open(os.path.join('./log_more', file_name), 'w+')
     types = ['RANDOM', 'RHCP', 'CDQN', 'MCT']
     # for role_id in [2, 3, 1]:

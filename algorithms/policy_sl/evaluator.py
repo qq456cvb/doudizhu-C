@@ -22,7 +22,7 @@ from doudizhu.card import Card, action_space, Category
 import numpy as np
 from doudizhu.utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
 from doudizhu.utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter, discard_onehot_from_s_60
-from doudizhu.utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
+from doudizhu.utils import gputimeblock, give_cards_without_minor, pick_main_cards
 
 
 def play_one_episode(env, func):
@@ -38,7 +38,9 @@ def play_one_episode(env, func):
         curr_cards_char = to_char(env.get_curr_handcards())
         is_active = True if last_cards_value.size == 0 else False
 
-        s = env.get_state_prob()
+        # state = [own hand | next player's card probabilities | the other player's]; the C++ get_state_prob()
+        # used to include the hand itself but no longer does
+        s = np.concatenate([Card.val2onehot60(env.get_curr_handcards()), env.get_state_prob()])
         intention, r, category_idx = env.step_auto()
 
         if category_idx == 14:
@@ -46,7 +48,7 @@ def play_one_episode(env, func):
         minor_cards_targets = pick_minor_targets(category_idx, to_char(intention))
 
         if not is_active:
-            if category_idx == Category.QUADRIC.value and category_idx != last_category_idx:
+            if category_idx == Category.QUADRIC and category_idx != last_category_idx:
                 passive_decision_input = 1
                 passive_bomb_input = intention[0] - 3
                 passive_decision_prob, passive_bomb_prob, _, _, _, _, _ = func(
@@ -55,13 +57,13 @@ def play_one_episode(env, func):
                 stats[1].feed(int(passive_bomb_input == np.argmax(passive_bomb_prob)))
 
             else:
-                if category_idx == Category.BIGBANG.value:
+                if category_idx == Category.BIGBANG:
                     passive_decision_input = 2
                     passive_decision_prob, _, _, _, _, _, _ = func(
                         [s.reshape(1, -1), last_out_cards.reshape(1, -1), np.zeros([s.shape[0]])])
                     stats[0].feed(int(passive_decision_input == np.argmax(passive_decision_prob)))
                 else:
-                    if category_idx != Category.EMPTY.value:
+                    if category_idx != Category.EMPTY:
                         passive_decision_input = 3
                         # OFFSET_ONE
                         # 1st, Feb - remove relative card output since shift is hard for the network to learn
@@ -110,7 +112,7 @@ def play_one_episode(env, func):
 
             is_pair = False
             minor_type = 0
-            if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
+            if category_idx == Category.THREE_TWO or category_idx == Category.THREE_TWO_LINE:
                 is_pair = True
                 minor_type = 1
             for target in minor_cards_targets:

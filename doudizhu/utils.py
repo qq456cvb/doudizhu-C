@@ -98,15 +98,15 @@ def get_mask_onehot60(cards, action_space, last_cards):
 
 
 def get_seq_length(category, cards_val):
-    if category == Category.SINGLE_LINE.value:
+    if category == Category.SINGLE_LINE:
         return cards_val.size
-    if category == Category.DOUBLE_LINE.value:
+    if category == Category.DOUBLE_LINE:
         return cards_val.size // 2
-    if category == Category.TRIPLE_LINE.value:
+    if category == Category.TRIPLE_LINE:
         return cards_val.size // 3
-    if category == Category.THREE_ONE_LINE.value:
+    if category == Category.THREE_ONE_LINE:
         return cards_val.size // 4
-    if category == Category.THREE_TWO_LINE.value:
+    if category == Category.THREE_TWO_LINE:
         return cards_val.size // 5
     return None
 
@@ -156,19 +156,19 @@ def find_minor_in_four_two(cards):
 def get_minor_cards(cards, category_idx):
     minor_cards = np.ones([15])
     length = 0
-    if category_idx == Category.THREE_ONE.value:
+    if category_idx == Category.THREE_ONE:
         length = 1
         minor_cards[find_minor_in_three_one(cards)-3] = -1
-    if category_idx == Category.THREE_TWO.value:
+    if category_idx == Category.THREE_TWO:
         length = 1
         minor_cards[find_minor_in_three_two(cards)-3] = -1
-    if category_idx == Category.THREE_ONE_LINE.value:
+    if category_idx == Category.THREE_ONE_LINE:
         length = int(cards.size / 4)
         minor_cards[find_minor_in_three_one_line(cards)-3] = -1
-    if category_idx == Category.THREE_TWO_LINE.value:
+    if category_idx == Category.THREE_TWO_LINE:
         length = int(cards.size / 5)
         minor_cards[find_minor_in_three_two_line(cards)-3] = -1
-    if category_idx == Category.FOUR_TWO.value:
+    if category_idx == Category.FOUR_TAKE_ONE:
         length = 2
         minor_cards[find_minor_in_four_two(cards)-3] = -1
     return minor_cards, length
@@ -261,7 +261,7 @@ def train_fake_action(targets, handcards, s, sess, network, category_idx, main_c
     assert np.amax(s) < 1.1 and np.amin(s) > -0.1
 
     is_pair = False
-    if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
+    if category_idx == Category.THREE_TWO or category_idx == Category.THREE_TWO_LINE:
         is_pair = True
     acc = []
     for target in targets:
@@ -323,7 +323,7 @@ def train_fake_action_60(targets, handcards, s, sess, network, category_idx, mai
 
     is_pair = False
     minor_type = 0
-    if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
+    if category_idx == Category.THREE_TWO or category_idx == Category.THREE_TWO_LINE:
         is_pair = True
         minor_type = 1
     acc = []
@@ -365,7 +365,7 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
     discard_onehot_from_s(s[0], cards_onehot)
 
     is_pair = False
-    if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
+    if category_idx == Category.THREE_TWO or category_idx == Category.THREE_TWO_LINE:
         is_pair = True
     acc = []
     for target in targets:
@@ -410,33 +410,33 @@ def test_fake_action(targets, handcards, s, sess, network, category_idx, dup_mas
 
 
 def pick_minor_targets(category, cards_char):
-    if category == Category.THREE_ONE.value:
+    if category == Category.THREE_ONE:
         return cards_char[-1:]
-    if category == Category.THREE_TWO.value:
+    if category == Category.THREE_TWO:
         return cards_char[-1:]
-    if category == Category.THREE_ONE_LINE.value:
+    if category == Category.THREE_ONE_LINE:
         length = len(cards_char) // 4
         return cards_char[-length:]
-    if category == Category.THREE_TWO_LINE.value:
+    if category == Category.THREE_TWO_LINE:
         length = len(cards_char) // 5
         return cards_char[-length*2::2]
-    if category == Category.FOUR_TWO.value:
+    if category == Category.FOUR_TAKE_ONE:
         return cards_char[-2:]
     return None
 
 
 def pick_main_cards(category, cards_char):
-    if category == Category.THREE_ONE.value:
+    if category == Category.THREE_ONE:
         return cards_char[:-1]
-    if category == Category.THREE_TWO.value:
+    if category == Category.THREE_TWO:
         return cards_char[:-2]
-    if category == Category.THREE_ONE_LINE.value:
+    if category == Category.THREE_ONE_LINE:
         length = len(cards_char) // 4
         return cards_char[:-length]
-    if category == Category.THREE_TWO_LINE.value:
+    if category == Category.THREE_TWO_LINE:
         length = len(cards_char) // 5
         return cards_char[:-length*2]
-    if category == Category.FOUR_TWO.value:
+    if category == Category.FOUR_TAKE_ONE:
         return cards_char[:-2]
     return None
     
@@ -444,7 +444,7 @@ def pick_main_cards(category, cards_char):
 def get_mask_alter(cards, last_cards, last_cards_category):
     decision_mask = None
     response_mask = None
-    is_bomb = (last_cards_category == Category.QUADRIC.value)
+    is_bomb = (last_cards_category == Category.QUADRIC)
     bomb_mask = np.zeros([13])
     length_mask = np.zeros([13, 15, 12])
     if len(last_cards) == 0:
@@ -461,17 +461,17 @@ def get_mask_alter(cards, last_cards, last_cards_category):
                     response = card.Card.char2value_3_17(subspace[j][0]) - 3
                     response_mask[i][response] = 1
                     decision_mask[i] = 1
-                    if category_idx == Category.SINGLE_LINE.value:
+                    if category_idx == Category.SINGLE_LINE:
                         # print("single line")
                         # print("%d %d %d" % (i, response, len(subspace[j]) - 1))
                         length_mask[i][response][len(subspace[j]) - 1] = 1
-                    elif category_idx == Category.DOUBLE_LINE.value:
+                    elif category_idx == Category.DOUBLE_LINE:
                         length_mask[i][response][int(len(subspace[j]) / 2) - 1] = 1
-                    elif category_idx == Category.TRIPLE_LINE.value:
+                    elif category_idx == Category.TRIPLE_LINE:
                         length_mask[i][response][int(len(subspace[j]) / 3) - 1] = 1
-                    elif category_idx == Category.THREE_ONE_LINE.value:
+                    elif category_idx == Category.THREE_ONE_LINE:
                         length_mask[i][response][int(len(subspace[j]) / 4) - 1] = 1
-                    elif category_idx == Category.THREE_TWO_LINE.value:
+                    elif category_idx == Category.THREE_TWO_LINE:
                         length_mask[i][response][int(len(subspace[j]) / 5) - 1] = 1
         return decision_mask, response_mask, bomb_mask, length_mask
     else:
@@ -492,7 +492,7 @@ def get_mask_alter(cards, last_cards, last_cards_category):
                 response_mask[card.Card.char2value_3_17(subspace[j][0]) - 3] = 1
                 decision_mask[3] = 1
         if not is_bomb:
-            subspace = action_space_category[Category.QUADRIC.value]
+            subspace = action_space_category[Category.QUADRIC]
             no_bomb = True
             for j in range(len(subspace)):
                 if counter_subset(subspace[j], cards):
@@ -518,71 +518,71 @@ def give_cards_without_minor(response, last_cards_value, category_idx, length_ou
     #         double_mask[i - 3] = 1
 
     if last_cards_value.size > 0:
-        if category_idx == Category.SINGLE.value:
+        if category_idx == Category.SINGLE:
             return np.array([response + 3])
-        elif category_idx == Category.DOUBLE.value:
+        elif category_idx == Category.DOUBLE:
             return np.array([response + 3] * 2)
-        elif category_idx == Category.TRIPLE.value:
+        elif category_idx == Category.TRIPLE:
             return np.array([response + 3] * 3)
-        elif category_idx == Category.QUADRIC.value:
+        elif category_idx == Category.QUADRIC:
             return np.array([response + 3] * 4)
-        elif category_idx == Category.THREE_ONE.value:
+        elif category_idx == Category.THREE_ONE:
             return np.array([response + 3] * 3)
-        elif category_idx == Category.THREE_TWO.value:
+        elif category_idx == Category.THREE_TWO:
             return np.array([response + 3] * 3)
-        elif category_idx == Category.SINGLE_LINE.value:
+        elif category_idx == Category.SINGLE_LINE:
             return np.arange(response + 3, response + 3 + len(last_cards_value))
-        elif category_idx == Category.DOUBLE_LINE.value:
+        elif category_idx == Category.DOUBLE_LINE:
             link = np.arange(response + 3,
                              response + 3 + int(len(last_cards_value) / 2))
             return np.array([link, link]).T.reshape(-1)
-        elif category_idx == Category.TRIPLE_LINE.value:
+        elif category_idx == Category.TRIPLE_LINE:
             link = np.arange(response + 3,
                              response + 3 + int(len(last_cards_value) / 3))
             return np.array([link, link, link]).T.reshape(-1)
-        elif category_idx == Category.THREE_ONE_LINE.value:
+        elif category_idx == Category.THREE_ONE_LINE:
             cnt = int(len(last_cards_value) / 4)
             link = np.arange(response + 3, response + 3 + cnt)
             return np.array([link, link, link]).T.reshape(-1)
-        elif category_idx == Category.THREE_TWO_LINE.value:
+        elif category_idx == Category.THREE_TWO_LINE:
             cnt = int(len(last_cards_value) / 5)
             link = np.arange(response + 3, response + 3 + cnt)
             return np.array([link, link, link]).T.reshape(-1)
-        elif category_idx == Category.FOUR_TWO.value:
+        elif category_idx == Category.FOUR_TAKE_ONE:
             return np.array([response + 3] * 4)
     else:
-        if category_idx == Category.SINGLE.value:
+        if category_idx == Category.SINGLE:
             return np.array([response + 3])
-        elif category_idx == Category.DOUBLE.value:
+        elif category_idx == Category.DOUBLE:
             return np.array([response + 3] * 2)
-        elif category_idx == Category.TRIPLE.value:
+        elif category_idx == Category.TRIPLE:
             return np.array([response + 3] * 3)
-        elif category_idx == Category.QUADRIC.value:
+        elif category_idx == Category.QUADRIC:
             return np.array([response + 3] * 4)
-        elif category_idx == Category.THREE_ONE.value:
+        elif category_idx == Category.THREE_ONE:
             return np.array([response + 3] * 3)
-        elif category_idx == Category.THREE_TWO.value:
+        elif category_idx == Category.THREE_TWO:
             return np.array([response + 3] * 3)
-        elif category_idx == Category.SINGLE_LINE.value:
+        elif category_idx == Category.SINGLE_LINE:
             # length output will be in range 1-12
             return np.arange(response + 3, response + 3 + length_output)
-        elif category_idx == Category.DOUBLE_LINE.value:
+        elif category_idx == Category.DOUBLE_LINE:
             link = np.arange(response + 3, response + 3 + length_output)
             return np.array([link, link]).T.reshape(-1)
-        elif category_idx == Category.TRIPLE_LINE.value:
+        elif category_idx == Category.TRIPLE_LINE:
             link = np.arange(response + 3, response + 3 + length_output)
             return np.array([link, link, link]).T.reshape(-1)
-        elif category_idx == Category.THREE_ONE_LINE.value:
+        elif category_idx == Category.THREE_ONE_LINE:
             cnt = length_output
             link = np.arange(response + 3, response + 3 + cnt)
             return np.array([link, link, link]).T.reshape(-1)
-        elif category_idx == Category.THREE_TWO_LINE.value:
+        elif category_idx == Category.THREE_TWO_LINE:
             cnt = length_output
             link = np.arange(response + 3, response + 3 + cnt)
             return np.array([link, link, link]).T.reshape(-1)
-        elif category_idx == Category.FOUR_TWO.value:
+        elif category_idx == Category.FOUR_TAKE_ONE:
             return np.array([response + 3] * 4)
-        elif category_idx == Category.BIGBANG.value:
+        elif category_idx == Category.BIGBANG:
             return np.array([16, 17])
 
 
@@ -591,32 +591,32 @@ def get_category_idx(cards):
     size = cards.size
     setsize = len(set(cards))
     if size == 0:
-        return Category.EMPTY.value
+        return Category.EMPTY
     if size == 1:
-        return Category.SINGLE.value
+        return Category.SINGLE
     if size == 2:
         if cards[0] == cards[1]:
-            return Category.DOUBLE.value
-        return Category.BIGBANG.value
+            return Category.DOUBLE
+        return Category.BIGBANG
     if size == 3:
-        return Category.TRIPLE.value
+        return Category.TRIPLE
     if size == 4:
         if setsize == 1:
-            return Category.QUADRIC.value
-        return Category.THREE_ONE.value
+            return Category.QUADRIC
+        return Category.THREE_ONE
     if size == 5 and setsize == 2:
-        return Category.THREE_TWO.value
+        return Category.THREE_TWO
     if size == 6 and cards[3] == cards[0]:
-        return Category.FOUR_TWO.value
+        return Category.FOUR_TAKE_ONE
     if cards[0] != cards[1]:
-        return Category.SINGLE_LINE.value
+        return Category.SINGLE_LINE
     if cards[0] != cards[2]:
-        return Category.DOUBLE_LINE.value
+        return Category.DOUBLE_LINE
     if setsize * 3 == size:
-        return Category.TRIPLE_LINE.value
+        return Category.TRIPLE_LINE
     if setsize * 2 == size:
-        return Category.THREE_ONE_LINE.value
-    return Category.THREE_TWO_LINE.value
+        return Category.THREE_ONE_LINE
+    return Category.THREE_TWO_LINE
 
 
 def discard_cards(handcards, intention):
@@ -625,153 +625,6 @@ def discard_cards(handcards, intention):
             if handcards[i] == card:
                 handcards = np.delete(handcards, i)
                 break
-
-
-# return char minor cards output
-def inference_minor_util(s, handcards, sess, network, num, is_pair, dup_mask, main_cards_char):
-    for main_card in main_cards_char:
-        handcards.remove(main_card)
-    cards_onehot = card.Card.char2onehot(main_cards_char)
-    discard_onehot_from_s(s[0], cards_onehot)
-
-    outputs = []
-    inter_states = []
-    inter_masks = []
-    inter_outputs = []
-    for i in range(num):
-        # update mask for the next loop
-        input_single, input_pair, input_triple, input_quadric = get_masks(handcards, None)
-
-        inter_states.append(s.copy())
-        inter_masks.append([input_single, input_pair, input_triple, input_quadric])
-
-        response_minor_output = scheduled_run(sess, network.fc_minor_response_output,
-                                               (
-                                                   (network.input_state, s),
-                                                   (network.input_single, np.reshape(input_single, [1, -1])),
-                                                   (network.input_pair, np.reshape(input_pair, [1, -1])),
-                                                   (network.input_triple, np.reshape(input_triple, [1, -1])),
-                                                   (network.input_quadric, np.reshape(input_quadric, [1, -1]))
-                                               ))
-        # response_active_output = sess.run(network.fc_response_active_output,
-        #                                   feed_dict={
-        #                                       network.input_state: s,
-        #                                       network.input_single: np.reshape(input_single, [1, -1]),
-        #                                       network.input_pair: np.reshape(input_pair, [1, -1]),
-        #                                       network.input_triple: np.reshape(input_triple, [1, -1]),
-        #                                       network.input_quadric: np.reshape(input_quadric, [1, -1])
-        #                                   })
-
-        # give minor cards
-        response_minor_output = response_minor_output[0]
-        response_minor_output[dup_mask == 0] = -1
-        # print(handcards)
-        if is_pair:
-            input_pair = np.concatenate([input_pair, [0, 0]])
-            response_minor_output[input_pair == 0] = -1
-        else:
-            response_minor_output[input_single == 0] = -1
-
-        response_minor = np.argmax(response_minor_output)
-        inter_outputs.append(response_minor)
-        dup_mask[response_minor] = 0
-
-        # convert network output to char cards
-        cards = [to_char(response_minor + 3)]
-        handcards.remove(to_char(response_minor + 3))
-        if is_pair:
-            handcards.remove(to_char(response_minor + 3))
-            cards.append(to_char(response_minor + 3))
-
-        # correct for one-hot state
-        cards_onehot = card.Card.char2onehot(cards)
-
-        discard_onehot_from_s(s[0], cards_onehot)
-
-        # save to output
-        outputs.append(to_char(response_minor + 3))
-        if is_pair:
-            outputs.append(to_char(response_minor + 3))
-    return outputs, inter_states, inter_masks, inter_outputs
-
-
-def inference_minor_cards(category, s, handcards, sess, network, seq_length, dup_mask, main_cards_char):
-    if category == Category.THREE_ONE.value:
-        return inference_minor_util(s, handcards, sess, network, 1, False, dup_mask, main_cards_char)
-    if category == Category.THREE_TWO.value:
-        return inference_minor_util(s, handcards, sess, network, 1, True, dup_mask, main_cards_char)
-    if category == Category.THREE_ONE_LINE.value:
-        return inference_minor_util(s, handcards, sess, network, seq_length, False, dup_mask, main_cards_char)
-    if category == Category.THREE_TWO_LINE.value:
-        return inference_minor_util(s, handcards, sess, network, seq_length, True, dup_mask, main_cards_char)
-    if category == Category.FOUR_TWO.value:
-        return inference_minor_util(s, handcards, sess, network, 2, False, dup_mask, main_cards_char)
-
-
-# return char minor cards output
-def inference_minor_util60(s, handcards, sess, network, num, is_pair, dup_mask, main_cards_char):
-    for main_card in main_cards_char:
-        handcards.remove(main_card)
-    cards_onehot = card.Card.char2onehot60(main_cards_char)
-    discard_onehot_from_s_60(s[0], cards_onehot)
-
-    outputs = []
-    inter_states = []
-    inter_outputs = []
-    minor_type = 1 if is_pair else 0
-    for i in range(num):
-        inter_states.append(s.copy())
-        input_single, input_pair, _, _ = get_masks(handcards, None)
-        response_minor_output = scheduled_run(sess, network.fc_minor_response_output,
-                                               (
-                                                   (network.input_state, s),
-                                                   (network.minor_type, np.array([minor_type]))
-                                               ))
-
-        # give minor cards
-        response_minor_output = response_minor_output[0]
-        response_minor_output[dup_mask == 0] = -1
-        # print(handcards)
-        if is_pair:
-            input_pair = np.concatenate([input_pair, [0, 0]])
-            response_minor_output[input_pair == 0] = -1
-        else:
-            response_minor_output[input_single == 0] = -1
-
-        response_minor = np.argmax(response_minor_output)
-        inter_outputs.append(response_minor)
-        dup_mask[response_minor] = 0
-
-        # convert network output to char cards
-        cards = [to_char(response_minor + 3)]
-        handcards.remove(to_char(response_minor + 3))
-        if is_pair:
-            handcards.remove(to_char(response_minor + 3))
-            cards.append(to_char(response_minor + 3))
-
-        # correct for one-hot state
-        cards_onehot = card.Card.char2onehot60(cards)
-
-        discard_onehot_from_s_60(s[0], cards_onehot)
-
-        # save to output
-        outputs.append(to_char(response_minor + 3))
-        if is_pair:
-            outputs.append(to_char(response_minor + 3))
-    return outputs, inter_states, inter_outputs
-
-
-def inference_minor_cards60(category, s, handcards, sess, network, seq_length, dup_mask, main_cards_char):
-    if category == Category.THREE_ONE.value:
-        return inference_minor_util60(s, handcards, sess, network, 1, False, dup_mask, main_cards_char)
-    if category == Category.THREE_TWO.value:
-        return inference_minor_util60(s, handcards, sess, network, 1, True, dup_mask, main_cards_char)
-    if category == Category.THREE_ONE_LINE.value:
-        return inference_minor_util60(s, handcards, sess, network, seq_length, False, dup_mask, main_cards_char)
-    if category == Category.THREE_TWO_LINE.value:
-        return inference_minor_util60(s, handcards, sess, network, seq_length, True, dup_mask, main_cards_char)
-    if category == Category.FOUR_TWO.value:
-        return inference_minor_util60(s, handcards, sess, network, 2, False, dup_mask, main_cards_char)
 
 
 class GPUTime:

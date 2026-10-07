@@ -33,7 +33,8 @@ def eval_episode(env, agent):
 
 def eval_proc(file_name):
     print(file_name)
-    f = open(os.path.join('./log') + file_name, 'w+')
+    os.makedirs('./log', exist_ok=True)
+    f = open(os.path.join('./log', file_name), 'w+')
     for te in types:
         for ta in types:
             for role_id in [2, 3, 1]:

@@ -111,9 +111,9 @@ class SubState:
                     self.finished = True
                     if action == 2:
                         self.intention = np.array([16, 17])
-                        self.card_type = Category.BIGBANG.value
+                        self.card_type = Category.BIGBANG
                     else:
-                        self.card_type = Category.EMPTY.value
+                        self.card_type = Category.EMPTY
                     return
                 elif action == 1:
                     self.mode = MODE.PASSIVE_BOMB
@@ -127,23 +127,23 @@ class SubState:
                 # convert to value input
                 self.intention = np.array([action + 3] * 4)
                 self.finished = True
-                self.card_type = Category.QUADRIC.value
+                self.card_type = Category.QUADRIC
                 return
             elif self.mode == MODE.PASSIVE_RESPONSE:
                 self.intention = give_cards_without_minor(action, self.last_cards_value, self.category, None)
-                if self.category == Category.THREE_ONE.value or \
-                        self.category == Category.THREE_TWO.value or \
-                        self.category == Category.THREE_ONE_LINE.value or \
-                        self.category == Category.THREE_TWO_LINE.value or \
-                        self.category == Category.FOUR_TAKE_TWO.value:
-                    if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
+                if self.category == Category.THREE_ONE or \
+                        self.category == Category.THREE_TWO or \
+                        self.category == Category.THREE_ONE_LINE or \
+                        self.category == Category.THREE_TWO_LINE or \
+                        self.category == Category.FOUR_TAKE_TWO:
+                    if self.category == Category.THREE_TWO or self.category == Category.THREE_TWO_LINE:
                         self.minor_type = 1
                     self.mode = MODE.MINOR_RESPONSE
                     # modify the state for minor cards
                     discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
                     self.minor_length = get_seq_length(self.category, self.last_cards_value)
                     if self.minor_length is None:
-                        self.minor_length = 2 if self.category == Category.FOUR_TAKE_TWO.value else 1
+                        self.minor_length = 2 if self.category == Category.FOUR_TAKE_TWO else 1
                     self.card_type = self.category
                     return
                 else:
@@ -170,24 +170,24 @@ class SubState:
                 self.card_type = self.category
                 return
             elif self.mode == MODE.ACTIVE_RESPONSE:
-                if self.category == Category.SINGLE_LINE.value or \
-                        self.category == Category.DOUBLE_LINE.value or \
-                        self.category == Category.TRIPLE_LINE.value or \
-                        self.category == Category.THREE_ONE_LINE.value or \
-                        self.category == Category.THREE_TWO_LINE.value:
+                if self.category == Category.SINGLE_LINE or \
+                        self.category == Category.DOUBLE_LINE or \
+                        self.category == Category.TRIPLE_LINE or \
+                        self.category == Category.THREE_ONE_LINE or \
+                        self.category == Category.THREE_TWO_LINE:
                     self.active_response = action
                     self.mode = MODE.ACTIVE_SEQ
                     return
-                elif self.category == Category.THREE_ONE.value or \
-                        self.category == Category.THREE_TWO.value or \
-                        self.category == Category.FOUR_TAKE_TWO.value:
-                    if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
+                elif self.category == Category.THREE_ONE or \
+                        self.category == Category.THREE_TWO or \
+                        self.category == Category.FOUR_TAKE_TWO:
+                    if self.category == Category.THREE_TWO or self.category == Category.THREE_TWO_LINE:
                         self.minor_type = 1
                     self.mode = MODE.MINOR_RESPONSE
                     self.intention = give_cards_without_minor(action, np.array([]), self.category, None)
                     # modify the state for minor cards
                     discard_onehot_from_s_60(self.prob_state, Card.val2onehot60(self.intention))
-                    self.minor_length = 2 if self.category == Category.FOUR_TAKE_TWO.value else 1
+                    self.minor_length = 2 if self.category == Category.FOUR_TAKE_TWO else 1
                     return
                 else:
                     self.intention = give_cards_without_minor(action, np.array([]), self.category, None)
@@ -196,9 +196,9 @@ class SubState:
             elif self.mode == MODE.ACTIVE_SEQ:
                 self.minor_length = action + 1
                 self.intention = give_cards_without_minor(self.active_response, np.array([]), self.category, action + 1)
-                if self.category == Category.THREE_ONE_LINE.value or \
-                        self.category == Category.THREE_TWO_LINE.value:
-                    if self.category == Category.THREE_TWO.value or self.category == Category.THREE_TWO_LINE.value:
+                if self.category == Category.THREE_ONE_LINE or \
+                        self.category == Category.THREE_TWO_LINE:
+                    if self.category == Category.THREE_TWO or self.category == Category.THREE_TWO_LINE:
                         self.minor_type = 1
                     self.mode = MODE.MINOR_RESPONSE
                     # modify the state for minor cards

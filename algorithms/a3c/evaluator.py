@@ -24,7 +24,7 @@ import numpy as np
 import tensorflow as tf
 from doudizhu.utils import get_mask, get_minor_cards, train_fake_action_60, get_masks, test_fake_action
 from doudizhu.utils import get_seq_length, pick_minor_targets, to_char, to_value, get_mask_alter, discard_onehot_from_s_60
-from doudizhu.utils import inference_minor_cards, gputimeblock, give_cards_without_minor, pick_main_cards
+from doudizhu.utils import gputimeblock, give_cards_without_minor, pick_main_cards
 from algorithms.a3c.simulator import ROLE_IDS_TO_TRAIN
 
 

@@ -17,7 +17,6 @@ from doudizhu.utils import get_seq_length, pick_minor_targets, to_char, discard_
 from doudizhu.utils import pick_main_cards
 from six.moves import queue
 
-from pyenv import Pyenv
 import tensorflow.contrib.slim as slim
 from tensorpack import *
 from tensorpack.utils.concurrency import ensure_proc_terminate, start_proc_mask_signal

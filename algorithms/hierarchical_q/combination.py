@@ -1,5 +1,4 @@
 import numpy as np
-from pyenv import Pyenv
 import os
 import sys
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -7,17 +6,18 @@ ROOT_PATH = os.path.abspath(os.path.join(FILE_PATH, '../..'))
 sys.path.insert(0, ROOT_PATH)
 sys.path.insert(0, os.path.join(ROOT_PATH, 'build/Release' if os.name == 'nt' else 'build'))
 from env import get_combinations_recursive, get_combinations_nosplit
+from doudizhu.env import Env
 from doudizhu.utils import get_mask_onehot60, get_mask
 from doudizhu.card import action_space, clamp_action_idx, Card, action_space_category, Category, augment_action_space_onehot60, CardGroup, augment_action_space
 from tensorpack.utils.stats import StatCounter
 
 
 def dancing_link():
-    env = Pyenv()
+    env = Env()
     env.reset()
     env.prepare()
-    # print(env.get_handcards())
-    cards = env.get_handcards()
+    # print(env.get_curr_handcards())
+    cards = env.get_curr_handcards()
     cards = ['3', '3', '3', '4', '4', '4']
     import timeit
     begin = timeit.default_timer()
@@ -63,13 +63,13 @@ def dancing_link():
 
 def recursive():
     import timeit
-    env = Pyenv()
+    env = Env()
     st = StatCounter()
     for i in range(1):
         env.reset()
         env.prepare()
-        # print(env.get_handcards())
-        cards = env.get_handcards()[:15]
+        # print(env.get_curr_handcards())
+        cards = env.get_curr_handcards()[:15]
         cards = ['J', '10', '10', '7', '7', '6']
 
         # last_cards = ['3', '3']

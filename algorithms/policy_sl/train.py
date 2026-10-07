@@ -20,6 +20,7 @@ from algorithms.policy_sl.evaluator import Evaluator
 from doudizhu.utils import get_seq_length, pick_minor_targets, to_char, discard_onehot_from_s_60
 from doudizhu.utils import pick_main_cards
 import multiprocessing
+import numpy as np
 from algorithms.resnet_blocks import identity_block, upsample_block, downsample_block
 import tensorflow as tf
 
@@ -116,7 +117,9 @@ def data_generator(rng):
             curr_cards_char = to_char(env.get_curr_handcards())
             is_active = True if last_cards_value.size == 0 else False
 
-            s = env.get_state_prob()
+            # state = [own hand | next player's card probabilities | the other player's]; the C++ get_state_prob()
+            # used to include the hand itself but no longer does
+            s = np.concatenate([Card.val2onehot60(env.get_curr_handcards()), env.get_state_prob()])
             # s = s[:60]
             intention, r, category_idx = env.step_auto()
 
@@ -126,18 +129,18 @@ def data_generator(rng):
             # self, state, last_cards, passive_decision_target, passive_bomb_target, passive_response_target,
             # active_decision_target, active_response_target, seq_length_target, minor_response_target, minor_type, mode
             if not is_active:
-                if category_idx == Category.QUADRIC.value and category_idx != last_category_idx:
+                if category_idx == Category.QUADRIC and category_idx != last_category_idx:
                     passive_decision_input = 1
                     passive_bomb_input = intention[0] - 3
                     yield s, last_out_cards, passive_decision_input, 0, 0, 0, 0, 0, 0, 0, 0
                     yield s, last_out_cards, 0, passive_bomb_input, 0, 0, 0, 0, 0, 0, 1
 
                 else:
-                    if category_idx == Category.BIGBANG.value:
+                    if category_idx == Category.BIGBANG:
                         passive_decision_input = 2
                         yield s, last_out_cards, passive_decision_input, 0, 0, 0, 0, 0, 0, 0, 0
                     else:
-                        if category_idx != Category.EMPTY.value:
+                        if category_idx != Category.EMPTY:
                             passive_decision_input = 3
                             # OFFSET_ONE
                             # 1st, Feb - remove relative card output since shift is hard for the network to learn
@@ -178,7 +181,7 @@ def data_generator(rng):
 
                 is_pair = False
                 minor_type = 0
-                if category_idx == Category.THREE_TWO.value or category_idx == Category.THREE_TWO_LINE.value:
+                if category_idx == Category.THREE_TWO or category_idx == Category.THREE_TWO_LINE:
                     is_pair = True
                     minor_type = 1
                 for target in minor_cards_targets:

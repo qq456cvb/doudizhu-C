@@ -10,7 +10,6 @@ from tensorpack import *
 import numpy as np
 
 from env import Env, get_combinations_nosplit, get_combinations_recursive
-from logger import Logger
 from doudizhu.utils import to_char
 from doudizhu.card import Card, action_space, action_space_onehot60, Category, CardGroup, augment_action_space_onehot60, \
     augment_action_space, clamp_action_idx
